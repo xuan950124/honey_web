@@ -1,0 +1,382 @@
+# 蜂蜜工坊｜蜂蜜電商網站
+
+React（前端）＋ Python FastAPI（後端）＋ MySQL（資料庫）
+
+販售蜂蜜、團購專區、新聞報導、品牌故事、聯絡我們（LINE／電話／地址），
+含會員註冊登入，以及工作人員專用後台（新增商品、上傳照片、管理訂單）。
+
+---
+
+## 快速開始（Windows）
+
+**前提**：電腦要先裝好 Python、Node.js、MySQL，而且 **MySQL 服務要是啟動狀態**。
+
+專案根目錄有兩個 `.bat`，各點兩下開起來：
+
+1. **`啟動後端.bat`**
+   - 第一次執行會自動建立虛擬環境、建立 `backend\.env`，然後用記事本打開它
+   - 把 `DB_PASSWORD=` 後面改成你的 MySQL 密碼，存檔關掉
+   - **再點一次** `啟動後端.bat`，這次會裝套件、建資料表、塞示範資料並啟動
+   - 看到 `Uvicorn running on http://127.0.0.1:8000` 就成功了，這個視窗不要關
+
+2. **`啟動前端.bat`**（另開一個視窗）
+   - 第一次會自動 `npm install`，跑比較久
+   - 看到 `Local: http://localhost:5173` 就成功了
+
+兩個視窗都開著，然後打開 <http://localhost:5173>。
+
+> `重建資料庫.bat` 是想把資料清掉重來時才用的，平常不用點。
+
+底下是逐步的手動說明。
+
+---
+
+## 一、環境需求
+
+| 項目 | 版本 | 說明 |
+|---|---|---|
+| Python | 3.10 以上 | 後端 |
+| Node.js | 18 以上 | 前端 |
+| MySQL | 8.0 以上 | 資料庫（MariaDB 也可） |
+
+---
+
+## 二、後端啟動（第一次）
+
+開一個終端機，在專案根目錄執行：
+
+```bash
+cd backend
+
+# 1. 建立虛擬環境
+python -m venv venv
+venv\Scripts\activate          # Windows
+# source venv/bin/activate     # macOS / Linux
+
+# 2. 安裝套件
+pip install -r requirements.txt
+
+# 3. 設定資料庫連線
+#    複製 .env.example 成 .env，然後打開 .env 修改 DB_PASSWORD 成你的 MySQL 密碼
+copy .env.example .env         # Windows
+# cp .env.example .env         # macOS / Linux
+
+# 4. 建立資料表與示範資料（資料庫不存在會自動建立）
+python -m app.seed
+
+# 5. 啟動後端
+uvicorn app.main:app --reload --port 8000
+```
+
+後端跑起來後：
+
+- API 位置：<http://127.0.0.1:8000>
+- **自動產生的 API 文件：<http://127.0.0.1:8000/docs>**（可直接在網頁上測試每個 API）
+
+### `.env` 要改什麼
+
+```ini
+DB_PASSWORD=你的MySQL密碼        # ← 一定要改
+SECRET_KEY=換成一段夠長的隨機字串  # ← 上線前一定要改
+
+ADMIN_EMAIL=admin@honeyshop.com  # 初始工作人員帳號
+ADMIN_PASSWORD=admin1234         # ← 上線前一定要改
+```
+
+> 注意：Email 欄位不接受 `.local`、`.test`、`localhost` 這類保留網域，
+> 請用正常的網域（例如 `admin@honeyshop.com`）。
+
+---
+
+## 三、前端啟動
+
+**另開一個終端機**（後端那個不要關），在專案根目錄執行：
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+打開瀏覽器：<http://localhost:5173>
+
+前端已設定好 proxy，會自動把 `/api` 與 `/uploads` 的請求轉給後端的 8000 埠，
+所以兩邊都要同時開著。
+
+---
+
+## 四、預設測試帳號
+
+執行過 `python -m app.seed` 之後會有這兩組帳號：
+
+| 身分 | 帳號 | 密碼 | 可以做什麼 |
+|---|---|---|---|
+| **工作人員** | `admin@honeyshop.com` | `admin1234` | 全站後台：新增商品、上傳照片、管理新聞／故事／訂單／聯絡方式 |
+| 一般會員 | `member@honeyshop.com` | `member1234` | 下單、查詢自己的訂單、修改個人資料 |
+
+工作人員登入後，導覽列會多出「**後台管理**」，或直接前往 <http://localhost:5173/admin>。
+
+### 怎麼把某個會員升級成工作人員
+
+在 MySQL 執行：
+
+```sql
+UPDATE users SET role = 'staff' WHERE email = '要升級的Email';
+```
+
+---
+
+## 五、網站頁面
+
+### 前台（所有人都看得到）
+
+| 路徑 | 頁面 | 內容 |
+|---|---|---|
+| `/` | 首頁 | 主視覺、品牌特色、精選蜂蜜、團購推薦、故事摘要、最新消息 |
+| `/products` | 蜂蜜商品 | 商品列表，可依分類篩選 |
+| `/products/:id` | 商品詳情 | 大圖、規格表、數量選擇、加入購物車 |
+| `/group-buy` | 團購專區 | 團購流程說明、團購組合、常見問題 |
+| `/news` | 新聞報導 | 可切換「新聞報導／最新消息」 |
+| `/news/:id` | 報導內頁 | 內文與原文連結 |
+| `/story` | 品牌故事 | 圖文左右交錯排版 |
+| `/contact` | 聯絡我們 | LINE、電話、地址、Email、營業時間、地圖、訂購須知 |
+| `/cart` | 購物車 | 修改數量、填寫收件資料、送出訂單 |
+| `/login`、`/register` | 登入／註冊 | |
+
+### 會員（要登入）
+
+| 路徑 | 內容 |
+|---|---|
+| `/member` | 會員中心：訂單紀錄與狀態、修改個人資料 |
+
+### 後台（僅工作人員帳號）
+
+| 路徑 | 內容 |
+|---|---|
+| `/admin` | 總覽：商品／團購／新聞／訂單數量統計 |
+| `/admin/products` | 商品管理：列表、編輯、刪除 |
+| `/admin/products/new` | **新增商品**（含上傳主圖與多張照片、團購設定、上下架） |
+| `/admin/categories` | 分類管理 |
+| `/admin/news` | 新聞管理：新增／編輯報導與公告 |
+| `/admin/stories` | 故事管理 |
+| `/admin/orders` | 訂單管理：查看明細、更改出貨狀態 |
+| `/admin/settings` | **網站設定：LINE ID、電話、地址、營業時間、社群連結、地圖** |
+
+---
+
+## 六、超商取貨與線上付款（綠界 ECPay）
+
+網站已串好綠界，支援：
+
+- **付款**：信用卡、ATM 虛擬帳號、超商代碼繳費、貨到付款
+- **超商取貨**：7-ELEVEN 交貨便、全家店到店（C2C 店到店，不用先付運費）
+- **宅配**：黑貓宅急便（常溫／冷藏／冷凍）、中華郵政
+
+**目前預設是測試環境**，用綠界公開的測試金鑰，不會真的扣款。
+測試卡號 `4311-9511-1111-1111`，安全碼任意三碼，有效期限填未來日期，3D 驗證碼 `1234`。
+
+出貨流程：後台「訂單與出貨管理」→ 展開訂單 → 按「建立物流單並取得寄件代碼」
+→ 拿到寄件代碼後，包裹帶到超商機台輸入代碼列印單據即可寄件。
+
+完整說明（含切換正式環境、申請流程、金額限制）請看
+**[docs/綠界金流物流串接說明.md](docs/綠界金流物流串接說明.md)**。
+
+---
+
+## 七、照片怎麼補上
+
+目前所有照片欄位**都是空的**，前台會顯示淡色的空白佔位框（沒有使用任何 emoji 或圖示），
+框裡有淡淡的檔名提示，方便你對照要放哪張圖。
+
+補圖有兩種方式：
+
+### 方式 A：從後台上傳（建議）
+
+1. 用工作人員帳號登入 → 後台管理
+2. 商品管理 → 編輯某個商品 → 「商品照片」區塊 → 選擇檔案
+3. 上傳後圖片會存到 `backend/uploads/`，網址自動填入，前台立刻顯示
+
+支援 JPG / PNG / WEBP / GIF / AVIF，單張最大 8MB。
+新聞封面、故事照片也是同樣做法。
+
+### 方式 B：直接放檔案
+
+1. 把圖片放到 `frontend/public/images/`
+2. 在後台的圖片網址欄位填 `/images/檔名.jpg`
+
+### 首頁主視覺等固定圖片
+
+首頁 Hero、團購情境照這類不在資料庫裡的圖，
+把圖片放進 `frontend/public/images/` 後，在對應的 `.jsx` 檔案把
+`<Placeholder ratio="4x3" hint="..." />` 改成
+`<Placeholder src="/images/hero.jpg" ratio="4x3" />` 即可。
+
+對照表：
+
+| 位置 | 檔案 | 建議比例 |
+|---|---|---|
+| 首頁主視覺 | `frontend/src/pages/Home.jsx` | 4:3 |
+| 團購情境照 | `frontend/src/pages/GroupBuy.jsx` | 4:3 |
+| LINE QR Code | `frontend/src/pages/Contact.jsx` | 1:1 |
+
+---
+
+## 八、聯絡方式怎麼設定
+
+聯絡資訊不寫死在程式裡，而是存在資料庫，可隨時從後台改：
+
+**後台管理 → 網站設定**，可設定：
+
+- 網站名稱、品牌標語
+- 訂購專線、第二組電話、Email
+- 地址（前台會自動連到 Google 地圖搜尋）
+- LINE ID、LINE 加好友連結
+- 營業時間
+- Facebook、Instagram 連結
+- Google 地圖嵌入網址（Google 地圖 → 分享 → 嵌入地圖 → 複製 `src` 的網址）
+
+沒填的欄位，前台會顯示「（待補上）」，不會出現空白破版。
+
+---
+
+## 九、專案結構
+
+```
+honey_web/
+├── backend/                       Python FastAPI 後端
+│   ├── .env                       ← 你的資料庫密碼等設定（不要上傳到 git）
+│   ├── .env.example               設定範本
+│   ├── requirements.txt
+│   ├── uploads/                   後台上傳的照片存在這裡
+│   └── app/
+│       ├── main.py                進入點、CORS、靜態檔案掛載
+│       ├── config.py              讀取 .env
+│       ├── database.py            MySQL 連線、自動建立資料庫
+│       ├── models.py              資料表定義
+│       ├── schemas.py             API 進出的資料格式驗證
+│       ├── security.py            密碼雜湊（bcrypt）與 JWT
+│       ├── deps.py                登入驗證、工作人員權限檢查
+│       ├── seed.py                建立初始帳號與示範資料
+│       └── routers/
+│           ├── auth.py            註冊、登入、個人資料
+│           ├── products.py        商品、分類、商品多圖
+│           ├── content.py         新聞、故事、網站設定
+│           ├── orders.py          訂單
+│           └── uploads.py         照片上傳
+│
+└── frontend/                      React 前端
+    ├── public/images/             ← 固定圖片放這裡
+    ├── vite.config.js             開發用 proxy 設定
+    └── src/
+        ├── styles.css             全站樣式（暖琥珀色系）
+        ├── App.jsx                路由設定
+        ├── api/client.js          呼叫後端的統一入口
+        ├── context/               登入狀態、購物車、網站設定
+        ├── components/
+        │   ├── Placeholder.jsx    ★ 空白圖片佔位元件
+        │   ├── ImageUploader.jsx  ★ 後台上傳照片元件
+        │   ├── ProductCard.jsx
+        │   ├── Header.jsx / Footer.jsx
+        │   └── ProtectedRoute.jsx 未登入／非工作人員的擋門
+        └── pages/
+            ├── Home / Products / ProductDetail / GroupBuy
+            ├── News / NewsDetail / Story / Contact
+            ├── Cart / Login / Register / Member
+            └── admin/             後台各頁
+```
+
+---
+
+## 十、資料表
+
+| 資料表 | 用途 |
+|---|---|
+| `users` | 會員與工作人員（`role` 欄位：`member` / `staff`） |
+| `categories` | 商品分類 |
+| `products` | 商品（`is_group_buy` 標記團購、`is_featured` 標記首頁精選） |
+| `product_images` | 商品的其他照片 |
+| `news` | 新聞報導與最新消息（`category`：`media` / `news`） |
+| `stories` | 品牌故事段落 |
+| `orders` / `order_items` | 訂單與訂單明細 |
+| `site_settings` | 聯絡方式等網站設定 |
+
+---
+
+## 十一、安全性說明
+
+- 密碼使用 **bcrypt** 雜湊儲存，資料庫裡不會有明碼
+- 登入採 **JWT**，預設 7 天有效
+- 所有後台 API 都有 `require_staff` 權限檢查——一般會員即使自己組請求也會被擋下（回 403）
+- 上傳只接受圖片副檔名，且限制 8MB
+
+### 上線前務必做的事
+
+1. 把 `.env` 的 `SECRET_KEY` 換成一段長的隨機字串
+2. 改掉預設管理員密碼 `admin1234`
+3. 把 `.env` 加進 `.gitignore`，不要上傳到公開的 git（已預設加入）
+4. `CORS_ORIGINS` 改成正式網域
+
+---
+
+## 十二、常見問題
+
+**Q：後端出現 `ModuleNotFoundError: No module named 'app'`**
+uvicorn 是在錯的資料夾啟動的。它必須在 `backend` 資料夾裡跑，
+因為 `app` 是 `backend\app`。用 `啟動後端.bat` 會自動切到正確目錄；
+手動跑的話請先 `cd backend` 再執行 `uvicorn app.main:app --reload --port 8000`。
+
+**Q：安裝套件時出現 `Failed building wheel for pydantic-core` / `pyo3 ... maximum supported version`**
+你的 Python 版本太新（例如 3.14），套件還沒出預編譯 wheel，pip 只好去編譯 Rust 原始碼。
+`啟動後端.bat` 現在會優先挑 **Python 3.12**，並在偵測到 venv 是太新的版本時自動重建。
+
+手動的話，指定版本建立 venv 即可：
+
+```bat
+cd /d E:\code\honey_web\backend
+rmdir /s /q venv
+py -3.12 -m venv venv
+venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+**Q：`[2/4] 安裝/檢查套件...` 之後出現「系統找不到指定的路徑」**
+你的 PATH 上有 **MSYS2 版的 Python**（`C:\msys64\ucrt64\bin\python.exe`）。
+它建出來的虛擬環境是 Linux 版面（`venv\bin\`），不是 Windows 的 `venv\Scripts\`。
+
+`啟動後端.bat` 現在會優先用 `py -3`（官方版 Windows Python）來避開這個問題。
+若還是失敗，手動這樣做：
+
+```bat
+cd /d E:\code\honey_web\backend
+rmdir /s /q venv
+py -3 -m venv venv
+venv\Scripts\python.exe -m pip install -r requirements.txt
+venv\Scripts\python.exe -m app.seed
+venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000
+```
+
+**Q：點 .bat 出現一堆「'xx' 不是內部或外部命令」的亂碼錯誤**
+`.bat` 檔被存成 LF 換行或 UTF-8 編碼了。Windows 的 CMD 需要 **CRLF 換行 + CP950 編碼**。
+如果你用編輯器改過這些 .bat，存檔時記得選這兩個設定。
+
+**Q：後端啟動時出現 `Access denied for user 'root'`**
+`.env` 裡的 `DB_PASSWORD` 沒填或填錯，改成你的 MySQL 密碼。
+
+**Q：`Can't connect to MySQL server on '一段看起來像密碼的字@localhost'`**
+密碼含有 `@` 之類的特殊字元，被誤判成連線字串的分隔符。
+程式已改用 URL 編碼處理，`.env` 的密碼直接照原樣填就好，
+**不需要**加引號或跳脫字元。
+
+**Q：出現 `Can't connect to MySQL server on 'localhost'`**
+MySQL 服務沒啟動。到「服務」裡把 MySQL 啟動，或用 XAMPP／MySQL Workbench 開啟。
+
+**Q：前端畫面出現，但商品是空的、Console 顯示 404**
+後端沒開。請另開終端機執行 `uvicorn app.main:app --reload --port 8000`。
+
+**Q：註冊時說 Email 格式不對**
+不要用 `xxx@honey.local` 這類保留網域，改用 `xxx@gmail.com` 之類的正常網域。
+
+**Q：上傳的照片重開後不見了**
+照片存在 `backend/uploads/`，請確認這個資料夾沒有被刪除。
+
+**Q：想清空重來**
+把 MySQL 裡的 `honey_web` 資料庫 drop 掉，再跑一次 `python -m app.seed`。

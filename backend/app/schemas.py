@@ -1,0 +1,301 @@
+from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
+from .models import (
+    LogisticsStatus, OrderStatus, PaymentMethod, PaymentStatus,
+    ShippingMethod, UserRole,
+)
+
+
+class ORMModel(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ---------- 會員 ----------
+class UserRegister(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=6, max_length=64)
+    name: str = Field(min_length=1, max_length=100)
+    phone: str | None = Field(default=None, max_length=30)
+    address: str | None = Field(default=None, max_length=255)
+
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class UserUpdate(BaseModel):
+    name: str | None = None
+    phone: str | None = None
+    address: str | None = None
+
+
+class UserOut(ORMModel):
+    id: int
+    email: EmailStr
+    name: str
+    phone: str | None = None
+    address: str | None = None
+    role: UserRole
+    is_active: bool
+    created_at: datetime | None = None
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserOut
+
+
+# ---------- 分類 ----------
+class CategoryIn(BaseModel):
+    name: str
+    slug: str
+    sort_order: int = 0
+
+
+class CategoryOut(ORMModel):
+    id: int
+    name: str
+    slug: str
+    sort_order: int
+
+
+# ---------- 商品 ----------
+class ProductImageOut(ORMModel):
+    id: int
+    image_url: str
+    caption: str | None = None
+    sort_order: int
+
+
+class ProductIn(BaseModel):
+    name: str = Field(min_length=1, max_length=150)
+    subtitle: str | None = None
+    description: str | None = None
+    spec: str | None = None
+    origin: str | None = None
+    price: float = 0
+    original_price: float | None = None
+    stock: int = 0
+    image_url: str | None = None
+    is_group_buy: bool = False
+    group_buy_min_qty: int | None = None
+    group_buy_note: str | None = None
+    is_featured: bool = False
+    is_active: bool = True
+    sort_order: int = 0
+    category_id: int | None = None
+
+
+class ProductOut(ORMModel):
+    id: int
+    name: str
+    subtitle: str | None = None
+    description: str | None = None
+    spec: str | None = None
+    origin: str | None = None
+    price: float
+    original_price: float | None = None
+    stock: int
+    image_url: str | None = None
+    is_group_buy: bool
+    group_buy_min_qty: int | None = None
+    group_buy_note: str | None = None
+    is_featured: bool
+    is_active: bool
+    sort_order: int
+    category: CategoryOut | None = None
+    images: list[ProductImageOut] = []
+
+
+# ---------- 新聞 ----------
+class NewsIn(BaseModel):
+    title: str
+    summary: str | None = None
+    content: str | None = None
+    source: str | None = None
+    source_url: str | None = None
+    cover_url: str | None = None
+    category: str = "news"
+    published_at: datetime | None = None
+    is_active: bool = True
+
+
+class NewsOut(ORMModel):
+    id: int
+    title: str
+    summary: str | None = None
+    content: str | None = None
+    source: str | None = None
+    source_url: str | None = None
+    cover_url: str | None = None
+    category: str
+    published_at: datetime
+    is_active: bool
+
+
+# ---------- 故事 ----------
+class StoryIn(BaseModel):
+    title: str
+    subtitle: str | None = None
+    content: str | None = None
+    cover_url: str | None = None
+    sort_order: int = 0
+    is_active: bool = True
+
+
+class StoryOut(ORMModel):
+    id: int
+    title: str
+    subtitle: str | None = None
+    content: str | None = None
+    cover_url: str | None = None
+    sort_order: int
+    is_active: bool
+
+
+# ---------- 訂單 ----------
+class OrderItemIn(BaseModel):
+    product_id: int
+    quantity: int = Field(ge=1)
+
+
+class OrderCreate(BaseModel):
+    receiver_name: str = Field(min_length=1, max_length=60)
+    receiver_phone: str = Field(min_length=1, max_length=30)
+    receiver_email: str | None = None
+    note: str | None = Field(default=None, max_length=400)
+    items: list[OrderItemIn]
+
+    shipping_method: ShippingMethod = ShippingMethod.cvs_unimart_c2c
+    payment_method: PaymentMethod = PaymentMethod.credit
+
+    # 超商取貨：由綠界電子地圖回傳
+    cvs_store_id: str | None = None
+    cvs_store_name: str | None = None
+    cvs_address: str | None = None
+    cvs_telephone: str | None = None
+    cvs_outside: str | None = None
+
+    # 宅配
+    receiver_address: str | None = None
+    receiver_zipcode: str | None = None
+    temperature: str = "0001"
+    specification: str = "0001"
+
+
+class OrderItemOut(ORMModel):
+    id: int
+    product_id: int | None = None
+    product_name: str
+    unit_price: float
+    quantity: int
+
+
+class OrderOut(ORMModel):
+    id: int
+    order_no: str
+    receiver_name: str
+    receiver_phone: str
+    receiver_address: str | None = None
+    receiver_zipcode: str | None = None
+    note: str | None = None
+    subtotal: float = 0
+    shipping_fee: float = 0
+    total_amount: float
+    status: OrderStatus
+    created_at: datetime
+    items: list[OrderItemOut] = []
+
+    # 送貨
+    shipping_method: ShippingMethod
+    shipping_method_label: str | None = None
+    cvs_store_id: str | None = None
+    cvs_store_name: str | None = None
+    cvs_address: str | None = None
+    cvs_telephone: str | None = None
+    temperature: str | None = None
+
+    # 付款
+    payment_method: PaymentMethod
+    payment_method_label: str | None = None
+    payment_status: PaymentStatus
+    is_collection: bool = False
+    ecpay_trade_no: str | None = None
+    payment_no: str | None = None
+    payment_bank_code: str | None = None
+    payment_expire_date: str | None = None
+    paid_at: datetime | None = None
+
+    # 物流
+    logistics_status: LogisticsStatus
+    allpay_logistics_id: str | None = None
+    cvs_payment_no: str | None = None
+    cvs_validation_no: str | None = None
+    booking_note: str | None = None
+    logistics_message: str | None = None
+
+
+class OrderCreated(BaseModel):
+    """建立訂單後回給前端的結果。"""
+    order: OrderOut
+    # 需要線上付款時，前端把瀏覽器導到這個網址（會自動 POST 到綠界付款頁）
+    payment_url: str | None = None
+
+
+class ShippingOption(BaseModel):
+    value: str
+    label: str
+    kind: str            # cvs 超商取貨 / home 宅配
+    fee: float
+    supports_cod: bool
+    supports_temperature: bool
+    note: str | None = None
+
+
+class PaymentOption(BaseModel):
+    value: str
+    label: str
+    note: str | None = None
+
+
+class CheckoutOptions(BaseModel):
+    shipping: list[ShippingOption]
+    payment: list[PaymentOption]
+    free_shipping_threshold: float
+    cod_fee: float
+    ecpay_env: str
+    backend_base_url: str
+
+
+class ShippingQuoteIn(BaseModel):
+    subtotal: float
+    shipping_method: ShippingMethod
+    payment_method: PaymentMethod
+    temperature: str = "0001"
+
+
+class ShippingQuoteOut(BaseModel):
+    subtotal: float
+    shipping_fee: float
+    cod_fee: float
+    total: float
+    free_shipping_threshold: float
+    is_free_shipping: bool
+
+
+class OrderStatusUpdate(BaseModel):
+    status: OrderStatus
+
+
+# ---------- 上傳 / 設定 ----------
+class UploadOut(BaseModel):
+    url: str
+    filename: str
+
+
+class SettingsIn(BaseModel):
+    values: dict[str, str]

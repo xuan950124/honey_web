@@ -1,0 +1,89 @@
+import { useEffect } from 'react'
+import { Route, Routes, useLocation } from 'react-router-dom'
+
+import Footer from './components/Footer'
+import Header from './components/Header'
+import ProtectedRoute from './components/ProtectedRoute'
+import { useCart } from './context/CartContext'
+
+import Cart from './pages/Cart'
+import Contact from './pages/Contact'
+import GroupBuy from './pages/GroupBuy'
+import Home from './pages/Home'
+import Login from './pages/Login'
+import Member from './pages/Member'
+import News from './pages/News'
+import NewsDetail from './pages/NewsDetail'
+import NotFound from './pages/NotFound'
+import OrderDetail from './pages/OrderDetail'
+import ProductDetail from './pages/ProductDetail'
+import Products from './pages/Products'
+import Register from './pages/Register'
+import Story from './pages/Story'
+
+import AdminCategories from './pages/admin/AdminCategories'
+import AdminDashboard from './pages/admin/AdminDashboard'
+import AdminLayout from './pages/admin/AdminLayout'
+import AdminNews from './pages/admin/AdminNews'
+import AdminOrders from './pages/admin/AdminOrders'
+import AdminProductForm from './pages/admin/AdminProductForm'
+import AdminProducts from './pages/admin/AdminProducts'
+import AdminSettings from './pages/admin/AdminSettings'
+import AdminStories from './pages/admin/AdminStories'
+
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  useEffect(() => { window.scrollTo(0, 0) }, [pathname])
+  return null
+}
+
+export default function App() {
+  const { toast } = useCart()
+
+  return (
+    <>
+      <ScrollToTop />
+      <Header />
+      <main>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/products" element={<Products />} />
+          <Route path="/products/:id" element={<ProductDetail />} />
+          <Route path="/group-buy" element={<GroupBuy />} />
+          <Route path="/news" element={<News />} />
+          <Route path="/news/:id" element={<NewsDetail />} />
+          <Route path="/story" element={<Story />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/cart" element={<Cart />} />
+          <Route path="/order/:orderNo" element={<OrderDetail />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+
+          <Route
+            path="/member"
+            element={<ProtectedRoute><Member /></ProtectedRoute>}
+          />
+
+          <Route
+            path="/admin"
+            element={<ProtectedRoute staffOnly><AdminLayout /></ProtectedRoute>}
+          >
+            <Route index element={<AdminDashboard />} />
+            <Route path="products" element={<AdminProducts />} />
+            <Route path="products/new" element={<AdminProductForm />} />
+            <Route path="products/:id" element={<AdminProductForm />} />
+            <Route path="categories" element={<AdminCategories />} />
+            <Route path="news" element={<AdminNews />} />
+            <Route path="stories" element={<AdminStories />} />
+            <Route path="orders" element={<AdminOrders />} />
+            <Route path="settings" element={<AdminSettings />} />
+          </Route>
+
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </main>
+      <Footer />
+      {toast && <div className="toast">{toast}</div>}
+    </>
+  )
+}

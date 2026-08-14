@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  app:
+    image: 'jc21/nginx-proxy-manager:latest'
+    restart: unless-stopped
+    ports:
+      # HTTP 流量
+      - '80:80'
+      # NPM 管理後台介面
+      - '81:81'
+      # HTTPS 流量
+      - '443:443'
+    volumes:
+      - ./data:/data
+      - ./letsencrypt:/etc/letsencrypt

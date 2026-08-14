@@ -1,0 +1,14 @@
+# 版本用範圍而非鎖死，讓 pip 能挑到符合你 Python 版本的預編譯 wheel，
+# 避免在 Windows 上需要 Rust/C 編譯器。
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.34,<1.0
+SQLAlchemy>=2.0.36,<2.1
+PyMySQL>=1.1.1,<2.0
+cryptography>=44.0            # PyMySQL 連 MySQL 8 的 caching_sha2 驗證需要
+pydantic>=2.10,<3.0
+pydantic-settings>=2.7,<3.0
+PyJWT>=2.10,<3.0              # 取代 python-jose（已少人維護）
+bcrypt>=4.0.1,<6.0            # 直接用 bcrypt，不再經過 passlib
+python-multipart>=0.0.20
+email-validator>=2.2
+httpx>=0.27,<1.0              # 呼叫綠界物流／金流 API 用

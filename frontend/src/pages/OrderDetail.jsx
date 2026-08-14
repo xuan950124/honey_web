@@ -1,0 +1,155 @@
+import { useEffect, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import {
+  LOGISTICS_STATUS_TEXT, ORDER_STATUS_TEXT, PAYMENT_STATUS_TEXT, TEMPERATURE_TEXT,
+  api, formatDate, formatPrice,
+} from '../api/client'
+import { useSettings } from '../context/SettingsContext'
+
+/** 訂單完成頁。付款流程結束後綠界會把買家導回這裡。 */
+export default function OrderDetail() {
+  const { orderNo } = useParams()
+  const [order, setOrder] = useState(null)
+  const [error, setError] = useState('')
+  const { settings } = useSettings()
+
+  useEffect(() => {
+    window.scrollTo(0, 0)
+    api.getOrderByNo(orderNo).then(setOrder).catch((e) => setError(e.message))
+  }, [orderNo])
+
+  if (error) {
+    return (
+      <div className="container section">
+        <div className="empty-state">
+          <div className="empty-state__title">{error}</div>
+          <Link to="/" className="btn btn--outline" style={{ marginTop: 16 }}>回到首頁</Link>
+        </div>
+      </div>
+    )
+  }
+  if (!order) return <div className="loading">載入中…</div>
+
+  const paid = order.payment_status === 'paid'
+  const waiting = order.payment_status === 'pending'
+  const isCod = order.payment_method === 'cod'
+
+  return (
+    <section className="section">
+      <div className="container" style={{ maxWidth: 760 }}>
+        <div className="panel text-center" style={{ marginBottom: 22 }}>
+          <h1 style={{ fontSize: 26, color: 'var(--honey-900)', marginBottom: 10 }}>
+            {paid ? '付款完成，感謝您的訂購' : isCod ? '訂單已成立' : waiting ? '訂單已成立，等待繳費' : '訂單已成立'}
+          </h1>
+          <p className="muted" style={{ marginBottom: 6 }}>
+            訂單編號 <strong style={{ color: 'var(--honey-700)', fontFamily: 'monospace' }}>{order.order_no}</strong>
+          </p>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginTop: 12 }}>
+            <span className={`tag tag--${order.status}`}>{ORDER_STATUS_TEXT[order.status]}</span>
+            <span className={`tag tag--${paid ? 'shipped' : waiting ? 'pending' : 'cancelled'}`}>
+              {isCod ? '貨到付款' : PAYMENT_STATUS_TEXT[order.payment_status]}
+            </span>
+            {order.logistics_status !== 'none' && (
+              <span className="tag tag--paid">{LOGISTICS_STATUS_TEXT[order.logistics_status]}</span>
+            )}
+          </div>
+        </div>
+
+        {waiting && order.payment_no && (
+          <div className="panel">
+            <h2 className="panel__title">繳費資訊</h2>
+            <table className="spec-table">
+              <tbody>
+                {order.payment_bank_code && (
+                  <tr><th>銀行代碼</th><td style={{ fontFamily: 'monospace', fontSize: 16 }}>{order.payment_bank_code}</td></tr>
+                )}
+                <tr>
+                  <th>{order.payment_method === 'atm' ? '虛擬帳號' : '繳費代碼'}</th>
+                  <td style={{ fontFamily: 'monospace', fontSize: 18, color: 'var(--honey-700)', fontWeight: 600 }}>
+                    {order.payment_no}
+                  </td>
+                </tr>
+                {order.payment_expire_date && (
+                  <tr><th>繳費期限</th><td>{order.payment_expire_date}</td></tr>
+                )}
+                <tr><th>應繳金額</th><td>NT${formatPrice(order.total_amount)}</td></tr>
+              </tbody>
+            </table>
+            <p className="small muted" style={{ marginTop: 14, marginBottom: 0 }}>
+              完成繳費後系統會自動更新訂單狀態，我們才會安排出貨。
+            </p>
+          </div>
+        )}
+
+        <div className="panel">
+          <h2 className="panel__title">訂單內容</h2>
+          <table className="table" style={{ minWidth: 0 }}>
+            <thead><tr><th>商品</th><th>單價</th><th>數量</th><th>小計</th></tr></thead>
+            <tbody>
+              {order.items.map((i) => (
+                <tr key={i.id}>
+                  <td>{i.product_name}</td>
+                  <td>NT${formatPrice(i.unit_price)}</td>
+                  <td>{i.quantity}</td>
+                  <td>NT${formatPrice(i.unit_price * i.quantity)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="summary__row" style={{ marginTop: 12 }}>
+            <span className="muted">商品小計</span><span>NT${formatPrice(order.subtotal)}</span>
+          </div>
+          <div className="summary__row">
+            <span className="muted">運費</span>
+            <span>{Number(order.shipping_fee) === 0 ? '免運' : `NT$${formatPrice(order.shipping_fee)}`}</span>
+          </div>
+          <div className="summary__total">
+            <span>總計</span>
+            <span className="price"><span className="price__cur">NT$</span>{formatPrice(order.total_amount)}</span>
+          </div>
+        </div>
+
+        <div className="panel">
+          <h2 className="panel__title">配送資訊</h2>
+          <table className="spec-table">
+            <tbody>
+              <tr><th>送貨方式</th><td>{order.shipping_method_label}</td></tr>
+              {order.cvs_store_name && (
+                <tr>
+                  <th>取貨門市</th>
+                  <td>
+                    {order.cvs_store_name}
+                    <div className="small muted">{order.cvs_address}</div>
+                  </td>
+                </tr>
+              )}
+              {!order.cvs_store_name && (
+                <tr><th>收件地址</th><td>{order.receiver_zipcode} {order.receiver_address}</td></tr>
+              )}
+              {order.temperature && order.temperature !== '0001' && (
+                <tr><th>配送溫層</th><td>{TEMPERATURE_TEXT[order.temperature]}</td></tr>
+              )}
+              <tr><th>收件人</th><td>{order.receiver_name}．{order.receiver_phone}</td></tr>
+              {order.booking_note && <tr><th>宅配單號</th><td style={{ fontFamily: 'monospace' }}>{order.booking_note}</td></tr>}
+              {order.logistics_message && <tr><th>物流狀態</th><td>{order.logistics_message}</td></tr>}
+              {order.note && <tr><th>備註</th><td>{order.note}</td></tr>}
+              <tr><th>下單時間</th><td>{formatDate(order.created_at)}</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <Link to="/products" className="btn btn--outline">繼續選購</Link>
+          <Link to="/member" className="btn btn--ghost">我的訂單</Link>
+        </div>
+
+        {settings.line_id && (
+          <p className="small muted text-center" style={{ marginTop: 22 }}>
+            訂單有任何問題，歡迎加 LINE {settings.line_id}
+            {settings.contact_phone ? ` 或來電 ${settings.contact_phone}` : ''}
+          </p>
+        )}
+      </div>
+    </section>
+  )
+}
