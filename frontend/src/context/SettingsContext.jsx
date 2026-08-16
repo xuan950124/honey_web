@@ -8,7 +8,14 @@ export function SettingsProvider({ children }) {
   const [tick, setTick] = useState(0)
 
   useEffect(() => {
-    api.getSettings().then(setSettings).catch(() => setSettings({}))
+    api
+      .getSettings()
+      .then((data) => setSettings(data || {}))
+      .catch((err) => {
+        // 設定拿不到時用空物件，讓網站至少能顯示（各處都有「（待補上）」的預設值）
+        console.error('無法載入網站設定：', err.message)
+        setSettings({})
+      })
   }, [tick])
 
   const value = useMemo(

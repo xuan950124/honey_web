@@ -37,10 +37,19 @@ async function request(path, { method = 'GET', body, isForm = false } = {}) {
 
   if (res.status === 204) return null
 
+  // 後端一律回 JSON。如果收到 HTML，多半是請求被靜態伺服器或反向代理接走了，
+  // 這時要明確報錯，不然前端會拿到 null 而在很後面才爆出看不懂的錯誤。
+  const contentType = res.headers.get('content-type') || ''
   let data = null
   try {
     data = await res.json()
   } catch {
+    if (!contentType.includes('json')) {
+      throw new Error(
+        `伺服器回傳的不是 JSON（${res.status} ${contentType || '未知格式'}）。` +
+          '請確認 VITE_API_BASE 是否指向正確的後端網址。',
+      )
+    }
     data = null
   }
 
