@@ -17,7 +17,7 @@ export default function Home() {
   const [groupBuy, setGroupBuy] = useState([])
   const [news, setNews] = useState([])
   const [stories, setStories] = useState([])
-  const { settings } = useSettings()
+  const { settings, loaded } = useSettings()
 
   useEffect(() => {
     api.listProducts({ featured: true }).then((d) => setFeatured(d.slice(0, 4))).catch(() => {})
@@ -41,7 +41,7 @@ export default function Home() {
                 <br />
                 <em>第一箱蜂蜜</em>
               </h1>
-              <p className="hero__desc">
+              <p className={`hero__desc${loaded ? '' : ' is-pending'}`}>
                 {settings.shop_slogan ||
                   '沒有祖傳的蜂場，我們是從第一箱蜂開始學起的。基隆多雨，山裡的花期不好抓，但也因為這樣，這裡的蜜有別的地方沒有的味道。'}
               </p>

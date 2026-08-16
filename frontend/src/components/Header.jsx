@@ -16,7 +16,7 @@ const NAV = [
 export default function Header() {
   const { user, logout, isStaff } = useAuth()
   const { count } = useCart()
-  const { settings } = useSettings()
+  const { settings, loaded } = useSettings()
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
@@ -43,7 +43,9 @@ export default function Header() {
     <header className="header">
       <div className="header__topbar">
         <div className="container">
-          <span>{settings.shop_slogan || '台灣蜂場直送．純粹不添加'}</span>
+          <span className={loaded ? '' : 'is-pending'}>
+            {settings.shop_slogan || '台灣蜂場直送．純粹不添加'}
+          </span>
           <span>
             {settings.contact_phone ? (
               <a href={`tel:${settings.contact_phone}`}>訂購專線 {settings.contact_phone}</a>
@@ -57,7 +59,9 @@ export default function Header() {
       <div className="container">
         <div className="header__inner">
           <Link to="/" className="logo">
-            <span className="logo__mark">{settings.shop_name || '蜂蜜工坊'}</span>
+            <span className={`logo__mark${loaded ? '' : ' is-pending'}`}>
+              {settings.shop_name || '蜂蜜工坊'}
+            </span>
             <span className="logo__sub">Honey</span>
           </Link>
 

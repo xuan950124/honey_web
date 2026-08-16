@@ -743,3 +743,7 @@ ul { margin: 0; padding: 0; list-style: none; }
   font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 14px; color: var(--honey-300); letter-spacing: 0.04em;
 }
+
+/* 網站設定還沒從後端回來之前，先隱藏會「跳字」的品牌文字。
+   用 visibility 而不是 display，版位才會保留，畫面不會位移。 */
+.is-pending { visibility: hidden; }

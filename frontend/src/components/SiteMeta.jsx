@@ -9,9 +9,10 @@ import { useSettings } from '../context/SettingsContext'
  * 改成載入後由設定覆寫，店家自己在後台改完就會生效。
  */
 export default function SiteMeta() {
-  const { settings } = useSettings()
+  const { settings, loaded } = useSettings()
 
   useEffect(() => {
+    if (!loaded) return   // 還沒拿到設定就先維持 index.html 的預設值
     const name = settings.shop_name || '皇龍蜂蜜'
     const slogan = settings.shop_slogan || ''
 
@@ -48,7 +49,7 @@ export default function SiteMeta() {
       link.href = mediaUrl(settings.favicon_url)
       link.removeAttribute('type')
     }
-  }, [settings])
+  }, [settings, loaded])
 
   return null
 }

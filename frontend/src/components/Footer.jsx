@@ -4,7 +4,7 @@ import { useSettings } from '../context/SettingsContext'
 const Empty = () => <span className="footer__empty">（待補）</span>
 
 export default function Footer() {
-  const { settings } = useSettings()
+  const { settings, loaded } = useSettings()
   const year = new Date().getFullYear()
 
   return (
@@ -12,8 +12,10 @@ export default function Footer() {
       <div className="container">
         <div className="footer__grid">
           <div>
-            <div className="footer__brand">{settings.shop_name || '蜂蜜工坊'}</div>
-            <p className="footer__desc">
+            <div className={`footer__brand${loaded ? '' : ' is-pending'}`}>
+              {settings.shop_name || '蜂蜜工坊'}
+            </div>
+            <p className={`footer__desc${loaded ? '' : ' is-pending'}`}>
               {settings.shop_slogan ||
                 '基隆七堵的自家蜂場。我們是第一代養蜂人，從一箱蜂學到現在，堅持等蜜在巢裡熟成才採收，裝瓶前不加水、不加糖。'}
             </p>
@@ -71,7 +73,9 @@ export default function Footer() {
         </div>
 
         <div className="footer__bottom">
-          <span>© {year} {settings.shop_name || '蜂蜜工坊'}．All rights reserved.</span>
+          <span className={loaded ? '' : 'is-pending'}>
+            © {year} {settings.shop_name || '蜂蜜工坊'}．All rights reserved.
+          </span>
           <span>本網站商品照片與文案內容陸續更新中</span>
         </div>
       </div>
