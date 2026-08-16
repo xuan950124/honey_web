@@ -4,7 +4,11 @@
 // 正式部署：前後端是不同網域，打包時要設定
 //     VITE_API_BASE=https://api.你的網域.com
 // Vite 會在「建置階段」把這個值寫死進去，所以改了必須重新部署才會生效。
-const API_BASE = (import.meta.env.VITE_API_BASE || '').replace(/\/+$/, '')
+// 優先用「執行階段」的設定（public/config.js，部署時由容器覆寫），
+// 找不到才退回建置時寫入的值。這樣改後端網址不必重新建置前端。
+const runtimeApiBase =
+  typeof window !== 'undefined' && window.__APP_CONFIG__ ? window.__APP_CONFIG__.apiBase : ''
+const API_BASE = (runtimeApiBase || import.meta.env.VITE_API_BASE || '').replace(/\/+$/, '')
 
 /** 後端的完整網址。給 window.open、表單 action 這類需要絕對路徑的地方用。 */
 export const apiUrl = (path = '') => `${API_BASE}${path}`
