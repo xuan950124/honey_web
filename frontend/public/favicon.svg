@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="蜂蜜">
+  <rect width="64" height="64" rx="14" fill="#3B2712"/>
+  <!-- 蜂巢六邊形 -->
+  <path d="M32 12 L48 21 L48 39 L32 48 L16 39 L16 21 Z"
+        fill="none" stroke="#E0AB3C" stroke-width="3.4" stroke-linejoin="round"/>
+  <!-- 中央蜜滴 -->
+  <path d="M32 22 C36.5 28.5 39 32.2 39 35.2 A7 7 0 0 1 25 35.2 C25 32.2 27.5 28.5 32 22 Z"
+        fill="#E0AB3C"/>
+</svg>

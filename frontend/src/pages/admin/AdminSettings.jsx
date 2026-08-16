@@ -57,6 +57,12 @@ const IMAGE_FIELDS = [
     ratio: '1x1',
     hint: '正方形。從 LINE 官方帳號後台可以下載自己的 QR Code。',
   },
+  {
+    key: 'favicon_url',
+    label: '網站 icon',
+    ratio: '1x1',
+    hint: '瀏覽器分頁上的小圖示。正方形、建議 512×512，簡單的圖案才看得清楚（尺寸很小）。留空會用預設的蜂巢圖示。',
+  },
 ]
 
 const SENDER_FIELDS = [

@@ -137,6 +137,7 @@ DEFAULT_SETTINGS = {
     "hero_image_url": "",
     "group_buy_image_url": "",
     "line_qr_url": "",
+    "favicon_url": "",
     "story_cover_url": "",
     # 農業部農糧署「溯源農糧產品追溯系統」資訊
     "producer_name": "",

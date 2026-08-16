@@ -5,6 +5,7 @@ import Footer from './components/Footer'
 import Header from './components/Header'
 import DevicePreview from './components/DevicePreview'
 import ProtectedRoute from './components/ProtectedRoute'
+import SiteMeta from './components/SiteMeta'
 import { useAuth } from './context/AuthContext'
 import { useCart } from './context/CartContext'
 
@@ -51,6 +52,7 @@ export default function App() {
 
   return (
     <>
+      <SiteMeta />
       <ScrollToTop />
       <Header />
       <main>
