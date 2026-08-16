@@ -33,11 +33,21 @@ async function request(path, { method = 'GET', body, isForm = false } = {}) {
   if (token) headers.Authorization = `Bearer ${token}`
   if (!isForm && body !== undefined) headers['Content-Type'] = 'application/json'
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers,
-    body: isForm ? body : body !== undefined ? JSON.stringify(body) : undefined,
-  })
+  let res
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      method,
+      headers,
+      body: isForm ? body : body !== undefined ? JSON.stringify(body) : undefined,
+    })
+  } catch (cause) {
+    // 連線失敗（斷網、DNS、CORS 被擋、伺服器沒回應）。
+    // 這裡刻意不帶 status，呼叫端才能區分「網路問題」與「伺服器說不行」。
+    const err = new Error('無法連線到伺服器，請稍後再試')
+    err.isNetworkError = true
+    err.cause = cause
+    throw err
+  }
 
   if (res.status === 204) return null
 
