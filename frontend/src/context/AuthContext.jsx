@@ -30,7 +30,7 @@ export function AuthProvider({ children }) {
     const data = await api.register(payload)
     setToken(data.access_token)
     setUser(data.user)
-    return data.user
+    return data
   }, [])
 
   const logout = useCallback(() => {

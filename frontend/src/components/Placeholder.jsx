@@ -1,3 +1,5 @@
+import { mediaUrl } from '../api/client'
+
 /**
  * 圖片佔位元件。
  * - 有 src 時顯示真實圖片
@@ -22,7 +24,7 @@ export default function Placeholder({
   if (src) {
     return (
       <div className={cls} style={style}>
-        <img src={src} alt={alt} loading="lazy" />
+        <img src={mediaUrl(src)} alt={alt} loading="lazy" />
       </div>
     )
   }

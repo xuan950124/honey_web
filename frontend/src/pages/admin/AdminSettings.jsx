@@ -12,6 +12,12 @@ const FIELDS = [
   { key: 'line_id', label: 'LINE ID', hint: '例：@honeyshop' },
   { key: 'line_url', label: 'LINE 加好友連結', hint: '例：https://line.me/R/ti/p/@honeyshop' },
   { key: 'business_hours', label: '營業時間' },
+  { key: 'producer_name', label: '生產者姓名', hint: '會顯示在聯絡頁的溯源資訊旁' },
+  {
+    key: 'traceability_code',
+    label: '農業部溯源追溯編號',
+    hint: '例：1801000072。填了之後頁尾與聯絡頁會顯示可點擊的查詢連結，是很有力的信任證明。',
+  },
   { key: 'facebook_url', label: 'Facebook 連結' },
   { key: 'instagram_url', label: 'Instagram 連結' },
   {

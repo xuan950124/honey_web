@@ -41,8 +41,9 @@ export default function GroupBuy() {
               <div className="section-head__eyebrow" style={{ textAlign: 'left' }}>Group Buy</div>
               <h2 className="hero__title" style={{ fontSize: 30 }}>一起買，更划算</h2>
               <p className="hero__desc">
-                我們提供彈性的團購方案：可分開包裝、分別寄送到不同地址，也能依需求製作客製標籤與贈品卡，
-                並開立二聯或三聯式發票。若您的需求不在下方方案內，歡迎直接與我們聯絡討論。
+                我們是基隆七堵的小型蜂場，產量有限但每一批都自己顧。
+                團購可分開包裝、分別寄送到不同地址，也能依需求製作客製標籤與贈品卡，
+                並開立二聯或三聯式發票。需求不在下方方案內，歡迎直接聯絡討論。
               </p>
               <div className="hero__actions">
                 <Link to="/contact" className="btn btn--primary">洽詢客製方案</Link>
@@ -82,7 +83,7 @@ export default function GroupBuy() {
           {loading ? (
             <div className="loading">載入中…</div>
           ) : products.length ? (
-            <div className="grid grid--3">
+            <div className="grid grid--3 grid--products">
               {products.map((p) => <ProductCard key={p.id} product={p} />)}
             </div>
           ) : (

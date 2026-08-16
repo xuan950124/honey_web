@@ -15,8 +15,19 @@ export default function Footer() {
             <div className="footer__brand">{settings.shop_name || '蜂蜜工坊'}</div>
             <p className="footer__desc">
               {settings.shop_slogan ||
-                '我們相信好蜂蜜不需要多餘的加工。每一瓶都來自自家蜂場，依花期採收、靜置熟成後裝瓶，把台灣土地的甜味完整交到你手上。'}
+                '基隆七堵的自家蜂場。我們是第一代養蜂人，從一箱蜂學到現在，堅持等蜜在巢裡熟成才採收，裝瓶前不加水、不加糖。'}
             </p>
+            {settings.traceability_code && (
+              <a
+                className="trace-badge"
+                href={`https://qrc.afa.gov.tw/blog/${settings.traceability_code}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <span className="trace-badge__label">農業部溯源追溯編號</span>
+                <span className="trace-badge__code">{settings.traceability_code}</span>
+              </a>
+            )}
           </div>
 
           <div>

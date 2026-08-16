@@ -6,9 +6,9 @@ import ProductCard from '../components/ProductCard'
 import { useSettings } from '../context/SettingsContext'
 
 const FEATURES = [
-  { num: '01', title: '自家蜂場採收', desc: '從放蜂、追花到採收全程自己來，來源清楚可追溯。' },
-  { num: '02', title: '不加水不調味', desc: '熟成後才採收，裝瓶前不加水、不加糖、不添加香料。' },
-  { num: '03', title: '定期送驗', desc: '定期檢驗農藥殘留與抗生素項目，報告可提供查閱。' },
+  { num: '01', title: '基隆在地養蜂', desc: '蜂場就在基隆七堵，山區蜜源採收後就近裝瓶，不經過中盤。' },
+  { num: '02', title: '不加水不調味', desc: '等蜂蜜在巢裡熟成才採收，裝瓶前不加水、不加糖、不調味。' },
+  { num: '03', title: '政府溯源可查', desc: '已登錄農業部農糧署溯源系統，掃碼就能查到生產者是誰。' },
   { num: '04', title: '團購可客製', desc: '公司行號、社團大量訂購可分裝、開立發票與客製標籤。' },
 ]
 
@@ -35,15 +35,15 @@ export default function Home() {
         <div className="container">
           <div className="hero__grid">
             <div>
-              <div className="hero__eyebrow">Taiwan Natural Honey</div>
+              <div className="hero__eyebrow">Keelung Local Honey</div>
               <h1 className="hero__title">
-                來自台灣蜂場的
+                基隆山裡的
                 <br />
-                <em>純粹甜味</em>
+                <em>第一箱蜂蜜</em>
               </h1>
               <p className="hero__desc">
                 {settings.shop_slogan ||
-                  '每年三月起，我們帶著蜂箱一路追著花期北上。龍眼、荔枝、百花，不同的花開出不同的味道，我們只做一件事：等它熟了再採。'}
+                  '沒有祖傳的蜂場，我們是從第一箱蜂開始學起的。基隆多雨，山裡的花期不好抓，但也因為這樣，這裡的蜜有別的地方沒有的味道。'}
               </p>
               <div className="hero__actions">
                 <Link to="/products" className="btn btn--primary">選購蜂蜜</Link>
@@ -51,16 +51,16 @@ export default function Home() {
               </div>
               <div className="hero__facts">
                 <div>
-                  <div className="hero__fact-num">100%</div>
-                  <div className="hero__fact-label">台灣在地生產</div>
+                  <div className="hero__fact-num">基隆</div>
+                  <div className="hero__fact-label">七堵自家蜂場</div>
                 </div>
                 <div>
                   <div className="hero__fact-num">0</div>
                   <div className="hero__fact-label">人工添加物</div>
                 </div>
                 <div>
-                  <div className="hero__fact-num">3</div>
-                  <div className="hero__fact-label">代養蜂經驗</div>
+                  <div className="hero__fact-num">可溯源</div>
+                  <div className="hero__fact-label">農業部追溯編號</div>
                 </div>
               </div>
             </div>
@@ -92,11 +92,11 @@ export default function Home() {
           <div className="section-head">
             <div className="section-head__eyebrow">Our Honey</div>
             <h2 className="section-head__title">精選蜂蜜</h2>
-            <p className="section-head__desc">依花期分批採收，每一批的顏色與香氣都略有不同</p>
+            <p className="section-head__desc">基隆山區採收，依花期分批裝瓶，每一批的顏色與香氣都略有不同</p>
           </div>
 
           {featured.length ? (
-            <div className="grid grid--4">
+            <div className="grid grid--4 grid--products">
               {featured.map((p) => <ProductCard key={p.id} product={p} />)}
             </div>
           ) : (
@@ -118,11 +118,11 @@ export default function Home() {
           <div className="section-head">
             <div className="section-head__eyebrow">Group Buy</div>
             <h2 className="section-head__title">團購專區</h2>
-            <p className="section-head__desc">公司行號、社區揪團、幼兒園採購，數量越多越優惠</p>
+            <p className="section-head__desc">公司行號、社區揪團、幼兒園採購，可分裝與客製標籤</p>
           </div>
 
           {groupBuy.length ? (
-            <div className="grid grid--3">
+            <div className="grid grid--3 grid--products">
               {groupBuy.map((p) => <ProductCard key={p.id} product={p} />)}
             </div>
           ) : (
@@ -177,7 +177,7 @@ export default function Home() {
           </div>
 
           {news.length ? (
-            <div className="grid grid--2" style={{ gap: '0 48px' }}>
+            <div className="grid grid--news" style={{ gap: '0 48px' }}>
               {news.map((n) => (
                 <Link to={`/news/${n.id}`} key={n.id} className="news-item" style={{ gridTemplateColumns: '1fr' }}>
                   <div>

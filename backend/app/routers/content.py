@@ -133,6 +133,9 @@ DEFAULT_SETTINGS = {
     "facebook_url": "",
     "instagram_url": "",
     "map_embed_url": "",
+    # 農業部農糧署「溯源農糧產品追溯系統」資訊
+    "producer_name": "",
+    "traceability_code": "",
     # 運費設定
     "shipping_fee_cvs": "70",
     "shipping_fee_home": "160",

@@ -22,42 +22,42 @@ CATEGORIES = [
 PRODUCTS = [
     {
         "name": "台灣龍眼蜜", "subtitle": "濃郁焦糖香氣，經典國產花蜜",
-        "spec": "700g / 玻璃瓶", "origin": "台南 東山",
+        "spec": "700g / 玻璃瓶", "origin": "基隆 七堵",
         "price": 680, "original_price": 780, "stock": 50,
         "is_featured": True, "category": "pure-honey", "sort_order": 1,
-        "description": "採收自四到五月龍眼花期，蜜色深琥珀，帶有明顯焦糖與煙燻尾韻。\n未經加熱稀釋，開瓶後常溫保存即可，結晶屬天然現象。",
+        "description": "蜜色深琥珀，帶有明顯焦糖與煙燻尾韻。\n未經加熱稀釋，開瓶後常溫保存即可，結晶屬天然現象。",
     },
     {
         "name": "百花蜜", "subtitle": "清爽花香，入口回甘",
-        "spec": "700g / 玻璃瓶", "origin": "南投 埔里",
+        "spec": "700g / 玻璃瓶", "origin": "基隆 七堵",
         "price": 580, "stock": 60,
         "is_featured": True, "category": "pure-honey", "sort_order": 2,
-        "description": "蜜蜂採集多種野花所釀，風味層次豐富，甜度溫和不膩口。\n適合沖泡冷飲、拌優格或直接品嘗。",
+        "description": "蜜蜂在基隆山區採集多種野花所釀，風味層次豐富，甜度溫和不膩口。\n適合沖泡冷飲、拌優格或直接品嘗。",
     },
     {
         "name": "荔枝蜜", "subtitle": "淡雅果香，色澤金黃透亮",
-        "spec": "500g / 玻璃瓶", "origin": "高雄 大樹",
+        "spec": "500g / 玻璃瓶", "origin": "基隆 七堵",
         "price": 620, "stock": 40,
         "is_featured": True, "category": "pure-honey", "sort_order": 3,
         "description": "荔枝花期短，產量稀少。蜜體清透，帶有淡淡荔枝果香，是入門者最容易接受的風味。",
     },
     {
         "name": "蜂蜜禮盒（雙入組）", "subtitle": "龍眼蜜 + 百花蜜，附提袋",
-        "spec": "700g x 2", "origin": "台灣",
+        "spec": "700g x 2", "origin": "基隆 七堵",
         "price": 1280, "original_price": 1360, "stock": 25,
         "is_featured": True, "category": "gift-box", "sort_order": 4,
         "description": "年節送禮首選，內含台灣龍眼蜜與百花蜜各一瓶，另附贈精緻提袋與手寫卡片。",
     },
     {
         "name": "蜂王乳（新鮮冷凍）", "subtitle": "當日採收，全程冷鏈配送",
-        "spec": "100g / 瓶", "origin": "南投",
+        "spec": "100g / 瓶", "origin": "基隆 七堵",
         "price": 950, "stock": 20,
         "category": "processed", "sort_order": 5,
         "description": "每日清晨採收後立即冷凍鎖鮮，需冷凍保存。建議搭配蜂蜜調和後食用。",
     },
     {
         "name": "台灣蜂花粉", "subtitle": "天然顆粒，未經調味",
-        "spec": "200g / 罐", "origin": "台灣",
+        "spec": "200g / 罐", "origin": "基隆 七堵",
         "price": 480, "stock": 35,
         "category": "processed", "sort_order": 6,
         "description": "蜜蜂自花朵採集的花粉團，含天然植物營養素。初次食用建議少量嘗試。",
@@ -65,7 +65,7 @@ PRODUCTS = [
     # ---- 團購商品 ----
     {
         "name": "【團購】龍眼蜜 6 入組", "subtitle": "6 瓶成團，每瓶現省 130 元",
-        "spec": "700g x 6", "origin": "台南 東山",
+        "spec": "700g x 6", "origin": "基隆 七堵",
         "price": 3300, "original_price": 4080, "stock": 30,
         "is_group_buy": True, "group_buy_min_qty": 1,
         "group_buy_note": "6 瓶為一組，下單即成團，約 3-5 個工作天出貨。",
@@ -74,7 +74,7 @@ PRODUCTS = [
     },
     {
         "name": "【團購】綜合蜂蜜 12 入組", "subtitle": "龍眼蜜 6 + 百花蜜 6",
-        "spec": "700g x 12", "origin": "台灣",
+        "spec": "700g x 12", "origin": "基隆 七堵",
         "price": 6000, "original_price": 7560, "stock": 15,
         "is_group_buy": True, "group_buy_min_qty": 1,
         "group_buy_note": "滿 12 瓶免運，可指定多個收件地址（請於備註欄說明）。",
@@ -83,7 +83,7 @@ PRODUCTS = [
     },
     {
         "name": "【團購】蜂蜜隨手包 30 入", "subtitle": "20g 隨身包，辦公室、外出方便",
-        "spec": "20g x 30", "origin": "台灣",
+        "spec": "20g x 30", "origin": "基隆 七堵",
         "price": 900, "original_price": 1050, "stock": 50,
         "is_group_buy": True, "group_buy_min_qty": 1,
         "group_buy_note": "單筆滿 3 組免運費。",
@@ -121,28 +121,30 @@ NEWS = [
 
 STORIES = [
     {
-        "title": "從一箱蜂開始",
-        "subtitle": "三代人與蜜蜂相處的日子",
+        "title": "從第一箱蜂開始",
+        "subtitle": "我們沒有祖傳的蜂場",
         "sort_order": 1,
-        "content": "這段文字請於後台「故事管理」自行編輯。\n\n可以描述創辦人如何接觸養蜂、家族傳承的過程、遇過的困難，以及堅持下來的理由。建議搭配一張蜂場或人物照片，讓故事更有溫度。",
+        "content": "很多蜂農會說自己是第幾代傳人。我們不是——我們是從第一箱蜂開始學起的。\n\n沒有長輩可以問，該什麼時候加繼箱、蜂群為什麼躁動、蜜什麼時候才算熟，全都是自己一次一次試出來的。前幾年繳了不少學費，也失敗過幾次。\n\n但也因為是自己從頭學的，每一個決定我們都知道為什麼要這樣做。（這段文字可於後台「故事管理」自行修改）",
     },
     {
-        "title": "追花的季節",
-        "subtitle": "每年三月，我們帶著蜂箱上路",
+        "title": "基隆的雨，基隆的花",
+        "subtitle": "在全台灣最多雨的地方養蜂",
         "sort_order": 2,
-        "content": "這段文字請於後台「故事管理」自行編輯。\n\n可以介紹逐花而居的過程：從南部的荔枝花期一路北上到龍眼、柑橘，蜂群如何隨著花期移動，以及不同花期蜜的風味差異。",
+        "content": "基隆一年有超過兩百天在下雨。對養蜂來說這不是好條件——雨天蜜蜂出不了門，花期也常常被雨打斷。\n\n但山裡的濕氣養出了別的地方少見的蜜源植物，採出來的蜜也有不一樣的風味。我們的蜂場就在七堵的山邊，看天吃飯，產量不多，但都是這片山給的。（這段文字可於後台「故事管理」自行修改）",
     },
     {
-        "title": "我們對品質的堅持",
-        "subtitle": "不加水、不加糖、不調味",
+        "title": "查得到的人，查得到的蜜",
+        "subtitle": "農業部溯源追溯編號 1801000072",
         "sort_order": 3,
-        "content": "這段文字請於後台「故事管理」自行編輯。\n\n可以說明採收標準（例如熟成度、含水量檢測）、送驗項目、包裝與保存方式，以及為什麼蜂蜜結晶是正常現象。",
+        "content": "我們登錄了農業部農糧署的「溯源農糧產品追溯系統」，追溯編號是 1801000072。\n\n上網輸入這組號碼，就能查到生產者是誰、在哪裡生產。蜂蜜這種東西，外觀很難分辨真假，所以我們願意把自己的名字掛上去。\n\n採收上，我們等蜜在巢裡熟成才取，裝瓶前不加水、不加糖、不調味。低溫時結晶是天然現象，隔水溫熱就會恢復。（這段文字可於後台「故事管理」自行修改）",
     },
 ]
 
 SETTINGS = {
-    "shop_name": "蜂蜜工坊",
-    "shop_slogan": "來自台灣蜂場的純粹甜味",
+    "shop_name": "皇龍蜂蜜",
+    "shop_slogan": "基隆七堵山區的自家蜂場，第一代養蜂人的蜜",
+    "producer_name": "黃皇龍",
+    "traceability_code": "1801000072",
     "contact_phone": "",
     "contact_phone_2": "",
     "contact_email": "",
@@ -163,6 +165,7 @@ def run() -> None:
     db = SessionLocal()
     try:
         # 管理員（工作人員）帳號
+        # 內建帳號直接標記為已驗證，不需要真的去收驗證信
         admin = db.query(User).filter(User.email == settings.ADMIN_EMAIL).first()
         if not admin:
             db.add(User(
@@ -170,6 +173,8 @@ def run() -> None:
                 hashed_password=hash_password(settings.ADMIN_PASSWORD),
                 name=settings.ADMIN_NAME,
                 role=UserRole.staff,
+                email_verified=True,
+                email_verified_at=datetime.now(),
             ))
             print(f"[建立] 工作人員帳號 {settings.ADMIN_EMAIL} / {settings.ADMIN_PASSWORD}")
         else:
@@ -182,8 +187,31 @@ def run() -> None:
                 hashed_password=hash_password("member1234"),
                 name="示範會員",
                 role=UserRole.member,
+                email_verified=True,
+                email_verified_at=datetime.now(),
             ))
             print("[建立] 示範會員 member@honeyshop.com / member1234")
+
+        db.commit()
+
+        # 既有的內建帳號若還沒驗證，一併補上（升級舊資料庫時會用到）
+        builtin = db.query(User).filter(
+            User.email.in_([settings.ADMIN_EMAIL, "member@honeyshop.com"]),
+            User.email_verified.is_(False),
+        ).all()
+        for user in builtin:
+            user.email_verified = True
+            user.email_verified_at = datetime.now()
+            print(f"[更新] {user.email} 標記為已驗證信箱")
+
+        # 所有工作人員帳號都不需要驗證信箱
+        staff_unverified = db.query(User).filter(
+            User.role == UserRole.staff, User.email_verified.is_(False)
+        ).all()
+        for user in staff_unverified:
+            user.email_verified = True
+            user.email_verified_at = datetime.now()
+            print(f"[更新] 工作人員 {user.email} 標記為已驗證信箱")
 
         db.commit()
 

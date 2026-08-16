@@ -1,12 +1,15 @@
 import { useEffect } from 'react'
-import { Route, Routes, useLocation } from 'react-router-dom'
+import { Route, Routes, useLocation, useSearchParams } from 'react-router-dom'
 
 import Footer from './components/Footer'
 import Header from './components/Header'
+import DevicePreview from './components/DevicePreview'
 import ProtectedRoute from './components/ProtectedRoute'
+import { useAuth } from './context/AuthContext'
 import { useCart } from './context/CartContext'
 
 import Cart from './pages/Cart'
+import ForgotPassword from './pages/ForgotPassword'
 import Contact from './pages/Contact'
 import GroupBuy from './pages/GroupBuy'
 import Home from './pages/Home'
@@ -19,6 +22,8 @@ import OrderDetail from './pages/OrderDetail'
 import ProductDetail from './pages/ProductDetail'
 import Products from './pages/Products'
 import Register from './pages/Register'
+import ResetPassword from './pages/ResetPassword'
+import VerifyEmail from './pages/VerifyEmail'
 import Story from './pages/Story'
 
 import AdminCategories from './pages/admin/AdminCategories'
@@ -39,6 +44,10 @@ function ScrollToTop() {
 
 export default function App() {
   const { toast } = useCart()
+  const { isStaff } = useAuth()
+  const [params] = useSearchParams()
+  // 在預覽用的 iframe 裡面不要再顯示預覽按鈕，避免無限巢狀
+  const inPreview = params.get('preview') === '1'
 
   return (
     <>
@@ -58,6 +67,9 @@ export default function App() {
           <Route path="/order/:orderNo" element={<OrderDetail />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
 
           <Route
             path="/member"
@@ -84,6 +96,7 @@ export default function App() {
       </main>
       <Footer />
       {toast && <div className="toast">{toast}</div>}
+      {isStaff && !inPreview && <DevicePreview />}
     </>
   )
 }

@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   LOGISTICS_STATUS_TEXT, ORDER_STATUS_TEXT, PAYMENT_STATUS_TEXT, TEMPERATURE_TEXT,
-  api, formatDate, formatPrice,
+  api, apiUrl, formatDate, formatPrice,
 } from '../../api/client'
 
 const FILTERS = [
@@ -82,7 +82,7 @@ export default function AdminOrders() {
   }
 
   const printLabel = (order) => {
-    window.open(`/api/logistics/orders/${order.id}/print`, '_blank', 'width=1000,height=760')
+    window.open(apiUrl(`/api/logistics/orders/${order.id}/print`), '_blank', 'width=1000,height=760')
   }
 
   const visible = orders.filter((o) => {

@@ -43,7 +43,7 @@ export default function ProductDetail() {
   const gallery = [product.image_url, ...product.images.map((i) => i.image_url)].filter(Boolean)
 
   return (
-    <section className="section">
+    <section className="section has-buy-bar">
       <div className="container">
         <div className="breadcrumb">
           <Link to="/">首頁</Link><span>/</span>
@@ -169,6 +169,24 @@ export default function ProductDetail() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* 手機版固定在底部的購買列，捲到哪都能直接買 */}
+      <div className="buy-bar">
+        <div className="buy-bar__price">
+          <div className="buy-bar__label">{product.spec || '售價'}</div>
+          <div className="price">
+            <span className="price__cur">NT$</span>{formatPrice(product.price)}
+          </div>
+        </div>
+        <button
+          type="button"
+          className="btn btn--primary"
+          disabled={soldOut}
+          onClick={() => add(product, qty)}
+        >
+          {soldOut ? '補貨中' : `加入購物車（${qty}）`}
+        </button>
       </div>
     </section>
   )

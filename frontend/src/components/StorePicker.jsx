@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { apiUrl } from '../api/client'
 
 /**
  * 超商門市選擇器。
@@ -56,7 +57,9 @@ export default function StorePicker({ shippingMethod, isCollection, store, onSel
   }, [])
 
   const open = () => {
-    const url = `/api/logistics/map?shipping_method=${encodeURIComponent(shippingMethod)}&is_collection=${isCollection ? 'Y' : 'N'}`
+    const url = apiUrl(
+      `/api/logistics/map?shipping_method=${encodeURIComponent(shippingMethod)}&is_collection=${isCollection ? 'Y' : 'N'}`,
+    )
     const w = 1000
     const h = 700
     const left = window.screenX + Math.max(0, (window.outerWidth - w) / 2)

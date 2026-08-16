@@ -1,19 +1,27 @@
 """寄送 Email。
 
-設計原則：**沒有設定 SMTP 也要能開發**。
-未設定 SMTP_HOST 時，信件會存成 HTML 檔放到 backend/outbox/，
-可以直接用瀏覽器打開來看，等於一個本機的假信箱。
+兩個設計重點：
+
+1. **沒有設定 SMTP 也要能開發**
+   未設定 SMTP_HOST 時，信件會存成 HTML 檔放到 backend/outbox/，
+   可以直接用瀏覽器打開來看，等於一個本機的假信箱。
+
+2. **盡量不要被當成垃圾郵件**
+   - 補齊 Date、Message-ID 等標頭（缺這些會被當成程式亂發的信）
+   - 標記為 Auto-Submitted，讓收件方知道這是交易通知而非行銷信
+   - 同時提供結構良好的純文字版本（只有 HTML 沒有純文字是明顯的垃圾信特徵）
 """
 from __future__ import annotations
 
 import re
 import smtplib
 import ssl
+from dataclasses import dataclass
 from datetime import datetime
 from email.header import Header
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.utils import formataddr
+from email.utils import formataddr, formatdate, make_msgid, parseaddr
 from html import escape
 from pathlib import Path
 
@@ -22,17 +30,27 @@ from .config import settings
 OUTBOX_DIR = Path(__file__).resolve().parent.parent / "outbox"
 
 
+@dataclass
+class EmailContent:
+    """一封信的兩種版本。多數郵件軟體看 HTML，純文字則是給文字型軟體與過濾器看的。"""
+    html: str
+    text: str
+
+
 # ---------------------------------------------------------------- 版型
 
 def render_email(title: str, greeting: str, body_lines: list[str],
                  button_text: str | None = None, button_url: str | None = None,
-                 footer_note: str | None = None) -> str:
-    """統一的信件版型（暖琥珀色系，與網站一致）。"""
+                 footer_note: str | None = None) -> EmailContent:
+    """統一的信件版型（暖琥珀色系，與網站一致），同時產生 HTML 與純文字版本。"""
     shop = settings.SMTP_FROM_NAME or "蜂蜜工坊"
+    footer = footer_note or "這是系統自動發送的信件，請勿直接回覆。"
+
     paragraphs = "".join(
-        f'<p style="margin:0 0 14px;font-size:15px;line-height:1.85;color:#5a4a36;">{line}</p>'
+        f'<p style="margin:0 0 14px;font-size:15px;line-height:1.85;color:#5a4a36;">{escape(line)}</p>'
         for line in body_lines
     )
+
     button = ""
     if button_text and button_url:
         button = f"""
@@ -52,9 +70,7 @@ def render_email(title: str, greeting: str, body_lines: list[str],
         {escape(button_url)}
       </p>"""
 
-    footer = footer_note or "這是系統自動發送的信件，請勿直接回覆。"
-
-    return f"""<!doctype html>
+    html = f"""<!doctype html>
 <html lang="zh-Hant"><head><meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" /></head>
 <body style="margin:0;padding:0;background:#fdfaf3;">
@@ -79,31 +95,31 @@ def render_email(title: str, greeting: str, body_lines: list[str],
   </table>
 </body></html>"""
 
+    # 純文字版本直接用同一份資料組出來，而不是從 HTML 硬剝標籤，品質才會好
+    lines = [shop, "=" * 30, "", title, "", greeting, ""]
+    lines += body_lines
+    if button_text and button_url:
+        lines += ["", f"{button_text}：", button_url]
+    lines += ["", "-" * 30, footer]
+    text = "\n".join(lines)
 
-def _html_to_text(html: str) -> str:
-    text = re.sub(r"<br\s*/?>", "\n", html)
-    text = re.sub(r"</p>|</h1>|</td>|</tr>", "\n", text)
-    text = re.sub(r"<[^>]+>", "", text)
-    text = re.sub(r"\n{3,}", "\n\n", text)
-    return text.strip()
+    return EmailContent(html=html, text=text)
 
 
 # ---------------------------------------------------------------- 寄送
 
-def send_email(to: str, subject: str, html: str) -> tuple[bool, str]:
+def send_email(to: str, subject: str, content: EmailContent | str) -> tuple[bool, str]:
     """寄出一封信。回傳 (是否真的寄出, 說明)。
 
     沒設定 SMTP 時不算失敗，而是存到 outbox 供開發檢視。
     """
-    if not settings.smtp_configured:
-        return _save_to_outbox(to, subject, html)
+    if isinstance(content, str):   # 向下相容：只給 HTML 也能用
+        content = EmailContent(html=content, text=_html_to_text(content))
 
-    message = MIMEMultipart("alternative")
-    message["Subject"] = Header(subject, "utf-8")
-    message["From"] = formataddr((str(Header(settings.SMTP_FROM_NAME, "utf-8")), settings.mail_from))
-    message["To"] = to
-    message.attach(MIMEText(_html_to_text(html), "plain", "utf-8"))
-    message.attach(MIMEText(html, "html", "utf-8"))
+    if not settings.smtp_configured:
+        return _save_to_outbox(to, subject, content.html)
+
+    message = _build_message(to, subject, content)
 
     try:
         if settings.SMTP_SSL:
@@ -124,9 +140,41 @@ def send_email(to: str, subject: str, html: str) -> tuple[bool, str]:
                 server.send_message(message)
         return True, "已寄出"
     except Exception as exc:  # noqa: BLE001 - 寄信失敗不該讓 API 整個掛掉
-        # 寄失敗也存一份到 outbox，方便排查
-        _save_to_outbox(to, subject, html, note=f"SMTP 失敗：{exc}")
+        _save_to_outbox(to, subject, content.html, note=f"SMTP 失敗：{exc}")
         return False, f"寄信失敗：{exc}"
+
+
+def _build_message(to: str, subject: str, content: EmailContent) -> MIMEMultipart:
+    """組出標頭完整的郵件。
+
+    缺少 Date / Message-ID 是很明顯的「機器亂發」特徵，
+    多數垃圾郵件過濾器會因此扣分，所以這裡一律補齊。
+    """
+    message = MIMEMultipart("alternative")
+    message["Subject"] = Header(subject, "utf-8")
+    message["From"] = formataddr((str(Header(settings.SMTP_FROM_NAME, "utf-8")), settings.mail_from))
+    message["To"] = to
+    message["Date"] = formatdate(localtime=True)
+
+    # Message-ID 的網域用寄件信箱的網域，與 From 一致才不會被視為偽造
+    domain = (parseaddr(settings.mail_from)[1].split("@") + ["localhost"])[1]
+    message["Message-ID"] = make_msgid(domain=domain)
+
+    message["Reply-To"] = settings.mail_from
+    # 標記為系統自動發出的交易信，避免收件方的自動回覆造成迴圈
+    message["Auto-Submitted"] = "auto-generated"
+
+    # 純文字要放在前面，HTML 放後面——郵件軟體會挑最後一個看得懂的版本顯示
+    message.attach(MIMEText(content.text, "plain", "utf-8"))
+    message.attach(MIMEText(content.html, "html", "utf-8"))
+    return message
+
+
+def _html_to_text(html: str) -> str:
+    text = re.sub(r"<br\s*/?>", "\n", html)
+    text = re.sub(r"</p>|</h1>|</td>|</tr>", "\n", text)
+    text = re.sub(r"<[^>]+>", "", text)
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
 def _save_to_outbox(to: str, subject: str, html: str, note: str = "") -> tuple[bool, str]:

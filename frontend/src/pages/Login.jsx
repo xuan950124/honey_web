@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import PasswordField from '../components/PasswordField'
 import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
@@ -44,10 +45,16 @@ export default function Login() {
                    autoComplete="username" value={form.email} onChange={change} />
           </div>
 
-          <div className="field">
-            <label htmlFor="password">密碼<span className="req">*</span></label>
-            <input id="password" className="input" type="password" name="password" required
-                   autoComplete="current-password" value={form.password} onChange={change} />
+          <PasswordField
+            label="密碼" name="password" required
+            autoComplete="current-password" value={form.password} onChange={change}
+          />
+
+          <div style={{ textAlign: 'right', marginBottom: 16 }}>
+            <Link to="/forgot-password" className="small"
+                  style={{ color: 'var(--honey-600)', textDecoration: 'underline' }}>
+              忘記密碼？
+            </Link>
           </div>
 
           <button type="submit" className="btn btn--primary btn--block" disabled={loading}>

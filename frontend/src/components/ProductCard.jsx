@@ -2,13 +2,17 @@ import { Link } from 'react-router-dom'
 import { formatPrice } from '../api/client'
 import Placeholder from './Placeholder'
 
+/**
+ * 商品卡。整張卡片就是一個連結（不再包內層連結，避免巢狀 <a>）。
+ * 手機上會收起副標、規格與按鈕，讓一排能放兩個、一頁看得到四個商品。
+ */
 export default function ProductCard({ product, hint }) {
   const soldOut = product.stock <= 0
   const onSale = product.original_price && Number(product.original_price) > Number(product.price)
 
   return (
-    <article className="card">
-      <Link to={`/products/${product.id}`} className="card__media">
+    <Link to={`/products/${product.id}`} className="card">
+      <div className="card__media">
         {product.is_group_buy && <span className="card__badge">團購</span>}
         {!product.is_group_buy && onSale && <span className="card__badge card__badge--sale">優惠</span>}
         {soldOut && <span className="card__badge card__badge--out">補貨中</span>}
@@ -18,13 +22,12 @@ export default function ProductCard({ product, hint }) {
           ratio="1x1"
           hint={hint ?? `商品照片\nproduct-${product.id}.jpg`}
         />
-      </Link>
+      </div>
+
       <div className="card__body">
         {product.category?.name && <div className="card__cat">{product.category.name}</div>}
-        <h3 className="card__title">
-          <Link to={`/products/${product.id}`}>{product.name}</Link>
-        </h3>
-        <p className="card__sub">{product.subtitle || ''}</p>
+        <h3 className="card__title">{product.name}</h3>
+        {product.subtitle && <p className="card__sub">{product.subtitle}</p>}
         {(product.spec || product.origin) && (
           <div className="card__meta">
             {product.spec}
@@ -32,17 +35,17 @@ export default function ProductCard({ product, hint }) {
             {product.origin}
           </div>
         )}
+
         <div className="card__foot">
-          <div className="price">
-            <span className="price__cur">NT$</span>
-            {formatPrice(product.price)}
+          <div className="card__price">
             {onSale && <span className="price__old">NT${formatPrice(product.original_price)}</span>}
+            <div className="price">
+              <span className="price__cur">NT$</span>{formatPrice(product.price)}
+            </div>
           </div>
-          <Link to={`/products/${product.id}`} className="btn btn--outline btn--sm">
-            看詳情
-          </Link>
+          <span className="card__cta">看詳情</span>
         </div>
       </div>
-    </article>
+    </Link>
   )
 }

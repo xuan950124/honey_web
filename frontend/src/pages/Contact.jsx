@@ -110,6 +110,26 @@ export default function Contact() {
     },
     { label: '營業時間', value: settings.business_hours || <Empty /> },
     {
+      label: '溯源編號',
+      value: settings.traceability_code ? (
+        <>
+          <a
+            href={`https://qrc.afa.gov.tw/blog/${settings.traceability_code}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {settings.traceability_code}
+          </a>
+          <div className="small muted" style={{ marginTop: 2 }}>
+            農業部農糧署溯源農糧產品追溯系統
+            {settings.producer_name ? `．生產者 ${settings.producer_name}` : ''}
+          </div>
+        </>
+      ) : (
+        <Empty />
+      ),
+    },
+    {
       label: '社群',
       value:
         settings.facebook_url || settings.instagram_url ? (

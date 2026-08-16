@@ -30,7 +30,7 @@ export default function Products() {
       <section className="page-hero">
         <div className="container">
           <h1 className="page-hero__title">蜂蜜商品</h1>
-          <p className="page-hero__desc">依花期分批採收裝瓶，每一批的色澤與風味都略有不同</p>
+          <p className="page-hero__desc">基隆七堵自家蜂場採收，依花期分批裝瓶，每一批的色澤與風味都略有不同</p>
         </div>
       </section>
 
@@ -59,7 +59,7 @@ export default function Products() {
           {loading ? (
             <div className="loading">載入商品中…</div>
           ) : visible.length ? (
-            <div className="grid grid--4">
+            <div className="grid grid--4 grid--products">
               {visible.map((p) => <ProductCard key={p.id} product={p} />)}
             </div>
           ) : (

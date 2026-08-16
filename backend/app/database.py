@@ -18,17 +18,31 @@ class Base(DeclarativeBase):
 
 
 def ensure_database() -> None:
-    """若 MySQL 中還沒有這個 database，先建立它。"""
-    tmp_engine = create_engine(settings.server_url, pool_pre_ping=True)
-    with tmp_engine.connect() as conn:
-        conn.execute(
-            text(
-                f"CREATE DATABASE IF NOT EXISTS `{settings.DB_NAME}` "
-                "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+    """若 MySQL 中還沒有這個 database，先建立它。
+
+    託管型的資料庫服務（Zeabur、各家雲端 RDS）通常已經幫你開好 database，
+    而且給的帳號**沒有** CREATE DATABASE 權限，這時建立會失敗。
+    只要目標 database 本身連得上，就當作沒問題繼續往下跑。
+    """
+    try:
+        tmp_engine = create_engine(settings.server_url, pool_pre_ping=True)
+        with tmp_engine.connect() as conn:
+            conn.execute(
+                text(
+                    f"CREATE DATABASE IF NOT EXISTS `{settings.DB_NAME}` "
+                    "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+                )
             )
-        )
-        conn.commit()
-    tmp_engine.dispose()
+            conn.commit()
+        tmp_engine.dispose()
+    except Exception as exc:  # noqa: BLE001
+        # 連得到目標 database 就沒事；連不到才是真的有問題，讓原始錯誤往上拋
+        try:
+            engine.connect().close()
+            print(f"[資料庫] 略過建立 database（{type(exc).__name__}），"
+                  f"已直接連上 {settings.DB_NAME}")
+        except Exception:
+            raise exc from None
 
 
 def get_db():

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import PasswordField from '../components/PasswordField'
 import { useAuth } from '../context/AuthContext'
 
 export default function Register() {
@@ -8,6 +9,7 @@ export default function Register() {
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [done, setDone] = useState(null)
   const { register } = useAuth()
   const navigate = useNavigate()
 
@@ -21,19 +23,55 @@ export default function Register() {
 
     setLoading(true)
     try {
-      await register({
+      const res = await register({
         email: form.email,
         password: form.password,
         name: form.name,
         phone: form.phone || null,
         address: form.address || null,
       })
-      navigate('/member', { replace: true })
+      setDone(res)
+      window.scrollTo(0, 0)
     } catch (err) {
       setError(err.message)
     } finally {
       setLoading(false)
     }
+  }
+
+  if (done) {
+    return (
+      <section className="section">
+        <div className="container form-page">
+          <div className="form-card text-center">
+            <h1 style={{ fontSize: 24, color: 'var(--honey-900)', marginBottom: 12 }}>註冊完成</h1>
+            <p className="muted">
+              我們寄了一封驗證信到 <strong style={{ color: 'var(--honey-700)' }}>{form.email}</strong>，
+              請點信中的連結完成驗證。
+            </p>
+            <p className="small muted">沒收到的話，請檢查垃圾郵件匣，或稍後到會員中心重寄。</p>
+
+            {done.dev_verify_url && (
+              <div className="alert alert--info" style={{ textAlign: 'left', marginTop: 18 }}>
+                <strong>開發模式</strong>：目前尚未設定寄信服務，可直接點下面的連結完成驗證。
+                <div style={{ marginTop: 10 }}>
+                  <a href={done.dev_verify_url} className="btn btn--primary btn--sm">直接完成驗證</a>
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 22, flexWrap: 'wrap' }}>
+              <button type="button" className="btn btn--primary" onClick={() => navigate('/member')}>
+                前往會員中心
+              </button>
+              <button type="button" className="btn btn--outline" onClick={() => navigate('/products')}>
+                開始選購
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    )
   }
 
   return (
@@ -59,17 +97,16 @@ export default function Register() {
           </div>
 
           <div className="form-row">
-            <div className="field">
-              <label htmlFor="password">密碼<span className="req">*</span></label>
-              <input id="password" className="input" type="password" name="password" required minLength={6}
-                     autoComplete="new-password" value={form.password} onChange={change} />
-              <div className="field__hint">至少 6 個字元</div>
-            </div>
-            <div className="field">
-              <label htmlFor="confirm">確認密碼<span className="req">*</span></label>
-              <input id="confirm" className="input" type="password" name="confirm" required
-                     autoComplete="new-password" value={form.confirm} onChange={change} />
-            </div>
+            <PasswordField
+              label="密碼" name="password" required minLength={6}
+              autoComplete="new-password" value={form.password} onChange={change}
+              hint="至少 6 個字元"
+            />
+            <PasswordField
+              label="確認密碼" name="confirm" required
+              autoComplete="new-password" value={form.confirm} onChange={change}
+              toggleLabel="顯示確認密碼"
+            />
           </div>
 
           <div className="field">

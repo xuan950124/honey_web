@@ -20,7 +20,7 @@ export default function Story() {
       <section className="page-hero">
         <div className="container">
           <h1 className="page-hero__title">品牌故事</h1>
-          <p className="page-hero__desc">關於蜂箱、花期，以及一家人和蜜蜂相處的日子</p>
+          <p className="page-hero__desc">關於基隆的雨、山裡的花，以及一個第一代蜂農的學徒之路</p>
         </div>
       </section>
 

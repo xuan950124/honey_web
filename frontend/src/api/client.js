@@ -1,4 +1,22 @@
-// 與 FastAPI 後端溝通的薄封裝。開發時由 vite.config.js 的 proxy 轉發到 8000 埠。
+// 與 FastAPI 後端溝通的薄封裝。
+//
+// 本機開發：VITE_API_BASE 留空，走 vite.config.js 的 proxy 轉發到 8000 埠。
+// 正式部署：前後端是不同網域，打包時要設定
+//     VITE_API_BASE=https://api.你的網域.com
+// Vite 會在「建置階段」把這個值寫死進去，所以改了必須重新部署才會生效。
+const API_BASE = (import.meta.env.VITE_API_BASE || '').replace(/\/+$/, '')
+
+/** 後端的完整網址。給 window.open、表單 action 這類需要絕對路徑的地方用。 */
+export const apiUrl = (path = '') => `${API_BASE}${path}`
+
+/** 後端上傳的圖片網址。資料庫存的是 /uploads/xxx.jpg 這種相對路徑。 */
+export const mediaUrl = (path) => {
+  if (!path) return path
+  if (/^(https?:|data:|blob:)/i.test(path)) return path   // 已經是完整網址
+  if (path.startsWith('/uploads')) return `${API_BASE}${path}`
+  return path                                              // /images/xxx 放在前端自己的 public
+}
+
 const TOKEN_KEY = 'honey_token'
 
 export const getToken = () => localStorage.getItem(TOKEN_KEY)
@@ -11,7 +29,7 @@ async function request(path, { method = 'GET', body, isForm = false } = {}) {
   if (token) headers.Authorization = `Bearer ${token}`
   if (!isForm && body !== undefined) headers['Content-Type'] = 'application/json'
 
-  const res = await fetch(path, {
+  const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers,
     body: isForm ? body : body !== undefined ? JSON.stringify(body) : undefined,
@@ -46,6 +64,21 @@ export const api = {
   login: (payload) => request('/api/auth/login', { method: 'POST', body: payload }),
   me: () => request('/api/auth/me'),
   updateMe: (payload) => request('/api/auth/me', { method: 'PATCH', body: payload }),
+
+  // 信箱驗證與密碼
+  resendVerification: () =>
+    request('/api/auth/verify-email/resend', { method: 'POST' }),
+  confirmVerification: (token) =>
+    request('/api/auth/verify-email/confirm', { method: 'POST', body: { token } }),
+  forgotPassword: (email) =>
+    request('/api/auth/password/forgot', { method: 'POST', body: { email } }),
+  resetPassword: (token, password) =>
+    request('/api/auth/password/reset', { method: 'POST', body: { token, password } }),
+  changePassword: (currentPassword, newPassword) =>
+    request('/api/auth/password/change', {
+      method: 'POST',
+      body: { current_password: currentPassword, new_password: newPassword },
+    }),
 
   // 商品
   listProducts: (params = {}) => {

@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 
 from sqlalchemy import (
-    Boolean, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text, func
+    Boolean, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -96,9 +96,14 @@ class User(Base):
         nullable=False,
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
     orders: Mapped[list["Order"]] = relationship(back_populates="user")
+    tokens: Mapped[list["AuthToken"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class Category(Base):
@@ -132,9 +137,9 @@ class Product(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"))
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), onupdate=func.now()
+        DateTime, default=datetime.now, onupdate=datetime.now
     )
 
     category: Mapped["Category | None"] = relationship(back_populates="products")
@@ -171,7 +176,7 @@ class News(Base):
     source_url: Mapped[str | None] = mapped_column(String(400))    # 原文連結
     cover_url: Mapped[str | None] = mapped_column(String(255))
     category: Mapped[str] = mapped_column(String(40), default="news")  # news / media
-    published_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    published_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
@@ -186,7 +191,7 @@ class Story(Base):
     cover_url: Mapped[str | None] = mapped_column(String(255))
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
 
 class Order(Base):
@@ -206,7 +211,7 @@ class Order(Base):
         Enum(OrderStatus, native_enum=False, length=20),
         default=OrderStatus.pending, nullable=False,
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
     # ---------------- 送貨 ----------------
     shipping_method: Mapped[ShippingMethod] = mapped_column(
@@ -294,4 +299,32 @@ class EcpayLog(Base):
     success: Mapped[bool] = mapped_column(Boolean, default=True)
     message: Mapped[str | None] = mapped_column(String(300))
     payload: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
+class TokenPurpose(str, enum.Enum):
+    verify_email = "verify_email"       # 驗證信箱
+    reset_password = "reset_password"   # 重設密碼
+
+
+class AuthToken(Base):
+    """信箱驗證與重設密碼用的一次性權杖。
+
+    安全性：資料庫只存權杖的 SHA-256 雜湊，不存原始字串。
+    就算資料庫外洩，也無法反推出可用的連結。
+    """
+    __tablename__ = "auth_tokens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
+    purpose: Mapped[TokenPurpose] = mapped_column(
+        Enum(TokenPurpose, native_enum=False, length=30), nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+    user: Mapped["User"] = relationship(back_populates="tokens")

@@ -40,6 +40,8 @@ class UserOut(ORMModel):
     address: str | None = None
     role: UserRole
     is_active: bool
+    email_verified: bool = False
+    email_verified_at: datetime | None = None
     created_at: datetime | None = None
 
 
@@ -47,6 +49,34 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserOut
+    # 開發環境（未設定 SMTP）會附上驗證連結，方便直接測試；正式環境永遠為 None
+    dev_verify_url: str | None = None
+
+
+# ---------- 信箱驗證 / 密碼 ----------
+class EmailIn(BaseModel):
+    email: EmailStr
+
+
+class TokenIn(BaseModel):
+    token: str = Field(min_length=8, max_length=200)
+
+
+class PasswordResetIn(BaseModel):
+    token: str = Field(min_length=8, max_length=200)
+    password: str = Field(min_length=6, max_length=64)
+
+
+class PasswordChangeIn(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=6, max_length=64)
+
+
+class SimpleMessage(BaseModel):
+    ok: bool = True
+    message: str
+    # 只有開發環境（未設定 SMTP）才會有值，方便不用真的收信就能測試
+    dev_url: str | None = None
 
 
 # ---------- 分類 ----------
