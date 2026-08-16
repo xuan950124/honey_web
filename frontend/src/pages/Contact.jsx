@@ -193,7 +193,12 @@ export default function Contact() {
                   </button>
                 )}
                 <div style={{ maxWidth: 180, margin: '22px auto 0' }}>
-                  <Placeholder ratio="1x1" hint={'LINE QR Code\nline-qr.png'} alt="LINE QR Code" />
+                  <Placeholder
+                    src={settings.line_qr_url}
+                    ratio="1x1"
+                    hint={'LINE QR Code\n（後台「網站設定 → 圖片」上傳）'}
+                    alt="LINE QR Code"
+                  />
                 </div>
               </div>
 

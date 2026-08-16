@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
+import ImageUploader from '../../components/ImageUploader'
 import { useSettings } from '../../context/SettingsContext'
 
 const FIELDS = [
@@ -36,6 +37,28 @@ const SHIPPING_FIELDS = [
   { key: 'cod_fee', label: '貨到付款手續費', hint: '會加在買家的訂單金額上，填 0 表示不加收' },
 ]
 
+// 各頁面的固定圖片，直接在後台上傳，不需要改程式碼
+const IMAGE_FIELDS = [
+  {
+    key: 'hero_image_url',
+    label: '首頁主視覺',
+    ratio: '4x3',
+    hint: '首頁最上方的大圖。建議橫式、約 1200×900，蜂場或蜂箱的實景照最有說服力。',
+  },
+  {
+    key: 'group_buy_image_url',
+    label: '團購專區情境照',
+    ratio: '4x3',
+    hint: '團購頁的配圖，例如整箱包裝好的樣子。',
+  },
+  {
+    key: 'line_qr_url',
+    label: 'LINE QR Code',
+    ratio: '1x1',
+    hint: '正方形。從 LINE 官方帳號後台可以下載自己的 QR Code。',
+  },
+]
+
 const SENDER_FIELDS = [
   {
     key: 'sender_name',
@@ -66,7 +89,7 @@ export default function AdminSettings() {
     setErr(''); setMsg(''); setSaving(true)
     try {
       const payload = {}
-      ;[...FIELDS, ...SHIPPING_FIELDS, ...SENDER_FIELDS].forEach((f) => {
+      ;[...FIELDS, ...IMAGE_FIELDS, ...SHIPPING_FIELDS, ...SENDER_FIELDS].forEach((f) => {
         payload[f.key] = values[f.key] || ''
       })
       await api.updateSettings(payload)
@@ -100,6 +123,23 @@ export default function AdminSettings() {
           </div>
         ))}
 
+      </form>
+
+      <form className="panel" onSubmit={submit}>
+        <h2 className="panel__title">圖片</h2>
+        <p className="small muted" style={{ marginTop: -8 }}>
+          這些是各頁面的固定圖片。上傳後按最下方的「儲存全部設定」才會生效。
+        </p>
+        {IMAGE_FIELDS.map((f) => (
+          <ImageUploader
+            key={f.key}
+            label={f.label}
+            ratio={f.ratio}
+            hint={f.hint}
+            value={values[f.key] || null}
+            onChange={(url) => setValues((v) => ({ ...v, [f.key]: url || '' }))}
+          />
+        ))}
       </form>
 
       <form className="panel" onSubmit={submit}>

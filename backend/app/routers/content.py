@@ -133,6 +133,11 @@ DEFAULT_SETTINGS = {
     "facebook_url": "",
     "instagram_url": "",
     "map_embed_url": "",
+    # 各頁面的固定圖片（後台可直接上傳，不用改程式碼）
+    "hero_image_url": "",
+    "group_buy_image_url": "",
+    "line_qr_url": "",
+    "story_cover_url": "",
     # 農業部農糧署「溯源農糧產品追溯系統」資訊
     "producer_name": "",
     "traceability_code": "",

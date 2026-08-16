@@ -65,7 +65,12 @@ export default function Home() {
               </div>
             </div>
             <div>
-              <Placeholder ratio="4x3" alt="首頁主視覺" hint={'首頁主視覺\nhero.jpg'} />
+              <Placeholder
+                src={settings.hero_image_url}
+                ratio="4x3"
+                alt="首頁主視覺"
+                hint={'首頁主視覺\n（後台「網站設定 → 圖片」上傳）'}
+              />
             </div>
           </div>
         </div>

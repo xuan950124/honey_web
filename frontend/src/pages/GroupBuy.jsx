@@ -54,7 +54,12 @@ export default function GroupBuy() {
                 )}
               </div>
             </div>
-            <Placeholder ratio="4x3" hint={'團購情境照\ngroup-buy.jpg'} alt="團購情境照" />
+            <Placeholder
+              src={settings.group_buy_image_url}
+              ratio="4x3"
+              hint={'團購情境照\n（後台「網站設定 → 圖片」上傳）'}
+              alt="團購情境照"
+            />
           </div>
         </div>
       </section>
