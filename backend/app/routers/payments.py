@@ -7,7 +7,9 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+import re
+from datetime import datetime, timedelta
+from html import escape
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -17,12 +19,14 @@ from sqlalchemy.orm import Session, joinedload
 from ..config import settings
 from ..database import get_db
 from ..deps import require_staff
+from .. import membership
 from ..ecpay import (
     auto_submit_form, sanitize_goods_name, verify_check_mac_value, with_check_mac_value,
 )
 from ..models import (
     PAYMENT_MAP, EcpayLog, Order, OrderStatus, PaymentMethod, PaymentStatus,
 )
+from ..shipping import unpaid_expire_days
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 
@@ -39,7 +43,39 @@ def _log(db: Session, kind: str, order_no: str | None, success: bool,
     ))
 
 
-def _build_checkout_params(order: Order) -> dict[str, object]:
+def next_trade_no(order: Order) -> str:
+    """算出這次要送給綠界的 MerchantTradeNo。
+
+    綠界規定 MerchantTradeNo 不可重複 —— 同一組編號送第二次會被退回
+    「MerchantTradeNo is exist」。所以重新付款時要換一組編號：
+    第一次用訂單編號本身，第二次以後加上 R2、R3…（上限 20 碼）。
+    回呼時再從編號還原成訂單，見 _find_order。
+    """
+    attempt = int(order.payment_attempts or 0) + 1
+    if attempt <= 1:
+        return order.order_no[:20]
+    suffix = f"R{attempt}"
+    return f"{order.order_no[:20 - len(suffix)]}{suffix}"
+
+
+def _find_order(db: Session, trade_no: str) -> Order | None:
+    """從綠界回傳的 MerchantTradeNo 找回訂單（重新付款會帶 R2、R3 這種尾碼）。"""
+    if not trade_no:
+        return None
+    order = db.query(Order).filter(Order.payment_trade_no == trade_no).first()
+    if order:
+        return order
+    order = db.query(Order).filter(Order.order_no == trade_no).first()
+    if order:
+        return order
+    # 舊的那次付款（例如買家最後還是去繳了第一次取的 ATM 帳號）
+    base = re.sub(r"R\d+$", "", trade_no)
+    if base and base != trade_no:
+        return db.query(Order).filter(Order.order_no.like(f"{base}%")).first()
+    return None
+
+
+def _build_checkout_params(order: Order, trade_no: str) -> dict[str, object]:
     choose_payment = PAYMENT_MAP[order.payment_method.value][0]
     if not choose_payment:
         raise HTTPException(status_code=400, detail="貨到付款不需要線上付款")
@@ -56,8 +92,10 @@ def _build_checkout_params(order: Order) -> dict[str, object]:
 
     params: dict[str, object] = {
         "MerchantID": settings.ECPAY_MERCHANT_ID,
-        "MerchantTradeNo": order.order_no[:20],
-        "MerchantTradeDate": order.created_at.strftime("%Y/%m/%d %H:%M:%S"),
+        "MerchantTradeNo": trade_no,
+        # 用「現在」而不是下單時間：重新付款時送出幾天前的日期沒有意義，
+        # 綠界的交易紀錄也會對不起來
+        "MerchantTradeDate": datetime.now().strftime("%Y/%m/%d %H:%M:%S"),
         "PaymentType": "aio",
         "TotalAmount": int(round(float(order.total_amount))),
         "TradeDesc": "蜂蜜商品訂單",
@@ -79,24 +117,83 @@ def _build_checkout_params(order: Order) -> dict[str, object]:
     return params
 
 
+def _payment_error_page(message: str, order_no: str) -> HTMLResponse:
+    """付款前的檢查沒過時，回一頁看得懂的中文說明並附上回訂單頁的按鈕。
+
+    這裡刻意不丟 HTTPException —— 買家是被瀏覽器整頁導過來的，
+    看到 FastAPI 的 {"detail": "..."} JSON 只會不知所措。
+    """
+    front = settings.FRONTEND_BASE_URL.rstrip("/")
+    back = f"{front}/order/{order_no}" if order_no else front
+    return HTMLResponse(f"""<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>無法前往付款</title><style>
+ body {{ font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+        background:#fdfaf3;color:#33291d;display:flex;align-items:center;
+        justify-content:center;min-height:100vh;margin:0;padding:24px;text-align:center; }}
+ .box {{ max-width:420px; }}
+ h1 {{ font-size:20px;color:#7a5424;margin:0 0 12px; }}
+ p {{ font-size:15px;line-height:1.7;color:#6d6053;margin:0 0 22px; }}
+ a {{ display:inline-block;padding:11px 26px;background:#c8952b;color:#fff;
+      border-radius:4px;text-decoration:none;font-size:15px; }}
+</style></head>
+<body><div class="box">
+  <h1>無法前往付款</h1>
+  <p>{escape(message)}</p>
+  <a href="{escape(back)}">回到訂單頁</a>
+</div></body></html>""", status_code=400)
+
+
 @router.get("/{order_no}/checkout", response_class=HTMLResponse)
 def checkout(order_no: str, db: Session = Depends(get_db)):
-    """導向綠界付款頁。前端把瀏覽器整頁導到這個網址即可（不要用 iframe）。"""
+    """導向綠界付款頁。前端把瀏覽器整頁導到這個網址即可（不要用 iframe）。
+
+    第二次以後進來就是「重新付款」：換一組 MerchantTradeNo 再送一次，
+    訂單、折價券、庫存都不動。
+    """
     order = (
         db.query(Order).options(joinedload(Order.items))
         .filter(Order.order_no == order_no).first()
     )
     if not order:
-        raise HTTPException(status_code=404, detail="找不到訂單")
+        return _payment_error_page("找不到這筆訂單，請確認訂單編號是否正確。", order_no)
     if order.payment_status == PaymentStatus.paid:
-        raise HTTPException(status_code=400, detail="這筆訂單已經付款完成")
+        return _payment_error_page("這筆訂單已經付款完成，不需要再付一次。", order_no)
     if order.payment_method == PaymentMethod.cod:
-        raise HTTPException(status_code=400, detail="貨到付款不需要線上付款")
+        return _payment_error_page("這筆訂單是貨到付款，取貨時付現即可。", order_no)
+    if order.status == OrderStatus.cancelled:
+        return _payment_error_page(
+            f"這筆訂單已經取消{f'（{order.cancel_reason}）' if order.cancel_reason else ''}，"
+            "無法付款。請重新下單，或與我們聯絡。",
+            order_no,
+        )
 
-    params = _build_checkout_params(order)
+    days = unpaid_expire_days(db)
+    if days > 0 and order.created_at + timedelta(days=days) < datetime.now():
+        return _payment_error_page(
+            f"這筆訂單已超過 {days} 天的付款期限。請重新下單，或與我們聯絡由我們協助處理。",
+            order_no,
+        )
+
+    trade_no = next_trade_no(order)
+    params = _build_checkout_params(order, trade_no)
     signed = with_check_mac_value(
         params, settings.ECPAY_HASH_KEY, settings.ECPAY_HASH_IV, algorithm="sha256"
     )
+
+    order.payment_attempts = int(order.payment_attempts or 0) + 1
+    order.payment_trade_no = trade_no
+    # 換了新的交易編號，舊的虛擬帳號就作廢了，不要繼續顯示給買家
+    if order.payment_attempts > 1:
+        order.payment_no = None
+        order.payment_bank_code = None
+        order.payment_expire_date = None
+        order.payment_status = PaymentStatus.unpaid
+    _log(db, "payment_checkout", order.order_no, True,
+         f"第 {order.payment_attempts} 次付款，交易編號 {trade_no}", params)
+    db.commit()
+
     return HTMLResponse(auto_submit_form(
         f"{settings.ecpay_payment_host}/Cashier/AioCheckOut/V5",
         signed, title="前往付款", note="正在將您導向綠界付款頁…",
@@ -112,8 +209,14 @@ def _apply_payment_result(db: Session, order: Order, form: dict[str, str]) -> No
     if code in SUCCESS_CODES:
         order.payment_status = PaymentStatus.paid
         order.paid_at = datetime.now()
+        order.payment_message = None
         if order.status == OrderStatus.pending:
             order.status = OrderStatus.paid
+        # 付款完成才計入會員累積消費（內部有防重複計算的旗標）
+        issued = membership.record_spending(db, order)
+        for coupon in issued:
+            _log(db, "coupon_issued", order.order_no, True,
+                 f"累積消費達標，發放折價券 {coupon.code}（{coupon.name}）", {})
     elif code in TAKEN_NUMBER_CODES:
         # ATM / 超商代碼取號成功，還沒真的付款
         order.payment_status = PaymentStatus.pending
@@ -122,8 +225,11 @@ def _apply_payment_result(db: Session, order: Order, form: dict[str, str]) -> No
         )
         order.payment_bank_code = form.get("BankCode") or order.payment_bank_code
         order.payment_expire_date = form.get("ExpireDate") or order.payment_expire_date
+        order.payment_message = None
     else:
         order.payment_status = PaymentStatus.failed
+        # 綠界的訊息通常是「銀行拒絕授權」這類，直接給買家看比代碼有用
+        order.payment_message = (form.get("RtnMsg") or f"付款失敗（代碼 {code}）")[:200]
 
 
 @router.post("/callback", response_class=PlainTextResponse)
@@ -134,26 +240,27 @@ async def payment_callback(request: Request, db: Session = Depends(get_db)):
     本機開發請用 ngrok 之類的工具，並把 BACKEND_BASE_URL 設成公開網址。
     """
     form = {k: str(v) for k, v in (await request.form()).items()}
-    order_no = form.get("MerchantTradeNo", "")
+    trade_no = form.get("MerchantTradeNo", "")
 
     if not verify_check_mac_value(
         form, settings.ECPAY_HASH_KEY, settings.ECPAY_HASH_IV, algorithm="sha256"
     ):
-        _log(db, "payment_callback", order_no, False, "檢查碼驗證失敗", form)
+        _log(db, "payment_callback", trade_no, False, "檢查碼驗證失敗", form)
         db.commit()
         return PlainTextResponse("0|CheckMacValue Error")
 
     # SimulatePaid=1 代表是後台的「模擬付款」測試，不可改動訂單狀態
     if str(form.get("SimulatePaid", "0")) == "1":
-        _log(db, "payment_callback", order_no, True, "模擬付款測試，未變更訂單", form)
+        _log(db, "payment_callback", trade_no, True, "模擬付款測試，未變更訂單", form)
         db.commit()
         return PlainTextResponse("1|OK")
 
-    order = db.query(Order).filter(Order.order_no == order_no).first()
+    order = _find_order(db, trade_no)
     if not order:
-        _log(db, "payment_callback", order_no, False, "找不到對應訂單", form)
+        _log(db, "payment_callback", trade_no, False, "找不到對應訂單", form)
         db.commit()
         return PlainTextResponse("1|OK")  # 仍回 OK，避免綠界不斷重送
+    order_no = order.order_no
 
     # 金額必須相符，防止竄改
     try:
@@ -176,16 +283,19 @@ async def payment_callback(request: Request, db: Session = Depends(get_db)):
 async def payment_result(request: Request, db: Session = Depends(get_db)):
     """付款完成後綠界把「瀏覽器」導回這裡（OrderResultURL），再轉回前端訂單頁。"""
     form = {k: str(v) for k, v in (await request.form()).items()}
-    order_no = form.get("MerchantTradeNo", "")
+    trade_no = form.get("MerchantTradeNo", "")
+    order_no = trade_no
 
     if verify_check_mac_value(
         form, settings.ECPAY_HASH_KEY, settings.ECPAY_HASH_IV, algorithm="sha256"
     ):
-        order = db.query(Order).filter(Order.order_no == order_no).first()
-        if order and order.payment_status != PaymentStatus.paid:
-            _apply_payment_result(db, order, form)
-            _log(db, "payment_result", order_no, True, form.get("RtnMsg", ""), form)
-            db.commit()
+        order = _find_order(db, trade_no)
+        if order:
+            order_no = order.order_no
+            if order.payment_status != PaymentStatus.paid:
+                _apply_payment_result(db, order, form)
+                _log(db, "payment_result", order_no, True, form.get("RtnMsg", ""), form)
+                db.commit()
 
     front = settings.FRONTEND_BASE_URL.rstrip("/")
     return RedirectResponse(url=f"{front}/order/{order_no}", status_code=303)
@@ -202,9 +312,10 @@ def sync_payment_status(order_no: str, db: Session = Depends(get_db)):
     if not order:
         raise HTTPException(status_code=404, detail="找不到訂單")
 
+    # 查最後一次真的送出去的交易編號（重新付款過的話會是 R2、R3 那組）
     params = {
         "MerchantID": settings.ECPAY_MERCHANT_ID,
-        "MerchantTradeNo": order.order_no[:20],
+        "MerchantTradeNo": order.payment_trade_no or order.order_no[:20],
         "TimeStamp": int(datetime.now().timestamp()),
     }
     signed = with_check_mac_value(
@@ -237,8 +348,10 @@ def sync_payment_status(order_no: str, db: Session = Depends(get_db)):
     if trade_status == "1":
         order.payment_status = PaymentStatus.paid
         order.paid_at = order.paid_at or datetime.now()
+        order.payment_message = None
         if order.status == OrderStatus.pending:
             order.status = OrderStatus.paid
+        membership.record_spending(db, order)
     elif trade_status == "0":
         order.payment_status = PaymentStatus.unpaid
     elif trade_status == "10":
@@ -255,3 +368,33 @@ def sync_payment_status(order_no: str, db: Session = Depends(get_db)):
         "trade_no": order.ecpay_trade_no,
         "message": data.get("TradeStatus_Msg") or data.get("RtnMsg") or "",
     }
+
+
+@router.post("/{order_no}/mark-paid", dependencies=[Depends(require_staff)])
+def mark_paid(order_no: str, db: Session = Depends(get_db)):
+    """工作人員手動註記「已收到款項」。
+
+    用在綠界以外的收款：買家直接匯款、面交付現、或綠界通知漏掉而查詢也查不到。
+    會照正常流程計入會員累積消費並發券，跟線上付款成功一模一樣。
+    """
+    order = (
+        db.query(Order).options(joinedload(Order.items))
+        .filter(Order.order_no == order_no).first()
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="找不到訂單")
+    if order.payment_status == PaymentStatus.paid:
+        raise HTTPException(status_code=400, detail="這筆訂單已經是已付款狀態")
+
+    order.payment_status = PaymentStatus.paid
+    order.paid_at = order.paid_at or datetime.now()
+    order.payment_message = None
+    if order.status in (OrderStatus.pending, OrderStatus.cancelled):
+        order.status = OrderStatus.paid
+    issued = membership.record_spending(db, order)
+
+    _log(db, "payment_manual", order_no, True, "工作人員手動註記已收款", {})
+    db.commit()
+
+    extra = f"，並發放 {len(issued)} 張折價券" if issued else ""
+    return {"ok": True, "message": f"已註記為已付款{extra}。", "payment_status": "paid"}

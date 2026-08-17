@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   LOGISTICS_STATUS_TEXT, ORDER_STATUS_TEXT, PAYMENT_STATUS_TEXT,
-  api, formatDate, formatPrice,
+  api, apiUrl, formatDate, formatPrice,
 } from '../api/client'
+import CouponCard from '../components/CouponCard'
 import PasswordField from '../components/PasswordField'
 import { useAuth } from '../context/AuthContext'
 
@@ -14,6 +15,13 @@ export default function Member() {
   const [form, setForm] = useState({ name: '', phone: '', address: '' })
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
+
+  // 會員等級與折價券
+  const [membership, setMembership] = useState(null)
+
+  useEffect(() => {
+    api.membership().then(setMembership).catch(() => setMembership(null))
+  }, [])
 
   // 信箱驗證
   const [verifyMsg, setVerifyMsg] = useState(null)
@@ -65,6 +73,10 @@ export default function Member() {
   }, [])
 
   const change = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }))
+
+  // 還沒付款的訂單。放在最上面 —— 這是進會員中心第一眼就該看到的事，
+  // 埋在訂單表格裡買家很容易以為自己已經買到了。
+  const unpaid = orders.filter((o) => o.can_retry_payment)
 
   const save = async (e) => {
     e.preventDefault()
@@ -120,12 +132,146 @@ export default function Member() {
             </div>
           )}
 
+          {unpaid.length > 0 && (
+            <div className="unpaid-box">
+              <div className="unpaid-box__title">
+                有 {unpaid.length} 筆訂單還沒完成付款
+              </div>
+              <p className="small" style={{ margin: '0 0 14px', color: 'var(--honey-800)' }}>
+                我們會先幫你保留商品，完成付款後才會安排出貨。
+              </p>
+              {unpaid.map((o) => (
+                <div className="unpaid-row" key={o.id}>
+                  <div>
+                    <Link to={`/order/${o.order_no}`} style={{ fontFamily: 'monospace' }}>
+                      {o.order_no}
+                    </Link>
+                    <div className="small muted">
+                      {o.items.map((i) => `${i.product_name}×${i.quantity}`).join('、')}
+                      　NT${formatPrice(o.total_amount)}
+                      {o.payment_status === 'failed' && (
+                        <span style={{ color: 'var(--danger)' }}>　付款失敗</span>
+                      )}
+                    </div>
+                  </div>
+                  <a
+                    className="btn btn--primary btn--sm"
+                    href={apiUrl(`/api/payments/${o.order_no}/checkout`)}
+                  >
+                    立即付款
+                  </a>
+                </div>
+              ))}
+            </div>
+          )}
+
           {isStaff && (
             <div className="alert alert--info" style={{ marginBottom: 24 }}>
               您是工作人員帳號，可前往
               <Link to="/admin" style={{ textDecoration: 'underline', fontWeight: 500 }}> 後台管理 </Link>
               新增商品、上傳照片與管理訂單。
             </div>
+          )}
+
+          {membership && (
+            <>
+              <div className="cart-layout" style={{ marginBottom: 22 }}>
+                <div className="tier-card">
+                  <div className="tier-card__label">MEMBERSHIP</div>
+                  <div className="tier-card__name">{membership.tier?.name || '一般會員'}</div>
+                  <div className="tier-card__perk">
+                    {Number(membership.tier?.discount_percent) > 0
+                      ? `每筆訂單享 ${(100 - Number(membership.tier.discount_percent)) / 10} 折優惠`
+                      : '消費累積可升級，享受更多優惠'}
+                  </div>
+
+                  <div className="tier-card__spent">
+                    <div className="tier-card__label" style={{ marginBottom: 4 }}>累積消費</div>
+                    <div className="tier-card__amount">NT${formatPrice(membership.total_spent)}</div>
+
+                    {membership.next_tier && (
+                      <div className="tier-progress">
+                        <div className="tier-progress__bar">
+                          <div
+                            className="tier-progress__fill"
+                            style={{
+                              width: `${Math.min(
+                                100,
+                                (Number(membership.total_spent) /
+                                  Number(membership.next_tier.min_spent)) * 100,
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                        <div className="tier-progress__text">
+                          再消費 NT${formatPrice(membership.amount_to_next_tier)} 可升級為
+                          {membership.next_tier.name}
+                        </div>
+                      </div>
+                    )}
+                    {!membership.next_tier && membership.tier && (
+                      <div className="tier-progress__text" style={{ marginTop: 12 }}>
+                        已達最高等級，感謝你的支持
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="panel" style={{ margin: 0 }}>
+                  <h2 className="panel__title">我的折價券（{membership.coupons.length}）</h2>
+                  {membership.coupons.length ? (
+                    <div className="coupon-list">
+                      {membership.coupons.map((c) => <CouponCard key={c.id} coupon={c} />)}
+                    </div>
+                  ) : (
+                    <p className="small muted" style={{ margin: 0 }}>
+                      目前沒有可用的折價券。累積消費達標或完成信箱驗證都會自動獲得。
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {membership.tiers.length > 0 && (
+                <div className="panel">
+                  <h2 className="panel__title">會員等級與優惠</h2>
+                  <div className="table-wrap" style={{ border: 'none' }}>
+                    <table className="tier-table">
+                      <thead>
+                        <tr><th>等級</th><th>累積消費門檻</th><th>訂單折扣</th><th>說明</th></tr>
+                      </thead>
+                      <tbody>
+                        {membership.tiers.map((t) => (
+                          <tr key={t.id} className={membership.tier?.id === t.id ? 'is-current' : ''}>
+                            <td>
+                              {t.name}
+                              {membership.tier?.id === t.id && (
+                                <span className="tag tag--member" style={{ marginLeft: 8 }}>目前等級</span>
+                              )}
+                            </td>
+                            <td>NT${formatPrice(t.min_spent)}</td>
+                            <td>
+                              {Number(t.discount_percent) > 0
+                                ? `${(100 - Number(t.discount_percent)) / 10} 折`
+                                : '－'}
+                            </td>
+                            <td className="small muted">{t.note}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {membership.used_coupons.length > 0 && (
+                <div className="panel">
+                  <h2 className="panel__title">已使用的折價券</h2>
+                  <div className="coupon-list">
+                    {membership.used_coupons.map((c) => <CouponCard key={c.id} coupon={c} />)}
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           <div className="panel">
@@ -157,9 +303,20 @@ export default function Member() {
                         </td>
                         <td>NT${formatPrice(o.total_amount)}</td>
                         <td>
-                          <span className={`tag tag--${o.payment_status === 'paid' ? 'shipped' : 'pending'}`}>
+                          <span className={`tag tag--${
+                            o.payment_status === 'paid' ? 'shipped'
+                              : o.payment_status === 'failed' ? 'cancelled' : 'pending'
+                          }`}>
                             {o.payment_method === 'cod' ? '貨到付款' : PAYMENT_STATUS_TEXT[o.payment_status]}
                           </span>
+                          {o.can_retry_payment && (
+                            <div style={{ marginTop: 6 }}>
+                              <a className="small" style={{ fontWeight: 500 }}
+                                 href={apiUrl(`/api/payments/${o.order_no}/checkout`)}>
+                                前往付款
+                              </a>
+                            </div>
+                          )}
                         </td>
                         <td className="small">
                           {o.shipping_method_label}

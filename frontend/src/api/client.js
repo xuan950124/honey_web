@@ -155,6 +155,33 @@ export const api = {
   updateOrderStatus: (id, status) =>
     request(`/api/orders/${id}/status`, { method: 'PATCH', body: { status } }),
 
+  // 未付款／付款失敗的處理
+  changePaymentMethod: (orderNo, paymentMethod) =>
+    request(`/api/orders/by-no/${orderNo}/payment-method`, {
+      method: 'PATCH',
+      body: { payment_method: paymentMethod },
+    }),
+  cancelOrder: (orderNo) =>
+    request(`/api/orders/by-no/${orderNo}/cancel`, { method: 'POST' }),
+  expireUnpaid: () => request('/api/orders/expire-unpaid', { method: 'POST' }),
+
+  // 會員等級與折價券
+  membership: () => request('/api/membership/me'),
+  publicTiers: () => request('/api/membership/tiers'),
+  adminTiers: () => request('/api/admin/tiers'),
+  createTier: (payload) => request('/api/admin/tiers', { method: 'POST', body: payload }),
+  updateTier: (id, payload) => request(`/api/admin/tiers/${id}`, { method: 'PUT', body: payload }),
+  deleteTier: (id) => request(`/api/admin/tiers/${id}`, { method: 'DELETE' }),
+  adminCouponRules: () => request('/api/admin/coupon-rules'),
+  createCouponRule: (payload) => request('/api/admin/coupon-rules', { method: 'POST', body: payload }),
+  updateCouponRule: (id, payload) =>
+    request(`/api/admin/coupon-rules/${id}`, { method: 'PUT', body: payload }),
+  deleteCouponRule: (id) => request(`/api/admin/coupon-rules/${id}`, { method: 'DELETE' }),
+  adminMembers: (keyword) =>
+    request(`/api/admin/members${keyword ? `?keyword=${encodeURIComponent(keyword)}` : ''}`),
+  adminCoupons: (onlyUnused) =>
+    request(`/api/admin/coupons${onlyUnused ? '?only_unused=true' : ''}`),
+
   // 結帳（送貨／付款方式與運費）
   checkoutOptions: () => request('/api/orders/checkout-options'),
   quote: (payload) => request('/api/orders/quote', { method: 'POST', body: payload }),
@@ -165,6 +192,7 @@ export const api = {
 
   // 金流（綠界）
   syncPayment: (orderNo) => request(`/api/payments/${orderNo}/sync`, { method: 'POST' }),
+  markPaid: (orderNo) => request(`/api/payments/${orderNo}/mark-paid`, { method: 'POST' }),
 
   // 設定
   getSettings: () => request('/api/settings'),
@@ -209,6 +237,17 @@ export const TEMPERATURE_TEXT = {
   '0001': '常溫',
   '0002': '冷藏',
   '0003': '冷凍',
+}
+
+export const COUPON_KIND_TEXT = {
+  fixed: '折固定金額',
+  percent: '百分比折扣',
+  free_shipping: '免運',
+}
+
+export const COUPON_TRIGGER_TEXT = {
+  register: '新會員註冊禮',
+  total_spent: '累積消費達標',
 }
 
 export const ORDER_STATUS_TEXT = {

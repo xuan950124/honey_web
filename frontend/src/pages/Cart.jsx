@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { TEMPERATURE_TEXT, api, formatPrice } from '../api/client'
+import CouponCard from '../components/CouponCard'
 import Placeholder from '../components/Placeholder'
 import StorePicker from '../components/StorePicker'
 import { useAuth } from '../context/AuthContext'
@@ -22,6 +23,10 @@ export default function Cart() {
   const [store, setStore] = useState({})
   const [quote, setQuote] = useState(null)
 
+  // 折價券
+  const [coupons, setCoupons] = useState([])
+  const [couponCode, setCouponCode] = useState('')
+
   const [form, setForm] = useState({
     receiver_name: '', receiver_phone: '', receiver_address: '', receiver_zipcode: '', note: '',
   })
@@ -31,6 +36,12 @@ export default function Cart() {
   useEffect(() => {
     api.checkoutOptions().then(setOptions).catch((e) => setError(e.message))
   }, [])
+
+  // 登入後載入可用的折價券
+  useEffect(() => {
+    if (!user) return setCoupons([])
+    api.membership().then((m) => setCoupons(m.coupons || [])).catch(() => setCoupons([]))
+  }, [user])
 
   useEffect(() => {
     if (!user) return
@@ -59,10 +70,16 @@ export default function Cart() {
   useEffect(() => {
     if (!items.length) return setQuote(null)
     api
-      .quote({ subtotal, shipping_method: shippingMethod, payment_method: paymentMethod, temperature })
+      .quote({
+        subtotal,
+        shipping_method: shippingMethod,
+        payment_method: paymentMethod,
+        temperature,
+        coupon_code: couponCode || null,
+      })
       .then(setQuote)
       .catch(() => setQuote(null))
-  }, [subtotal, shippingMethod, paymentMethod, temperature, items.length])
+  }, [subtotal, shippingMethod, paymentMethod, temperature, couponCode, items.length])
 
   const change = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }))
 
@@ -89,6 +106,7 @@ export default function Cart() {
         shipping_method: shippingMethod,
         payment_method: paymentMethod,
         temperature,
+        coupon_code: couponCode || null,
         ...(isCvs
           ? store
           : { receiver_address: form.receiver_address, receiver_zipcode: form.receiver_zipcode || null }),
@@ -184,7 +202,10 @@ export default function Cart() {
                                    checked={shippingMethod === s.value}
                                    onChange={() => setShippingMethod(s.value)} />
                             <div>
-                              <div className="option__title">{s.label}</div>
+                              <div className="option__title">
+                                {s.label}
+                                {s.is_cheapest && <span className="option__flag">最省運費</span>}
+                              </div>
                               <div className="option__meta">
                                 運費 NT${formatPrice(s.fee)}
                                 {s.note ? `．${s.note}` : ''}
@@ -256,6 +277,46 @@ export default function Cart() {
                   )}
                 </div>
 
+                {/* 折價券 */}
+                {user && coupons.length > 0 && (
+                  <div className="panel">
+                    <h2 className="panel__title">使用折價券</h2>
+                    <div className="coupon-list">
+                      {coupons.map((cp) => (
+                        <CouponCard
+                          key={cp.id}
+                          coupon={cp}
+                          selected={couponCode === cp.code}
+                          onSelect={(picked) =>
+                            setCouponCode(couponCode === picked.code ? '' : picked.code)
+                          }
+                        />
+                      ))}
+                    </div>
+                    {couponCode && (
+                      <button type="button" className="btn btn--ghost btn--sm"
+                              style={{ marginTop: 12 }} onClick={() => setCouponCode('')}>
+                        不使用折價券
+                      </button>
+                    )}
+                    {quote?.coupon_error && (
+                      <div className="alert alert--error" style={{ marginTop: 12, marginBottom: 0 }}>
+                        {quote.coupon_error}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!user && (
+                  <div className="panel">
+                    <h2 className="panel__title">會員優惠</h2>
+                    <p className="small muted" style={{ marginBottom: 12 }}>
+                      登入後可使用折價券，消費也會累積成為升級與領券的依據。
+                    </p>
+                    <Link to="/login" className="btn btn--outline btn--sm">前往登入</Link>
+                  </div>
+                )}
+
                 {/* 收件資料 */}
                 <div className="panel">
                   <h2 className="panel__title">收件資料</h2>
@@ -315,6 +376,25 @@ export default function Cart() {
                 <span className="muted">商品小計</span>
                 <span>NT${formatPrice(subtotal)}</span>
               </div>
+              {quote?.member_discount > 0 && (
+                <div className="summary__row">
+                  <span className="muted">
+                    會員折扣
+                    {quote.member_tier_name ? `（${quote.member_tier_name}）` : ''}
+                  </span>
+                  <span style={{ color: 'var(--success)' }}>
+                    −NT${formatPrice(quote.member_discount)}
+                  </span>
+                </div>
+              )}
+              {quote?.coupon_discount > 0 && (
+                <div className="summary__row">
+                  <span className="muted">折價券</span>
+                  <span style={{ color: 'var(--success)' }}>
+                    −NT${formatPrice(quote.coupon_discount)}
+                  </span>
+                </div>
+              )}
               <div className="summary__row">
                 <span className="muted">運費</span>
                 <span>

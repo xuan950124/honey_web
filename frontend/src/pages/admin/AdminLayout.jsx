@@ -7,6 +7,8 @@ const MENU = [
   { to: '/admin/news', label: '新聞管理' },
   { to: '/admin/stories', label: '故事管理' },
   { to: '/admin/orders', label: '訂單管理' },
+  { to: '/admin/members', label: '會員管理' },
+  { to: '/admin/membership', label: '等級與折價券' },
   { to: '/admin/settings', label: '網站設定' },
 ]
 

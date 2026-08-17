@@ -26,16 +26,22 @@ class ShippingMethod(str, enum.Enum):
     """送貨方式。對應綠界的物流類型／子類型。"""
     cvs_unimart_c2c = "cvs_unimart_c2c"   # 7-ELEVEN 交貨便（CVS / UNIMARTC2C）
     cvs_fami_c2c = "cvs_fami_c2c"         # 全家店到店（CVS / FAMIC2C）
+    cvs_hilife_c2c = "cvs_hilife_c2c"     # 萊爾富店到店（CVS / HILIFEC2C）
     home_tcat = "home_tcat"               # 黑貓宅急便（HOME / TCAT）含溫層
     home_post = "home_post"               # 中華郵政（HOME / POST）
 
 
 # 送貨方式 -> (綠界物流類型, 物流子類型, 顯示名稱, 是否支援代收貨款)
+#
+# 順序就是結帳頁的顯示順序，便宜的排前面。
+# 綠界 C2C 牌價（未稅）：7-11 與全家 65 元、萊爾富 55 元，
+# 所以萊爾富每筆便宜 10 元，是最有感的省運費選項。
 SHIPPING_MAP: dict[str, tuple[str, str, str, bool]] = {
+    ShippingMethod.cvs_hilife_c2c.value: ("CVS", "HILIFEC2C", "萊爾富超商取貨", True),
     ShippingMethod.cvs_unimart_c2c.value: ("CVS", "UNIMARTC2C", "7-ELEVEN 超商取貨", True),
     ShippingMethod.cvs_fami_c2c.value: ("CVS", "FAMIC2C", "全家超商取貨", True),
-    ShippingMethod.home_tcat.value: ("HOME", "TCAT", "黑貓宅急便", True),
     ShippingMethod.home_post.value: ("HOME", "POST", "中華郵政宅配", False),
+    ShippingMethod.home_tcat.value: ("HOME", "TCAT", "黑貓宅急便", True),
 }
 
 
@@ -98,10 +104,15 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime)
+    # 累積消費金額（付款完成才計入，見 membership.record_spending）
+    total_spent: Mapped[float] = mapped_column(Numeric(12, 2), default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
     orders: Mapped[list["Order"]] = relationship(back_populates="user")
     tokens: Mapped[list["AuthToken"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    coupons: Mapped[list["Coupon"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
 
@@ -205,7 +216,10 @@ class Order(Base):
     receiver_address: Mapped[str] = mapped_column(String(255), nullable=False)
     note: Mapped[str | None] = mapped_column(String(400))
     subtotal: Mapped[float] = mapped_column(Numeric(10, 2), default=0)      # 商品小計
-    shipping_fee: Mapped[float] = mapped_column(Numeric(10, 2), default=0)  # 運費
+    member_discount: Mapped[float] = mapped_column(Numeric(10, 2), default=0)   # 會員等級折扣
+    coupon_code: Mapped[str | None] = mapped_column(String(32))                 # 使用的折價券
+    coupon_discount: Mapped[float] = mapped_column(Numeric(10, 2), default=0)   # 折價券折抵
+    shipping_fee: Mapped[float] = mapped_column(Numeric(10, 2), default=0)  # 運費（已扣免運券）
     total_amount: Mapped[float] = mapped_column(Numeric(10, 2), default=0)  # 應付總額
     status: Mapped[OrderStatus] = mapped_column(
         Enum(OrderStatus, native_enum=False, length=20),
@@ -247,6 +261,13 @@ class Order(Base):
     payment_no: Mapped[str | None] = mapped_column(String(40))     # 繳費代碼／虛擬帳號
     payment_bank_code: Mapped[str | None] = mapped_column(String(10))
     payment_expire_date: Mapped[str | None] = mapped_column(String(30))
+    # 重新付款用。綠界的 MerchantTradeNo 不可重複，
+    # 所以第二次以後的付款會送出 {order_no}R2、{order_no}R3…，這裡記下最後一次送出的值。
+    payment_trade_no: Mapped[str | None] = mapped_column(String(30))
+    payment_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    payment_message: Mapped[str | None] = mapped_column(String(200))  # 最近一次失敗原因
+    cancel_reason: Mapped[str | None] = mapped_column(String(200))    # 取消原因（逾期未付款等）
+    stock_restored: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # ---------------- 物流 ----------------
     logistics_status: Mapped[LogisticsStatus] = mapped_column(
@@ -259,6 +280,10 @@ class Order(Base):
     booking_note: Mapped[str | None] = mapped_column(String(60))         # 宅配託運單號
     logistics_message: Mapped[str | None] = mapped_column(String(300))   # 最新物流狀態說明
     logistics_updated_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    # 是否已計入會員累積消費。用旗標而不是每次重算，
+    # 避免付款通知重送或狀態反覆變更時重複累加。
+    spending_counted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     user: Mapped["User | None"] = relationship(back_populates="orders")
     items: Mapped[list["OrderItem"]] = relationship(
@@ -328,3 +353,80 @@ class AuthToken(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
     user: Mapped["User"] = relationship(back_populates="tokens")
+
+
+class MemberTier(Base):
+    """會員等級。依累積消費金額自動判定，每筆訂單享固定折扣。"""
+    __tablename__ = "member_tiers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(40), nullable=False)          # 例：金卡會員
+    min_spent: Mapped[float] = mapped_column(Numeric(12, 2), default=0)    # 升級門檻（累積消費）
+    discount_percent: Mapped[float] = mapped_column(Numeric(5, 2), default=0)  # 每筆訂單折扣 %
+    note: Mapped[str | None] = mapped_column(String(200))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class CouponKind(str, enum.Enum):
+    fixed = "fixed"                  # 滿額折固定金額
+    percent = "percent"              # 百分比折扣
+    free_shipping = "free_shipping"  # 免運
+
+
+class CouponTrigger(str, enum.Enum):
+    register = "register"        # 新會員完成信箱驗證時發放
+    total_spent = "total_spent"  # 累積消費達門檻時發放
+
+
+class CouponRule(Base):
+    """自動發券的規則。工作人員可於後台調整。"""
+    __tablename__ = "coupon_rules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(60), nullable=False)
+    trigger: Mapped[CouponTrigger] = mapped_column(
+        Enum(CouponTrigger, native_enum=False, length=20),
+        default=CouponTrigger.total_spent, nullable=False,
+    )
+    threshold: Mapped[float] = mapped_column(Numeric(12, 2), default=0)   # 累積消費門檻
+
+    kind: Mapped[CouponKind] = mapped_column(
+        Enum(CouponKind, native_enum=False, length=20),
+        default=CouponKind.fixed, nullable=False,
+    )
+    value: Mapped[float] = mapped_column(Numeric(10, 2), default=0)          # 折抵金額或百分比
+    min_order_amount: Mapped[float] = mapped_column(Numeric(10, 2), default=0)  # 使用門檻
+    max_discount: Mapped[float | None] = mapped_column(Numeric(10, 2))       # 百分比券的折抵上限
+    valid_days: Mapped[int] = mapped_column(Integer, default=90)             # 發放後有效天數
+
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
+class Coupon(Base):
+    """實際發給某位會員的折價券。一張券只能用一次。"""
+    __tablename__ = "coupons"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(32), unique=True, index=True, nullable=False)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    rule_id: Mapped[int | None] = mapped_column(ForeignKey("coupon_rules.id"))
+
+    name: Mapped[str] = mapped_column(String(60), nullable=False)
+    kind: Mapped[CouponKind] = mapped_column(
+        Enum(CouponKind, native_enum=False, length=20), nullable=False
+    )
+    value: Mapped[float] = mapped_column(Numeric(10, 2), default=0)
+    min_order_amount: Mapped[float] = mapped_column(Numeric(10, 2), default=0)
+    max_discount: Mapped[float | None] = mapped_column(Numeric(10, 2))
+
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime)
+    used_order_no: Mapped[str | None] = mapped_column(String(30))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+    user: Mapped["User"] = relationship(back_populates="coupons")

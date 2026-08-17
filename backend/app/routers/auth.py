@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from ..config import settings
 from ..database import get_db
 from ..deps import get_current_user
+from .. import membership
 from ..mailer import render_email, send_email
 from ..models import TokenPurpose, User, UserRole
 from ..schemas import (
@@ -164,12 +165,21 @@ def confirm_verification(payload: TokenIn, db: Session = Depends(get_db)):
         db.commit()
         raise HTTPException(status_code=400, detail=error)
 
+    issued = []
     if not user.email_verified:
         user.email_verified = True
         user.email_verified_at = datetime.now()
+        # 完成驗證才發新會員禮，避免有人用假信箱大量註冊領券
+        issued = membership.issue_register_coupons(db, user)
+
     purge_expired(db)
     db.commit()
-    return SimpleMessage(message=f"{user.email} 驗證成功")
+
+    message = f"{user.email} 驗證成功"
+    if issued:
+        names = "、".join(c.name for c in issued)
+        message += f"，並取得新會員優惠：{names}"
+    return SimpleMessage(message=message)
 
 
 # ---------------------------------------------------------------- 忘記 / 重設密碼

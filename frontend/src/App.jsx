@@ -30,6 +30,8 @@ import Story from './pages/Story'
 import AdminCategories from './pages/admin/AdminCategories'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminLayout from './pages/admin/AdminLayout'
+import AdminMembers from './pages/admin/AdminMembers'
+import AdminMembership from './pages/admin/AdminMembership'
 import AdminNews from './pages/admin/AdminNews'
 import AdminOrders from './pages/admin/AdminOrders'
 import AdminProductForm from './pages/admin/AdminProductForm'
@@ -90,6 +92,8 @@ export default function App() {
             <Route path="news" element={<AdminNews />} />
             <Route path="stories" element={<AdminStories />} />
             <Route path="orders" element={<AdminOrders />} />
+            <Route path="members" element={<AdminMembers />} />
+            <Route path="membership" element={<AdminMembership />} />
             <Route path="settings" element={<AdminSettings />} />
           </Route>
 

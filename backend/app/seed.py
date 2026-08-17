@@ -9,7 +9,10 @@ from datetime import datetime, timedelta
 
 from .config import settings
 from .database import Base, SessionLocal, engine, ensure_database, sync_schema
-from .models import Category, News, Product, SiteSetting, Story, User, UserRole
+from .models import (
+    Category, CouponKind, CouponRule, CouponTrigger, MemberTier, News, Product,
+    SiteSetting, Story, User, UserRole,
+)
 from .security import hash_password
 
 CATEGORIES = [
@@ -140,6 +143,41 @@ STORIES = [
     },
 ]
 
+# 會員等級（門檻與折扣都可在後台調整）
+MEMBER_TIERS = [
+    {"name": "銅卡會員", "min_spent": 0, "discount_percent": 0, "sort_order": 1,
+     "note": "註冊即成為銅卡會員"},
+    {"name": "銀卡會員", "min_spent": 3000, "discount_percent": 3, "sort_order": 2,
+     "note": "累積消費滿 3,000 元，每筆訂單 97 折"},
+    {"name": "金卡會員", "min_spent": 10000, "discount_percent": 5, "sort_order": 3,
+     "note": "累積消費滿 10,000 元，每筆訂單 95 折"},
+]
+
+# 自動發券規則
+COUPON_RULES = [
+    {
+        "name": "新會員見面禮", "trigger": CouponTrigger.register, "threshold": 0,
+        "kind": CouponKind.fixed, "value": 50, "min_order_amount": 500,
+        "valid_days": 60, "sort_order": 1,
+    },
+    {
+        "name": "累積消費滿 3,000 元回饋", "trigger": CouponTrigger.total_spent,
+        "threshold": 3000, "kind": CouponKind.fixed, "value": 100,
+        "min_order_amount": 800, "valid_days": 90, "sort_order": 2,
+    },
+    {
+        "name": "累積消費滿 5,000 元免運", "trigger": CouponTrigger.total_spent,
+        "threshold": 5000, "kind": CouponKind.free_shipping, "value": 0,
+        "min_order_amount": 0, "valid_days": 120, "sort_order": 3,
+    },
+    {
+        "name": "累積消費滿 10,000 元九折", "trigger": CouponTrigger.total_spent,
+        "threshold": 10000, "kind": CouponKind.percent, "value": 10,
+        "min_order_amount": 1000, "max_discount": 300, "valid_days": 120,
+        "sort_order": 4,
+    },
+]
+
 SETTINGS = {
     "shop_name": "皇龍蜂蜜",
     "shop_slogan": "基隆七堵山區的自家蜂場，第一代養蜂人的蜜",
@@ -253,6 +291,20 @@ def run() -> None:
             for data in STORIES:
                 db.add(Story(**data, cover_url=None))
             print(f"[建立] {len(STORIES)} 筆品牌故事")
+        db.commit()
+
+        # 會員等級
+        if db.query(MemberTier).count() == 0:
+            for data in MEMBER_TIERS:
+                db.add(MemberTier(**data))
+            print(f"[建立] {len(MEMBER_TIERS)} 個會員等級")
+        db.commit()
+
+        # 發券規則
+        if db.query(CouponRule).count() == 0:
+            for data in COUPON_RULES:
+                db.add(CouponRule(**data))
+            print(f"[建立] {len(COUPON_RULES)} 條自動發券規則")
         db.commit()
 
         # 站台設定

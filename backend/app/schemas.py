@@ -3,8 +3,8 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from .models import (
-    LogisticsStatus, OrderStatus, PaymentMethod, PaymentStatus,
-    ShippingMethod, UserRole,
+    CouponKind, CouponTrigger, LogisticsStatus, OrderStatus, PaymentMethod,
+    PaymentStatus, ShippingMethod, UserRole,
 )
 
 
@@ -42,6 +42,7 @@ class UserOut(ORMModel):
     is_active: bool
     email_verified: bool = False
     email_verified_at: datetime | None = None
+    total_spent: float = 0
     created_at: datetime | None = None
 
 
@@ -216,6 +217,9 @@ class OrderCreate(BaseModel):
     temperature: str = "0001"
     specification: str = "0001"
 
+    # 折價券代碼（選填）
+    coupon_code: str | None = None
+
 
 class OrderItemOut(ORMModel):
     id: int
@@ -234,6 +238,9 @@ class OrderOut(ORMModel):
     receiver_zipcode: str | None = None
     note: str | None = None
     subtotal: float = 0
+    member_discount: float = 0
+    coupon_code: str | None = None
+    coupon_discount: float = 0
     shipping_fee: float = 0
     total_amount: float
     status: OrderStatus
@@ -259,6 +266,12 @@ class OrderOut(ORMModel):
     payment_bank_code: str | None = None
     payment_expire_date: str | None = None
     paid_at: datetime | None = None
+    payment_message: str | None = None
+    payment_attempts: int = 0
+    cancel_reason: str | None = None
+    # 由後端算出來的（不是資料庫欄位），見 orders._decorate
+    payment_deadline: datetime | None = None
+    can_retry_payment: bool = False
 
     # 物流
     logistics_status: LogisticsStatus
@@ -284,6 +297,7 @@ class ShippingOption(BaseModel):
     supports_cod: bool
     supports_temperature: bool
     note: str | None = None
+    is_cheapest: bool = False   # 前端用來標「最省運費」
 
 
 class PaymentOption(BaseModel):
@@ -306,10 +320,17 @@ class ShippingQuoteIn(BaseModel):
     shipping_method: ShippingMethod
     payment_method: PaymentMethod
     temperature: str = "0001"
+    coupon_code: str | None = None
 
 
 class ShippingQuoteOut(BaseModel):
     subtotal: float
+    member_discount: float = 0
+    member_discount_percent: float = 0
+    member_tier_name: str | None = None
+    coupon_code: str | None = None
+    coupon_discount: float = 0
+    coupon_error: str | None = None
     shipping_fee: float
     cod_fee: float
     total: float
@@ -317,8 +338,102 @@ class ShippingQuoteOut(BaseModel):
     is_free_shipping: bool
 
 
+# ---------- 會員等級與折價券 ----------
+class MemberTierIn(BaseModel):
+    name: str = Field(min_length=1, max_length=40)
+    min_spent: float = 0
+    discount_percent: float = Field(default=0, ge=0, le=100)
+    note: str | None = None
+    sort_order: int = 0
+    is_active: bool = True
+
+
+class MemberTierOut(ORMModel):
+    id: int
+    name: str
+    min_spent: float
+    discount_percent: float
+    note: str | None = None
+    sort_order: int
+    is_active: bool
+
+
+class CouponRuleIn(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    trigger: CouponTrigger = CouponTrigger.total_spent
+    threshold: float = 0
+    kind: CouponKind = CouponKind.fixed
+    value: float = 0
+    min_order_amount: float = 0
+    max_discount: float | None = None
+    valid_days: int = 90
+    is_active: bool = True
+    sort_order: int = 0
+
+
+class CouponRuleOut(ORMModel):
+    id: int
+    name: str
+    trigger: CouponTrigger
+    threshold: float
+    kind: CouponKind
+    value: float
+    min_order_amount: float
+    max_discount: float | None = None
+    valid_days: int
+    is_active: bool
+    sort_order: int
+
+
+class CouponOut(ORMModel):
+    id: int
+    code: str
+    name: str
+    kind: CouponKind
+    value: float
+    min_order_amount: float
+    max_discount: float | None = None
+    expires_at: datetime | None = None
+    used_at: datetime | None = None
+    used_order_no: str | None = None
+    created_at: datetime | None = None
+    label: str | None = None       # 給前端顯示的優惠說明
+    is_usable: bool = True
+
+
+class MembershipOut(BaseModel):
+    """會員中心用的完整會籍資訊。"""
+    total_spent: float
+    tier: MemberTierOut | None = None
+    next_tier: MemberTierOut | None = None
+    amount_to_next_tier: float = 0
+    tiers: list[MemberTierOut] = []
+    coupons: list[CouponOut] = []
+    used_coupons: list[CouponOut] = []
+
+
+class MemberSummaryOut(ORMModel):
+    """後台會員列表用。"""
+    id: int
+    email: EmailStr
+    name: str
+    phone: str | None = None
+    role: UserRole
+    email_verified: bool
+    total_spent: float
+    created_at: datetime | None = None
+    tier_name: str | None = None
+    order_count: int = 0
+    coupon_count: int = 0
+
+
 class OrderStatusUpdate(BaseModel):
     status: OrderStatus
+
+
+class PaymentMethodUpdate(BaseModel):
+    """未付款的訂單換一種付款方式再試。"""
+    payment_method: PaymentMethod
 
 
 # ---------- 上傳 / 設定 ----------

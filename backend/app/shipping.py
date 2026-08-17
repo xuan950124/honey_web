@@ -6,12 +6,22 @@ from sqlalchemy.orm import Session
 from .models import PAYMENT_MAP, SHIPPING_MAP, PaymentMethod, ShippingMethod, SiteSetting, Temperature
 
 # 預設值（後台沒設定時使用）
+#
+# 金額參考綠界 2026 年牌價再加 5% 營業稅，抓一點點餘裕：
+#   7-11 / 全家 C2C  65 元 → 含稅 68.3
+#   萊爾富 C2C       55 元 → 含稅 57.8
+#   中華郵政 5kg 以下 80 元 → 含稅 84
+#   黑貓常溫 60cm    130 元 → 含稅 136.5
+#   黑貓低溫 60cm    160 元 → 含稅 168（61~90cm 為 225 → 236.3）
 SHIPPING_DEFAULTS: dict[str, str] = {
-    "shipping_fee_cvs": "70",             # 超商取貨運費
-    "shipping_fee_home": "160",           # 宅配運費（常溫）
-    "shipping_fee_home_cold": "250",      # 宅配運費（冷藏／冷凍加價後的總運費）
+    "shipping_fee_cvs": "70",             # 7-ELEVEN／全家 店到店
+    "shipping_fee_cvs_hilife": "60",      # 萊爾富店到店（綠界牌價較便宜）
+    "shipping_fee_home": "150",           # 黑貓宅急便（常溫）
+    "shipping_fee_home_cold": "250",      # 黑貓宅急便（冷藏／冷凍的總運費）
+    "shipping_fee_home_post": "90",       # 中華郵政（只有常溫，5kg 以下）
     "free_shipping_threshold": "0",       # 滿額免運門檻，0 = 不提供免運
     "cod_fee": "0",                       # 貨到付款手續費（加在買家帳上）
+    "unpaid_expire_days": "3",            # 未付款訂單保留天數，0 = 不自動取消
     "sender_name": "",                    # 寄件人姓名（2~5 個中文字，不可含數字符號）
     "sender_phone": "",
     "sender_cellphone": "",
@@ -48,14 +58,23 @@ def calc_shipping_fee(
     shipping_method: ShippingMethod | str,
     temperature: str = Temperature.normal.value,
 ) -> tuple[float, bool]:
-    """計算運費，回傳 (運費, 是否達免運門檻)。"""
+    """計算運費，回傳 (運費, 是否達免運門檻)。
+
+    運費依「實際物流商」分開設定，不再一律套同一個數字 ——
+    中華郵政和萊爾富的成本本來就比黑貓和 7-11 低，
+    分開設定買家才不會被多收，也才有選便宜方式的誘因。
+    """
     values = get_shipping_settings(db)
     method = shipping_method.value if isinstance(shipping_method, ShippingMethod) else shipping_method
-    logistics_type = SHIPPING_MAP.get(method, ("CVS",))[0]
+    logistics_type, sub_type, *_ = SHIPPING_MAP.get(method, ("CVS", "UNIMARTC2C", "", True))
 
-    if logistics_type == "HOME":
+    if sub_type == "POST":
+        fee = _number(values, "shipping_fee_home_post")
+    elif logistics_type == "HOME":
         cold = temperature in (Temperature.refrigerated.value, Temperature.frozen.value)
         fee = _number(values, "shipping_fee_home_cold" if cold else "shipping_fee_home")
+    elif sub_type == "HILIFEC2C":
+        fee = _number(values, "shipping_fee_cvs_hilife")
     else:
         fee = _number(values, "shipping_fee_cvs")
 
@@ -63,6 +82,14 @@ def calc_shipping_fee(
     if threshold > 0 and subtotal >= threshold:
         return 0.0, True
     return fee, False
+
+
+def unpaid_expire_days(db: Session) -> int:
+    """未付款訂單保留幾天。0 代表不自動取消。"""
+    try:
+        return max(0, int(float(get_shipping_settings(db).get("unpaid_expire_days") or 0)))
+    except (TypeError, ValueError):
+        return 3
 
 
 def calc_cod_fee(db: Session, payment_method: PaymentMethod | str) -> float:

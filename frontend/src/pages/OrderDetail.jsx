@@ -4,6 +4,7 @@ import {
   LOGISTICS_STATUS_TEXT, ORDER_STATUS_TEXT, PAYMENT_STATUS_TEXT, TEMPERATURE_TEXT,
   api, formatDate, formatPrice,
 } from '../api/client'
+import PaymentActionPanel from '../components/PaymentActionPanel'
 import { useSettings } from '../context/SettingsContext'
 
 /** 訂單完成頁。付款流程結束後綠界會把買家導回這裡。 */
@@ -32,14 +33,28 @@ export default function OrderDetail() {
 
   const paid = order.payment_status === 'paid'
   const waiting = order.payment_status === 'pending'
+  const failed = order.payment_status === 'failed'
   const isCod = order.payment_method === 'cod'
+  const cancelled = order.status === 'cancelled'
+
+  const heading = cancelled
+    ? '訂單已取消'
+    : paid
+      ? '付款完成，感謝您的訂購'
+      : isCod
+        ? '訂單已成立'
+        : failed
+          ? '訂單已成立，但付款沒有完成'
+          : waiting
+            ? '訂單已成立，等待繳費'
+            : '訂單已成立，等待付款'
 
   return (
     <section className="section">
       <div className="container" style={{ maxWidth: 760 }}>
         <div className="panel text-center" style={{ marginBottom: 22 }}>
           <h1 style={{ fontSize: 26, color: 'var(--honey-900)', marginBottom: 10 }}>
-            {paid ? '付款完成，感謝您的訂購' : isCod ? '訂單已成立' : waiting ? '訂單已成立，等待繳費' : '訂單已成立'}
+            {heading}
           </h1>
           <p className="muted" style={{ marginBottom: 6 }}>
             訂單編號 <strong style={{ color: 'var(--honey-700)', fontFamily: 'monospace' }}>{order.order_no}</strong>
@@ -54,6 +69,9 @@ export default function OrderDetail() {
             )}
           </div>
         </div>
+
+        {/* 未付款／付款失敗的處理區，刻意排在訂單內容前面 —— 這是買家現在最該做的事 */}
+        <PaymentActionPanel order={order} onUpdated={setOrder} />
 
         {waiting && order.payment_no && (
           <div className="panel">
@@ -99,6 +117,18 @@ export default function OrderDetail() {
           <div className="summary__row" style={{ marginTop: 12 }}>
             <span className="muted">商品小計</span><span>NT${formatPrice(order.subtotal)}</span>
           </div>
+          {Number(order.member_discount) > 0 && (
+            <div className="summary__row">
+              <span className="muted">會員折扣</span>
+              <span style={{ color: 'var(--success)' }}>−NT${formatPrice(order.member_discount)}</span>
+            </div>
+          )}
+          {Number(order.coupon_discount) > 0 && (
+            <div className="summary__row">
+              <span className="muted">折價券{order.coupon_code ? `（${order.coupon_code}）` : ''}</span>
+              <span style={{ color: 'var(--success)' }}>−NT${formatPrice(order.coupon_discount)}</span>
+            </div>
+          )}
           <div className="summary__row">
             <span className="muted">運費</span>
             <span>{Number(order.shipping_fee) === 0 ? '免運' : `NT$${formatPrice(order.shipping_fee)}`}</span>
@@ -130,6 +160,7 @@ export default function OrderDetail() {
                 <tr><th>配送溫層</th><td>{TEMPERATURE_TEXT[order.temperature]}</td></tr>
               )}
               <tr><th>收件人</th><td>{order.receiver_name}．{order.receiver_phone}</td></tr>
+              <tr><th>付款方式</th><td>{order.payment_method_label}</td></tr>
               {order.booking_note && <tr><th>宅配單號</th><td style={{ fontFamily: 'monospace' }}>{order.booking_note}</td></tr>}
               {order.logistics_message && <tr><th>物流狀態</th><td>{order.logistics_message}</td></tr>}
               {order.note && <tr><th>備註</th><td>{order.note}</td></tr>}

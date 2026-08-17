@@ -8,9 +8,18 @@ import {
 const FILTERS = [
   { key: '', label: '全部' },
   { key: 'need-ship', label: '待出貨' },
-  { key: 'unpaid', label: '未付款' },
+  { key: 'unpaid', label: '待付款' },
+  { key: 'overdue', label: '逾期未付款' },
   { key: 'shipped', label: '已出貨' },
 ]
+
+/** 未付款且尚未取消的訂單（貨到付款不算，那本來就是取貨才收錢）。 */
+const isUnpaid = (o) =>
+  o.payment_method !== 'cod' && o.payment_status !== 'paid' && o.status !== 'cancelled'
+
+/** 已經超過繳費期限，錢多半收不到了，庫存卻還被卡著。 */
+const isOverdue = (o) =>
+  isUnpaid(o) && o.payment_deadline && new Date(o.payment_deadline).getTime() < Date.now()
 
 export default function AdminOrders() {
   const [orders, setOrders] = useState([])
@@ -19,6 +28,7 @@ export default function AdminOrders() {
   const [msg, setMsg] = useState('')
   const [openId, setOpenId] = useState(null)
   const [busyId, setBusyId] = useState(null)
+  const [sweeping, setSweeping] = useState(false)
   const [filter, setFilter] = useState('')
   const [senderIssues, setSenderIssues] = useState([])
 
@@ -81,15 +91,51 @@ export default function AdminOrders() {
     }
   }
 
+  const markPaid = async (order) => {
+    setErr(''); setMsg(''); setBusyId(order.id)
+    try {
+      const res = await api.markPaid(order.order_no)
+      setMsg(`訂單 ${order.order_no}：${res.message}`)
+      load()
+    } catch (e) {
+      setErr(e.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const sweepExpired = async () => {
+    setErr(''); setMsg(''); setSweeping(true)
+    try {
+      const res = await api.expireUnpaid()
+      setMsg(res.message)
+      load()
+    } catch (e) {
+      setErr(e.message)
+    } finally {
+      setSweeping(false)
+    }
+  }
+
   const printLabel = (order) => {
     window.open(apiUrl(`/api/logistics/orders/${order.id}/print`), '_blank', 'width=1000,height=760')
   }
 
+  const unpaidList = orders.filter(isUnpaid)
+  const overdueList = orders.filter(isOverdue)
+  const needShip = orders.filter(
+    (o) => o.logistics_status === 'none' && o.status !== 'cancelled'
+      && (o.payment_status === 'paid' || o.payment_method === 'cod'),
+  )
+  const unpaidValue = unpaidList.reduce((sum, o) => sum + Number(o.total_amount || 0), 0)
+
   const visible = orders.filter((o) => {
     if (filter === 'need-ship') {
-      return o.logistics_status === 'none' && (o.payment_status === 'paid' || o.payment_method === 'cod')
+      return o.logistics_status === 'none' && o.status !== 'cancelled'
+        && (o.payment_status === 'paid' || o.payment_method === 'cod')
     }
-    if (filter === 'unpaid') return o.payment_method !== 'cod' && o.payment_status !== 'paid'
+    if (filter === 'unpaid') return isUnpaid(o)
+    if (filter === 'overdue') return isOverdue(o)
     if (filter === 'shipped') return ['shipped', 'arrived', 'picked'].includes(o.logistics_status)
     return true
   })
@@ -103,6 +149,40 @@ export default function AdminOrders() {
 
       {err && <div className="alert alert--error">{err}</div>}
       {msg && <div className="alert alert--success">{msg}</div>}
+
+      {/* 每天最該看的三個數字。待付款金額是「還沒進帳但庫存已經被扣住」的錢。 */}
+      <div className="order-stats">
+        <button type="button" className={`order-stat${filter === 'need-ship' ? ' is-active' : ''}`}
+                onClick={() => setFilter('need-ship')}>
+          <div className="order-stat__num">{needShip.length}</div>
+          <div className="order-stat__label">待出貨</div>
+        </button>
+        <button type="button" className={`order-stat${filter === 'unpaid' ? ' is-active' : ''}`}
+                onClick={() => setFilter('unpaid')}>
+          <div className="order-stat__num">{unpaidList.length}</div>
+          <div className="order-stat__label">待付款．NT${formatPrice(unpaidValue)}</div>
+        </button>
+        <button type="button"
+                className={`order-stat${overdueList.length ? ' order-stat--warn' : ''}${filter === 'overdue' ? ' is-active' : ''}`}
+                onClick={() => setFilter('overdue')}>
+          <div className="order-stat__num">{overdueList.length}</div>
+          <div className="order-stat__label">逾期未付款</div>
+        </button>
+      </div>
+
+      {overdueList.length > 0 && (
+        <div className="alert alert--error">
+          <strong>有 {overdueList.length} 筆訂單超過付款期限</strong>
+          <p className="small" style={{ margin: '6px 0 10px' }}>
+            這些訂單的商品還被鎖在庫存裡。清理後會自動取消訂單並把庫存還回來，
+            買家不會被收任何費用。系統每小時也會自動跑一次。
+          </p>
+          <button type="button" className="btn btn--outline btn--sm"
+                  onClick={sweepExpired} disabled={sweeping}>
+            {sweeping ? '清理中…' : '立即清理逾期訂單'}
+          </button>
+        </div>
+      )}
 
       {senderIssues.length > 0 && (
         <div className="alert alert--error">
@@ -156,6 +236,11 @@ export default function AdminOrders() {
                             {isCod ? '貨到付款' : PAYMENT_STATUS_TEXT[o.payment_status]}
                           </span>
                           <div className="small muted">{o.payment_method_label}</div>
+                          {isOverdue(o) && (
+                            <div className="small" style={{ color: 'var(--danger)', fontWeight: 500 }}>
+                              已逾期
+                            </div>
+                          )}
                         </td>
                         <td className="small">
                           {o.shipping_method_label}
@@ -225,6 +310,49 @@ export default function AdminOrders() {
                                   </div>
                                 )}
                               </div>
+
+                              {/* 未付款訂單的處理選項。三個按鈕對應三種現實情況：
+                                  綠界通知漏掉、買家用別的方式付了錢、買家不打算付了。 */}
+                              {isUnpaid(o) && (
+                                <div className="ship-box" style={{ marginBottom: 14 }}>
+                                  <div className="small" style={{ marginBottom: 10 }}>
+                                    <strong>這筆訂單還沒收到款項。</strong>
+                                    {o.payment_message && (
+                                      <span style={{ color: 'var(--danger)' }}>
+                                        {' '}最近一次失敗原因：{o.payment_message}
+                                      </span>
+                                    )}
+                                    {o.payment_attempts > 1 && (
+                                      <span className="muted">　買家已嘗試付款 {o.payment_attempts} 次</span>
+                                    )}
+                                    {o.payment_deadline && (
+                                      <div className="muted" style={{ marginTop: 4 }}>
+                                        付款期限 {formatDate(o.payment_deadline)}
+                                        {isOverdue(o) ? '（已逾期）' : ''}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                    <button type="button" className="btn btn--outline btn--sm"
+                                            disabled={busyId === o.id} onClick={() => syncPayment(o)}>
+                                      向綠界查詢付款狀態
+                                    </button>
+                                    <button type="button" className="btn btn--ghost btn--sm"
+                                            disabled={busyId === o.id} onClick={() => markPaid(o)}>
+                                      手動註記已收款
+                                    </button>
+                                    <button type="button" className="btn btn--ghost btn--sm"
+                                            disabled={busyId === o.id}
+                                            onClick={() => changeStatus(o, 'cancelled')}>
+                                      取消訂單並還原庫存
+                                    </button>
+                                  </div>
+                                  <p className="small muted" style={{ margin: '10px 0 0' }}>
+                                    「手動註記已收款」用在綠界以外的收款（買家直接匯款、面交付現）。
+                                    註記後會照正常流程計入會員累積消費。
+                                  </p>
+                                </div>
+                              )}
 
                               <table className="table" style={{ minWidth: 0, background: 'var(--white)' }}>
                                 <thead><tr><th>商品</th><th>單價</th><th>數量</th><th>小計</th></tr></thead>
@@ -303,13 +431,6 @@ export default function AdminOrders() {
                                               onClick={() => createLogistics(o)}>
                                         {busyId === o.id ? '建立中…' : '建立物流單並取得寄件代碼'}
                                       </button>
-                                      {!isCod && o.payment_status !== 'paid' && (
-                                        <button type="button" className="btn btn--outline btn--sm"
-                                                disabled={busyId === o.id}
-                                                onClick={() => syncPayment(o)}>
-                                          向綠界查詢付款狀態
-                                        </button>
-                                      )}
                                     </div>
                                     {o.logistics_message && (
                                       <p className="small" style={{ color: 'var(--danger)', margin: '12px 0 0' }}>

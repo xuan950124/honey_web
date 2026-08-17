@@ -432,6 +432,11 @@ ul { margin: 0; padding: 0; list-style: none; }
 .option input { margin-top: 3px; accent-color: var(--honey-500); flex-shrink: 0; }
 .option__title { font-size: 14.5px; font-weight: 500; color: var(--honey-900); margin-bottom: 3px; }
 .option__meta { font-size: 12.5px; color: var(--ink-soft); line-height: 1.55; }
+.option__flag {
+  display: inline-block; margin-left: 7px; padding: 1px 8px; border-radius: 20px;
+  background: var(--success); color: #fff; font-size: 11px; font-weight: 500;
+  letter-spacing: 0.04em; vertical-align: 1px;
+}
 
 .chip-row { display: flex; gap: 8px; flex-wrap: wrap; }
 
@@ -747,3 +752,147 @@ ul { margin: 0; padding: 0; list-style: none; }
 /* 網站設定還沒從後端回來之前，先隱藏會「跳字」的品牌文字。
    用 visibility 而不是 display，版位才會保留，畫面不會位移。 */
 .is-pending { visibility: hidden; }
+
+/* ============ 會員等級與折價券 ============ */
+.tier-card {
+  background: linear-gradient(135deg, var(--honey-900), var(--honey-800));
+  border-radius: var(--radius-lg); padding: 26px 28px; color: var(--honey-100);
+}
+.tier-card__label { font-size: 12px; letter-spacing: 0.16em; color: var(--honey-300); margin-bottom: 8px; }
+.tier-card__name { font-family: var(--serif); font-size: 27px; font-weight: 600; margin-bottom: 4px; }
+.tier-card__perk { font-size: 13.5px; color: var(--honey-200); }
+.tier-card__spent { margin-top: 20px; padding-top: 18px; border-top: 1px solid rgba(247,223,160,0.2); }
+.tier-card__amount { font-family: var(--serif); font-size: 24px; font-weight: 600; }
+
+.tier-progress { margin-top: 14px; }
+.tier-progress__bar {
+  height: 6px; border-radius: 3px; background: rgba(247, 223, 160, 0.2); overflow: hidden;
+}
+.tier-progress__fill { height: 100%; background: var(--honey-400); border-radius: 3px; transition: width 0.4s; }
+.tier-progress__text { font-size: 12.5px; color: var(--honey-200); margin-top: 8px; }
+
+.coupon {
+  display: flex; align-items: center; gap: 0; border: 1px solid var(--honey-200);
+  border-radius: var(--radius); background: var(--white); overflow: hidden;
+  transition: all 0.18s; width: 100%; text-align: left; padding: 0;
+}
+.coupon:hover:not(.coupon--used):not(:disabled) { border-color: var(--honey-500); box-shadow: var(--shadow-sm); }
+.coupon.is-selected { border-color: var(--honey-500); box-shadow: 0 0 0 1px var(--honey-500) inset; }
+.coupon--used { opacity: 0.5; }
+.coupon__stub {
+  flex-shrink: 0; width: 96px; padding: 16px 10px; text-align: center;
+  background: var(--honey-50); border-right: 1px dashed var(--honey-200);
+}
+.coupon__value { font-family: var(--serif); font-size: 20px; font-weight: 600; color: var(--honey-600); line-height: 1.2; }
+.coupon__unit { font-size: 11px; color: var(--honey-600); }
+.coupon__body { flex: 1; padding: 14px 16px; min-width: 0; }
+.coupon__name { font-size: 14.5px; font-weight: 500; color: var(--honey-900); margin-bottom: 3px; }
+.coupon__meta { font-size: 12.5px; color: var(--ink-soft); }
+.coupon__code { font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; color: var(--honey-600); }
+.coupon-list { display: grid; gap: 10px; }
+
+.tier-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tier-table th, .tier-table td { padding: 11px 14px; border-bottom: 1px solid var(--line); text-align: left; }
+.tier-table th { background: var(--cream-2); font-weight: 500; font-size: 13px; color: var(--honey-800); }
+.tier-table tr.is-current { background: var(--honey-50); }
+.tier-table tr.is-current td:first-child { font-weight: 500; color: var(--honey-700); }
+
+@media (max-width: 620px) {
+  .tier-card { padding: 20px; }
+  .tier-card__name { font-size: 23px; }
+  .coupon__stub { width: 78px; padding: 13px 8px; }
+  .coupon__value { font-size: 17px; }
+}
+
+/* ============ 未付款 / 付款失敗 ============ */
+
+/* 訂單頁上的付款處理區。用實心底色而不是一般的 panel，
+   因為這是整頁最該被看到的東西 —— 買家沒付款就等於這筆生意還沒成立。 */
+.pay-panel {
+  background: var(--honey-50); border: 1px solid var(--honey-200);
+  border-left: 4px solid var(--honey-600);
+  border-radius: var(--radius); padding: 22px 24px; margin-bottom: 22px;
+}
+.pay-panel--danger { background: #fdf3ef; border-color: #f0c6b6; border-left-color: var(--danger); }
+.pay-panel--muted { background: var(--cream-2); border-color: var(--line); border-left-color: #b9ada0; }
+
+.pay-panel__head {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;
+}
+.pay-panel__badge {
+  display: inline-block; padding: 4px 11px; border-radius: 20px;
+  background: var(--honey-600); color: #fff; font-size: 12.5px; font-weight: 500;
+}
+.pay-panel__badge--danger { background: var(--danger); }
+.pay-panel__badge--muted { background: #8d8377; }
+.pay-panel__timer { font-size: 13px; color: var(--honey-800); }
+.pay-panel__timer.is-urgent { color: var(--danger); font-weight: 500; }
+
+.pay-panel__amount { font-size: 15px; color: var(--ink-soft); margin-bottom: 10px; }
+.pay-panel__amount strong {
+  font-family: var(--serif); font-size: 24px; color: var(--honey-900); margin-left: 4px;
+}
+.pay-panel__lead { font-size: 14.5px; line-height: 1.8; color: var(--ink); margin: 0 0 18px; }
+.pay-panel__actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.pay-panel__foot {
+  margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--honey-200);
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.pay-panel__link {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font-size: 13px; color: var(--ink-soft); text-decoration: underline; font-family: inherit;
+}
+.pay-panel__link:hover { color: var(--danger); }
+
+.pay-methods { margin-top: 16px; display: grid; gap: 8px; }
+.pay-methods__item {
+  display: flex; align-items: baseline; gap: 12px; width: 100%; text-align: left;
+  padding: 13px 16px; background: var(--white); border: 1px solid var(--line);
+  border-radius: var(--radius); cursor: pointer; font-family: inherit;
+  transition: border-color 0.15s, background 0.15s;
+}
+.pay-methods__item:hover:not(:disabled) { border-color: var(--honey-500); background: var(--honey-50); }
+.pay-methods__item:disabled { opacity: 0.55; cursor: default; }
+.pay-methods__label { font-size: 15px; color: var(--honey-900); font-weight: 500; }
+.pay-methods__note { font-size: 12.5px; color: var(--ink-soft); }
+
+/* 會員中心最上方的待付款提醒 */
+.unpaid-box {
+  background: #fdf3ef; border: 1px solid #f0c6b6; border-radius: var(--radius);
+  padding: 20px 22px; margin-bottom: 24px;
+}
+.unpaid-box__title { font-size: 16px; font-weight: 600; color: var(--danger); margin-bottom: 6px; }
+.unpaid-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 11px 0; border-top: 1px solid #f0c6b6;
+}
+.unpaid-row:first-of-type { border-top: none; }
+
+/* 後台訂單頁上方的三個數字，點一下就是篩選 */
+.order-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px;
+}
+.order-stat {
+  background: var(--white); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 15px 18px; text-align: left; transition: border-color 0.15s, background 0.15s;
+}
+.order-stat:hover { border-color: var(--honey-400); }
+.order-stat.is-active { border-color: var(--honey-500); background: var(--honey-50); }
+.order-stat--warn { border-color: #f0c6b6; background: #fdf3ef; }
+.order-stat--warn .order-stat__num { color: var(--danger); }
+.order-stat__num {
+  font-family: var(--serif); font-size: 26px; font-weight: 600;
+  color: var(--honey-700); line-height: 1.2;
+}
+.order-stat__label { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
+
+@media (max-width: 620px) {
+  .pay-panel { padding: 18px 16px; }
+  .pay-panel__actions .btn { flex: 1 1 100%; }
+  .unpaid-row { flex-direction: column; align-items: stretch; }
+  .unpaid-row .btn { width: 100%; }
+  .order-stats { grid-template-columns: 1fr; gap: 8px; }
+  .order-stat { display: flex; align-items: baseline; gap: 10px; padding: 12px 14px; }
+  .order-stat__num { font-size: 21px; }
+}

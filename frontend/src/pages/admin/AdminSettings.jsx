@@ -29,12 +29,46 @@ const FIELDS = [
 ]
 
 // 運費與寄件人（建立物流單時會用到）
+//
+// 括號裡是綠界 2026 年牌價（未稅），最後結算還要再加 5% 營業稅。
+// 把成本寫出來是刻意的 —— 不然很容易設一個看起來合理、實際上每單都在虧的數字。
 const SHIPPING_FIELDS = [
-  { key: 'shipping_fee_cvs', label: '超商取貨運費', hint: '7-ELEVEN 與全家店到店的運費' },
-  { key: 'shipping_fee_home', label: '宅配運費（常溫）' },
-  { key: 'shipping_fee_home_cold', label: '宅配運費（冷藏／冷凍）', hint: '低溫配送的總運費，不是加價金額' },
-  { key: 'free_shipping_threshold', label: '滿額免運門檻', hint: '填 0 表示不提供免運' },
+  {
+    key: 'shipping_fee_cvs',
+    label: '7-ELEVEN／全家 超商取貨運費',
+    hint: '綠界成本 65 元，含稅約 68 元。',
+  },
+  {
+    key: 'shipping_fee_cvs_hilife',
+    label: '萊爾富 超商取貨運費',
+    hint: '綠界成本 55 元，含稅約 58 元 —— 比 7-11／全家便宜 10 元，是最省運費的選項。',
+  },
+  {
+    key: 'shipping_fee_home_post',
+    label: '中華郵政宅配運費',
+    hint: '綠界成本 5 公斤以下 80 元，含稅約 84 元。只有常溫、不到離島，但多罐一起買比黑貓划算很多。',
+  },
+  {
+    key: 'shipping_fee_home',
+    label: '黑貓宅急便運費（常溫）',
+    hint: '綠界成本 60cm 以下 130 元，含稅約 137 元。',
+  },
+  {
+    key: 'shipping_fee_home_cold',
+    label: '黑貓宅急便運費（冷藏／冷凍）',
+    hint: '低溫配送的「總運費」，不是加價金額。綠界成本 60cm 以下 160 元、61~90cm 為 225 元。',
+  },
+  {
+    key: 'free_shipping_threshold',
+    label: '滿額免運門檻',
+    hint: '填 0 表示不提供免運。設一個略高於平均客單的數字，是拉高客單價最有效的方法。',
+  },
   { key: 'cod_fee', label: '貨到付款手續費', hint: '會加在買家的訂單金額上，填 0 表示不加收' },
+  {
+    key: 'unpaid_expire_days',
+    label: '未付款訂單保留天數',
+    hint: '超過這個天數還沒付款就自動取消並還原庫存。填 0 表示永不自動取消（不建議，庫存會一直被卡住）。綠界的 ATM 與超商代碼繳費期限本來就是 3 天。',
+  },
 ]
 
 // 各頁面的固定圖片，直接在後台上傳，不需要改程式碼
