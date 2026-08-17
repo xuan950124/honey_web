@@ -11,10 +11,14 @@ import { useSettings } from '../context/SettingsContext'
 const TEMPERATURES = ['0001', '0002', '0003']
 
 export default function Cart() {
-  const { items, updateQty, remove, clear, total: subtotal } = useCart()
+  const {
+    items, updateQty, remove, clear, syncStock, hasStockIssue, limitOf,
+    total: subtotal,
+  } = useCart()
   const { user } = useAuth()
   const { settings } = useSettings()
   const navigate = useNavigate()
+  const [stockNotices, setStockNotices] = useState([])
 
   const [options, setOptions] = useState(null)
   const [shippingMethod, setShippingMethod] = useState('cvs_unimart_c2c')
@@ -36,6 +40,21 @@ export default function Cart() {
   useEffect(() => {
     api.checkoutOptions().then(setOptions).catch((e) => setError(e.message))
   }, [])
+
+  // 進到購物車就跟後端要一次最新庫存。
+  // 購物車存在 localStorage，可能是好幾天前加入的，那時的庫存早就不準了。
+  // 與其讓買家填完一整頁資料才在送出時被擋，不如現在就先講清楚。
+  useEffect(() => {
+    let cancelled = false
+    api.listProducts()
+      .then((products) => {
+        if (cancelled) return
+        const notices = syncStock(products)
+        if (notices.length) setStockNotices(notices)
+      })
+      .catch(() => {})   // 拿不到就算了，後端建立訂單時還會再擋一次
+    return () => { cancelled = true }
+  }, [syncStock])
 
   // 登入後載入可用的折價券
   useEffect(() => {
@@ -88,6 +107,12 @@ export default function Cart() {
     setError('')
 
     if (!items.length) return setError('購物車是空的')
+    if (hasStockIssue) {
+      const over = items.filter((i) => i.quantity > limitOf(i))
+      return setError(
+        `庫存不足：${over.map((i) => `${i.name}（只剩 ${limitOf(i)} 組）`).join('、')}，請調整數量後再結帳`,
+      )
+    }
     if (isCvs && !store.cvs_store_id) return setError('請先選擇取貨門市')
     if (!isCvs && (form.receiver_address || '').trim().length < 6) {
       return setError('請填寫完整的收件地址')
@@ -157,34 +182,64 @@ export default function Cart() {
               {/* 商品明細 */}
               <div className="panel">
                 <h2 className="panel__title">商品明細（{items.length} 項）</h2>
-                {items.map((i) => (
-                  <div className="cart-line" key={i.id}>
-                    <Placeholder src={i.image_url} ratio="1x1" alt={i.name} hint="" />
-                    <div>
-                      <Link to={`/products/${i.id}`} style={{ fontWeight: 500, color: 'var(--honey-900)' }}>
-                        {i.name}
-                      </Link>
-                      {i.spec && <div className="small muted">{i.spec}</div>}
-                      <div className="price" style={{ fontSize: 16, marginTop: 6 }}>
-                        <span className="price__cur">NT$</span>{formatPrice(i.price)}
-                      </div>
-                      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 10 }}>
-                        <div className="qty">
-                          <button type="button" onClick={() => updateQty(i.id, i.quantity - 1)}>−</button>
-                          <input type="number" min="1" value={i.quantity}
-                                 onChange={(e) => updateQty(i.id, Number(e.target.value) || 1)} />
-                          <button type="button" onClick={() => updateQty(i.id, i.quantity + 1)}>＋</button>
-                        </div>
-                        <button type="button" className="btn btn--ghost btn--sm" onClick={() => remove(i.id)}>
-                          移除
-                        </button>
-                      </div>
-                    </div>
-                    <div className="price" style={{ fontSize: 18 }}>
-                      <span className="price__cur">NT$</span>{formatPrice(i.price * i.quantity)}
-                    </div>
+
+                {stockNotices.length > 0 && (
+                  <div className="alert alert--info">
+                    <strong>購物車已依最新庫存調整</strong>
+                    <ul style={{ margin: '8px 0 0', paddingLeft: 18, listStyle: 'disc' }}>
+                      {stockNotices.map((n) => <li key={n} className="small">{n}</li>)}
+                    </ul>
                   </div>
-                ))}
+                )}
+
+                {items.map((i) => {
+                  const limit = limitOf(i)
+                  const capped = Number.isFinite(limit) && i.quantity >= limit
+                  const over = Number.isFinite(limit) && i.quantity > limit
+                  return (
+                    <div className="cart-line" key={i.id}>
+                      <Placeholder src={i.image_url} ratio="1x1" alt={i.name} hint="" />
+                      <div>
+                        <Link to={`/products/${i.id}`} style={{ fontWeight: 500, color: 'var(--honey-900)' }}>
+                          {i.name}
+                        </Link>
+                        {i.spec && <div className="small muted">{i.spec}</div>}
+                        <div className="price" style={{ fontSize: 16, marginTop: 6 }}>
+                          <span className="price__cur">NT$</span>{formatPrice(i.price)}
+                        </div>
+                        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 10 }}>
+                          <div className="qty">
+                            <button type="button" disabled={i.quantity <= 1}
+                                    onClick={() => updateQty(i.id, i.quantity - 1)}>−</button>
+                            <input
+                              type="number" min="1"
+                              max={Number.isFinite(limit) ? limit : undefined}
+                              value={i.quantity}
+                              onChange={(e) => updateQty(i.id, Number(e.target.value) || 1)}
+                            />
+                            <button type="button" disabled={capped}
+                                    onClick={() => updateQty(i.id, i.quantity + 1)}>＋</button>
+                          </div>
+                          <button type="button" className="btn btn--ghost btn--sm" onClick={() => remove(i.id)}>
+                            移除
+                          </button>
+                        </div>
+                        {Number.isFinite(limit) && (
+                          <div className="small" style={{ marginTop: 6, color: over ? 'var(--danger)' : 'var(--ink-soft)' }}>
+                            {over
+                              ? `庫存只剩 ${limit} 組，請減少數量`
+                              : capped
+                                ? `已達庫存上限（剩 ${limit} 組）`
+                                : `庫存剩 ${limit} 組`}
+                          </div>
+                        )}
+                      </div>
+                      <div className="price" style={{ fontSize: 18 }}>
+                        <span className="price__cur">NT$</span>{formatPrice(i.price * i.quantity)}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
 
               <form id="checkout-form" onSubmit={submit}>
@@ -425,13 +480,15 @@ export default function Cart() {
               </div>
 
               <button type="submit" form="checkout-form" className="btn btn--primary btn--block"
-                      style={{ marginTop: 20 }} disabled={submitting}>
-                {submitting ? '處理中…' : isCod ? '送出訂單' : '前往付款'}
+                      style={{ marginTop: 20 }} disabled={submitting || hasStockIssue}>
+                {submitting ? '處理中…' : hasStockIssue ? '請先調整數量' : isCod ? '送出訂單' : '前往付款'}
               </button>
               <p className="small muted text-center" style={{ marginTop: 12, marginBottom: 0 }}>
-                {isCod
-                  ? '送出後我們會與您確認明細，取貨時再付款'
-                  : '將導向綠界付款頁，卡號不會經過本站'}
+                {hasStockIssue
+                  ? '有商品超過庫存，請往上調整數量'
+                  : isCod
+                    ? '送出後我們會與您確認明細，取貨時再付款'
+                    : '將導向綠界付款頁，卡號不會經過本站'}
               </p>
 
               {settings.line_id && (

@@ -237,20 +237,32 @@ def create_order(
         if not payload.receiver_address or len(payload.receiver_address.strip()) < 6:
             raise HTTPException(status_code=400, detail="請填寫完整的收件地址（至少 6 個字）")
 
+    # 同一個商品可能被送兩行（前端有 bug，或有人手動改請求想繞過庫存檢查）。
+    # 先合併再檢查，不然「庫存 5 組」可以用兩行各 3 組通過每一行的檢查。
+    wanted: dict[int, int] = {}
+    for line in payload.items:
+        wanted[line.product_id] = wanted.get(line.product_id, 0) + line.quantity
+
     # 計算商品小計並鎖定當下價格
     subtotal = 0.0
     lines: list[OrderItem] = []
-    for line in payload.items:
-        product = db.get(Product, line.product_id)
+    for product_id, quantity in wanted.items():
+        product = db.get(Product, product_id)
         if not product or not product.is_active:
-            raise HTTPException(status_code=400, detail=f"商品不存在或已下架（ID {line.product_id}）")
-        if product.stock is not None and product.stock < line.quantity:
-            raise HTTPException(status_code=400, detail=f"「{product.name}」庫存不足")
+            raise HTTPException(status_code=400, detail=f"商品不存在或已下架（ID {product_id}）")
+        if product.stock is not None and product.stock < quantity:
+            remaining = max(0, product.stock)
+            detail = (
+                f"「{product.name}」已經售完，請先移除"
+                if remaining == 0
+                else f"「{product.name}」庫存只剩 {remaining} 組，你選了 {quantity} 組，請調整數量"
+            )
+            raise HTTPException(status_code=400, detail=detail)
         unit_price = float(product.price)
-        subtotal += unit_price * line.quantity
+        subtotal += unit_price * quantity
         lines.append(OrderItem(
             product_id=product.id, product_name=product.name,
-            unit_price=unit_price, quantity=line.quantity,
+            unit_price=unit_price, quantity=quantity,
         ))
 
     # 檢查送貨與付款方式的組合

@@ -5,7 +5,11 @@ import { useSettings } from '../../context/SettingsContext'
 
 const FIELDS = [
   { key: 'shop_name', label: '網站名稱', hint: '顯示在頁首 Logo 與頁尾' },
-  { key: 'shop_slogan', label: '品牌標語', hint: '顯示在頁首上方橫條與首頁' },
+  {
+    key: 'shop_slogan',
+    label: '品牌標語（短）',
+    hint: '顯示在頁首最上方那條深色橫條。要短，10~16 個字最好看，例：基隆七堵自家蜂場．熟成才採收',
+  },
   { key: 'contact_phone', label: '訂購專線', hint: '例：02-1234-5678' },
   { key: 'contact_phone_2', label: '第二組電話', hint: '例：0912-345-678（選填）' },
   { key: 'contact_email', label: 'Email' },
@@ -23,8 +27,11 @@ const FIELDS = [
   { key: 'instagram_url', label: 'Instagram 連結' },
   {
     key: 'map_embed_url',
-    label: 'Google 地圖網址',
-    hint: '留空即可 — 系統會直接用上面的「地址」自動產生地圖。想指定特定位置才需要填，一般分享網址或整段 iframe 都可以貼，會自動轉換。',
+    label: 'Google 地圖位置（座標）',
+    hint:
+      '留空的話系統會用上面的「地址」自動產生地圖，但 Google 對「89-6號」這種細分門牌常常會就近對到「89號」。'
+      + '想讓地圖上的點完全精準，請填座標：打開 Google 地圖 → 對著自家門口按滑鼠右鍵 → 點最上面那組數字（會自動複製）→ 貼到這裡，'
+      + '格式像 25.105821, 121.712378。也可以貼分享網址或整段 iframe，系統會自動轉換。',
   },
 ]
 
@@ -111,6 +118,26 @@ const SENDER_FIELDS = [
   { key: 'sender_address', label: '寄件人地址', hint: '宅配必填，需完整且超過 6 個字' },
 ]
 
+// 首頁最上面那塊大字。跟「品牌標語」分開，因為兩邊需要的長度差很多。
+const HERO_FIELDS = [
+  {
+    key: 'hero_title',
+    label: '首頁大標（第一行）',
+    hint: '例：基隆山裡。留空會用預設值。',
+  },
+  {
+    key: 'hero_highlight',
+    label: '首頁大標（第二行，會變成金色）',
+    hint: '例：等熟成才採的蜜。這是整個網站最先被看到的一句話，寫具體、可以被查證的事最有說服力。',
+  },
+  {
+    key: 'hero_desc',
+    label: '首頁大標下的說明',
+    hint: '兩到三句話。頁尾的品牌介紹也會用這一段。建議寫「別人做不到或不願意做的事」，而不是形容詞。',
+    textarea: true,
+  },
+]
+
 export default function AdminSettings() {
   const [values, setValues] = useState({})
   const [msg, setMsg] = useState('')
@@ -129,9 +156,8 @@ export default function AdminSettings() {
     setErr(''); setMsg(''); setSaving(true)
     try {
       const payload = {}
-      ;[...FIELDS, ...IMAGE_FIELDS, ...SHIPPING_FIELDS, ...SENDER_FIELDS].forEach((f) => {
-        payload[f.key] = values[f.key] || ''
-      })
+      ;[...FIELDS, ...HERO_FIELDS, ...IMAGE_FIELDS, ...SHIPPING_FIELDS, ...SENDER_FIELDS]
+        .forEach((f) => { payload[f.key] = values[f.key] || '' })
       await api.updateSettings(payload)
       reload()
       setMsg('設定已儲存，前台已同步更新')
@@ -163,6 +189,26 @@ export default function AdminSettings() {
           </div>
         ))}
 
+      </form>
+
+      <form className="panel" onSubmit={submit}>
+        <h2 className="panel__title">首頁主視覺文案</h2>
+        <p className="small muted" style={{ marginTop: -8 }}>
+          首頁最上方的大標與說明。改完按最下方的「儲存全部設定」。
+        </p>
+        {HERO_FIELDS.map((f) => (
+          <div className="field" key={f.key}>
+            <label htmlFor={f.key}>{f.label}</label>
+            {f.textarea ? (
+              <textarea id={f.key} className="input" name={f.key} rows={3}
+                        value={values[f.key] || ''} onChange={change} />
+            ) : (
+              <input id={f.key} className="input" name={f.key}
+                     value={values[f.key] || ''} onChange={change} />
+            )}
+            {f.hint && <div className="field__hint">{f.hint}</div>}
+          </div>
+        ))}
       </form>
 
       <form className="panel" onSubmit={submit}>

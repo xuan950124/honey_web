@@ -15,9 +15,14 @@ export default function Footer() {
             <div className={`footer__brand${loaded ? '' : ' is-pending'}`}>
               {settings.shop_name || '蜂蜜工坊'}
             </div>
+            {/*
+              這裡用 hero_desc 而不是 shop_slogan。
+              shop_slogan 是頁首橫條那句短標語，拿來當頁尾的品牌介紹太短，
+              而且頁首已經出現過一次，重複沒有意義。
+            */}
             <p className={`footer__desc${loaded ? '' : ' is-pending'}`}>
-              {settings.shop_slogan ||
-                '基隆七堵的自家蜂場。我們是第一代養蜂人，從一箱蜂學到現在，堅持等蜜在巢裡熟成才採收，裝瓶前不加水、不加糖。'}
+              {settings.hero_desc ||
+                '基隆七堵的自家蜂場。等蜜在巢裡封蓋熟成才採收，裝瓶前不加水、不加糖，每一瓶都查得到生產者。'}
             </p>
             {settings.traceability_code && (
               <a

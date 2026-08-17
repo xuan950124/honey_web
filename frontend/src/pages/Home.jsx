@@ -5,10 +5,21 @@ import Placeholder from '../components/Placeholder'
 import ProductCard from '../components/ProductCard'
 import { useSettings } from '../context/SettingsContext'
 
+// 首頁主視覺的預設文案。後台「網站設定 → 首頁主視覺文案」可以改，不用動程式碼。
+//
+// 賣點刻意選「可以被查證的事」——產地、熟成、溯源編號。
+// 「第幾代養蜂」這種故事型的說法查不到也比不出來，對第一次買的人沒有說服力。
+const HERO = {
+  title: '基隆山裡',
+  highlight: '等熟成才採的蜜',
+  desc: '蜂場就在基隆七堵的山上。我們等蜜在巢裡封蓋、熟成了才採，裝瓶前不加水、不加糖。'
+    + '每一瓶都查得到生產者是誰 —— 農業部的溯源編號就印在上面。',
+}
+
 const FEATURES = [
-  { num: '01', title: '基隆在地養蜂', desc: '蜂場就在基隆七堵，山區蜜源採收後就近裝瓶，不經過中盤。' },
-  { num: '02', title: '不加水不調味', desc: '等蜂蜜在巢裡熟成才採收，裝瓶前不加水、不加糖、不調味。' },
-  { num: '03', title: '政府溯源可查', desc: '已登錄農業部農糧署溯源系統，掃碼就能查到生產者是誰。' },
+  { num: '01', title: '自家蜂場直送', desc: '蜂場就在基隆七堵，採收後就近裝瓶出貨，不經過中盤。' },
+  { num: '02', title: '熟成才採收', desc: '等蜜在巢裡封蓋熟成才採，裝瓶前不加水、不加糖、不調味。' },
+  { num: '03', title: '政府溯源可查', desc: '已登錄農業部農糧署溯源系統，掃碼就查得到生產者是誰。' },
   { num: '04', title: '團購可客製', desc: '公司行號、社團大量訂購可分裝、開立發票與客製標籤。' },
 ]
 
@@ -37,13 +48,12 @@ export default function Home() {
             <div>
               <div className="hero__eyebrow">Keelung Local Honey</div>
               <h1 className="hero__title">
-                基隆山裡的
+                {settings.hero_title || HERO.title}
                 <br />
-                <em>第一箱蜂蜜</em>
+                <em>{settings.hero_highlight || HERO.highlight}</em>
               </h1>
               <p className={`hero__desc${loaded ? '' : ' is-pending'}`}>
-                {settings.shop_slogan ||
-                  '沒有祖傳的蜂場，我們是從第一箱蜂開始學起的。基隆多雨，山裡的花期不好抓，但也因為這樣，這裡的蜜有別的地方沒有的味道。'}
+                {settings.hero_desc || HERO.desc}
               </p>
               <div className="hero__actions">
                 <Link to="/products" className="btn btn--primary">選購蜂蜜</Link>

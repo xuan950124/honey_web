@@ -133,6 +133,11 @@ DEFAULT_SETTINGS = {
     "facebook_url": "",
     "instagram_url": "",
     "map_embed_url": "",
+    # 首頁主視覺文案。跟 shop_slogan 分開是刻意的 ——
+    # 頁首橫條那句要短，首頁大標下面那段需要完整說完一件事，兩者混用哪邊都不好看。
+    "hero_title": "",
+    "hero_highlight": "",
+    "hero_desc": "",
     # 各頁面的固定圖片（後台可直接上傳，不用改程式碼）
     "hero_image_url": "",
     "group_buy_image_url": "",
@@ -144,10 +149,13 @@ DEFAULT_SETTINGS = {
     "traceability_code": "",
     # 運費設定
     "shipping_fee_cvs": "70",
-    "shipping_fee_home": "160",
+    "shipping_fee_cvs_hilife": "60",
+    "shipping_fee_home": "150",
     "shipping_fee_home_cold": "250",
+    "shipping_fee_home_post": "90",
     "free_shipping_threshold": "0",
     "cod_fee": "0",
+    "unpaid_expire_days": "3",
     # 寄件人資訊（建立物流單時使用，宅配必填）
     "sender_name": "",
     "sender_phone": "",

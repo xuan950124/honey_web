@@ -432,6 +432,15 @@ ul { margin: 0; padding: 0; list-style: none; }
 .option input { margin-top: 3px; accent-color: var(--honey-500); flex-shrink: 0; }
 .option__title { font-size: 14.5px; font-weight: 500; color: var(--honey-900); margin-bottom: 3px; }
 .option__meta { font-size: 12.5px; color: var(--ink-soft); line-height: 1.55; }
+/* 地圖下方的地址列。Google 標的地址不一定對，我們自己再寫一次。 */
+.map-caption {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 11px 14px; background: var(--cream-2); border-top: 1px solid var(--line);
+  font-size: 13.5px; color: var(--honey-900);
+}
+.map-caption a { color: var(--honey-600); text-decoration: underline; white-space: nowrap; font-size: 13px; }
+.map-caption a:hover { color: var(--honey-500); }
+
 .option__flag {
   display: inline-block; margin-left: 7px; padding: 1px 8px; border-radius: 20px;
   background: var(--success); color: #fff; font-size: 11px; font-weight: 500;

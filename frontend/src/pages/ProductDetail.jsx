@@ -11,7 +11,7 @@ export default function ProductDetail() {
   const [error, setError] = useState('')
   const [qty, setQty] = useState(1)
   const [mainImage, setMainImage] = useState(null)
-  const { add } = useCart()
+  const { add, items } = useCart()
   const { settings } = useSettings()
 
   useEffect(() => {
@@ -39,8 +39,17 @@ export default function ProductDetail() {
 
   if (!product) return <div className="loading">載入中…</div>
 
-  const soldOut = product.stock <= 0
   const gallery = [product.image_url, ...product.images.map((i) => i.image_url)].filter(Boolean)
+
+  // 庫存上限要扣掉「已經在購物車裡」的數量，
+  // 不然買家可以按三次「加入購物車」把庫存 5 組的東西加到 15 組。
+  const stock = product.stock === null || product.stock === undefined ? Infinity : Math.max(0, product.stock)
+  const inCart = items.find((i) => i.id === product.id)?.quantity || 0
+  const room = Math.max(0, stock - inCart)
+  const soldOut = stock <= 0
+  const cartFull = !soldOut && room <= 0
+  const maxQty = Number.isFinite(room) ? Math.max(1, room) : undefined
+  const clampQty = (n) => Math.min(Math.max(1, Math.floor(Number(n) || 1)), maxQty ?? Infinity)
 
   return (
     <section className="section has-buy-bar">
@@ -107,7 +116,12 @@ export default function ProductDetail() {
                 {product.origin && <tr><th>產地</th><td>{product.origin}</td></tr>}
                 <tr>
                   <th>庫存</th>
-                  <td>{soldOut ? '補貨中' : `尚有 ${product.stock} 組`}</td>
+                  <td>
+                    {soldOut ? '補貨中' : Number.isFinite(stock) ? `尚有 ${stock} 組` : '供應中'}
+                    {inCart > 0 && (
+                      <span className="small muted">　（購物車裡已有 {inCart} 組）</span>
+                    )}
+                  </td>
                 </tr>
                 {product.category?.name && <tr><th>分類</th><td>{product.category.name}</td></tr>}
                 {product.is_group_buy && product.group_buy_min_qty && (
@@ -126,30 +140,33 @@ export default function ProductDetail() {
 
             <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
               <div className="qty">
-                <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} disabled={soldOut}>−</button>
+                <button type="button" disabled={soldOut || cartFull || qty <= 1}
+                        onClick={() => setQty((q) => clampQty(q - 1))}>−</button>
                 <input
-                  type="number" min="1" max={product.stock || 1} value={qty}
-                  onChange={(e) => setQty(Math.max(1, Number(e.target.value) || 1))}
-                  disabled={soldOut}
+                  type="number" min="1" max={maxQty} value={qty}
+                  onChange={(e) => setQty(clampQty(e.target.value))}
+                  disabled={soldOut || cartFull}
                 />
-                <button
-                  type="button"
-                  onClick={() => setQty((q) => Math.min(product.stock || 1, q + 1))}
-                  disabled={soldOut}
-                >
-                  ＋
-                </button>
+                <button type="button" disabled={soldOut || cartFull || qty >= room}
+                        onClick={() => setQty((q) => clampQty(q + 1))}>＋</button>
               </div>
               <button
                 type="button"
                 className="btn btn--primary"
                 style={{ flex: 1, minWidth: 180 }}
-                disabled={soldOut}
-                onClick={() => add(product, qty)}
+                disabled={soldOut || cartFull}
+                onClick={() => { add(product, qty); setQty(1) }}
               >
-                {soldOut ? '補貨中' : '加入購物車'}
+                {soldOut ? '補貨中' : cartFull ? '購物車已達庫存上限' : '加入購物車'}
               </button>
             </div>
+
+            {cartFull && (
+              <p className="small" style={{ marginTop: 12, color: 'var(--danger)' }}>
+                庫存共 {stock} 組，已全部在你的購物車裡了。
+                <Link to="/cart" style={{ textDecoration: 'underline', fontWeight: 500 }}>　前往結帳</Link>
+              </p>
+            )}
 
             {settings.line_id && (
               <p className="small muted" style={{ marginTop: 18 }}>
@@ -182,10 +199,10 @@ export default function ProductDetail() {
         <button
           type="button"
           className="btn btn--primary"
-          disabled={soldOut}
-          onClick={() => add(product, qty)}
+          disabled={soldOut || cartFull}
+          onClick={() => { add(product, qty); setQty(1) }}
         >
-          {soldOut ? '補貨中' : `加入購物車（${qty}）`}
+          {soldOut ? '補貨中' : cartFull ? '已達庫存上限' : `加入購物車（${qty}）`}
         </button>
       </div>
     </section>

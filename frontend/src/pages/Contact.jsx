@@ -3,20 +3,48 @@ import { useSettings } from '../context/SettingsContext'
 
 const Empty = ({ text = '（待補上）' }) => <span className="empty">{text}</span>
 
+/** 純座標，例如「25.105821, 121.712378」。Google 地圖右鍵複製出來就是這個格式。 */
+const COORD_ONLY = /^\s*(-?\d{1,3}\.\d+)\s*[,，]\s*(-?\d{1,3}\.\d+)\s*$/
+
+/**
+ * 台灣門牌的「-6號」在 Google 的資料庫裡常常查不到，會被就近對到「89號」。
+ * 送查詢前先補上幾種台灣慣用的寫法，讓 Google 有機會對到正確的點。
+ */
+function addressQuery(settings) {
+  const address = (settings.contact_address || '').trim()
+  if (!address) return ''
+  // 「89-6號」→「89之6號」。Google 台灣對「之」的辨識率比「-」高。
+  const zhi = address.replace(/(\d+)-(\d+)號/g, '$1之$2號')
+  // 帶上店名，如果店家有 Google 商家檔案就會優先對到那個點
+  const name = (settings.shop_name || '').trim()
+  return [name, zhi].filter(Boolean).join(' ')
+}
+
 /**
  * 產生可嵌入的 Google 地圖網址。
  *
  * Google 對一般的地圖網址（例如 /maps/place/...）設了 X-Frame-Options，
  * 直接放進 iframe 會被拒絕連線，只有 /maps/embed 或加了 output=embed 的網址可以。
  * 這裡把後台可能貼進來的各種格式都轉成可用的形式，轉不出來就退回用地址產生。
+ *
+ * 想要地圖上的點「完全精準」，最可靠的方式是在後台的「Google 地圖網址」
+ * 直接填座標（在 Google 地圖上對著自家門口按右鍵，最上面那組數字點一下就複製了）。
+ * 用地址查是交給 Google 猜的，門牌有 -6、之6 這種細分時它常常對不準。
  */
 export function buildMapSrc(settings = {}) {
   const raw = (settings.map_embed_url || '').trim()
-  const byAddress = settings.contact_address
-    ? `https://maps.google.com/maps?q=${encodeURIComponent(settings.contact_address)}&z=16&output=embed`
+  const query = addressQuery(settings)
+  const byAddress = query
+    ? `https://maps.google.com/maps?q=${encodeURIComponent(query)}&z=17&output=embed`
     : ''
 
   if (raw) {
+    // 直接填座標 —— 最精準，優先處理
+    const pin = raw.match(COORD_ONLY)
+    if (pin) {
+      return `https://maps.google.com/maps?q=${pin[1]},${pin[2]}&z=18&output=embed`
+    }
+
     // 使用者可能整段 <iframe ... src="..."> 貼上來
     const iframeSrc = raw.match(/src=["']([^"']+)["']/i)
     const url = iframeSrc ? iframeSrc[1] : raw
@@ -27,21 +55,21 @@ export function buildMapSrc(settings = {}) {
     // 一般分享網址：從中抓出座標 / 地點 / 查詢字串來重組
     const coords = url.match(/@(-?\d+\.\d+),\s*(-?\d+\.\d+)/)
     if (coords) {
-      return `https://maps.google.com/maps?q=${coords[1]},${coords[2]}&z=16&output=embed`
+      return `https://maps.google.com/maps?q=${coords[1]},${coords[2]}&z=18&output=embed`
     }
     const place = url.match(/\/place\/([^/@?#]+)/)
     if (place) {
-      return `https://maps.google.com/maps?q=${place[1]}&z=16&output=embed`
+      return `https://maps.google.com/maps?q=${place[1]}&z=17&output=embed`
     }
-    const query = url.match(/[?&]q=([^&]+)/)
-    if (query) {
-      return `https://maps.google.com/maps?q=${query[1]}&z=16&output=embed`
+    const q = url.match(/[?&]q=([^&]+)/)
+    if (q) {
+      return `https://maps.google.com/maps?q=${q[1]}&z=17&output=embed`
     }
     // 短網址（maps.app.goo.gl）在瀏覽器端無法展開，改用地址
     if (byAddress) return byAddress
     // 不是網址而是一段地址文字
     if (!/^https?:\/\//i.test(url)) {
-      return `https://maps.google.com/maps?q=${encodeURIComponent(url)}&z=16&output=embed`
+      return `https://maps.google.com/maps?q=${encodeURIComponent(url)}&z=17&output=embed`
     }
     return ''
   }
@@ -215,10 +243,30 @@ export default function Contact() {
                       loading="lazy"
                       referrerPolicy="no-referrer-when-downgrade"
                     />
+                    {/*
+                      地圖上那張小卡是 Google 自己標的，門牌細分（89-6 號這種）
+                      它常常會就近對到 89 號。所以正確地址一律由我們自己寫在下面，
+                      買家看到的地址才會是對的。
+                    */}
+                    {settings.contact_address && (
+                      <div className="map-caption">
+                        <strong>{settings.contact_address}</strong>
+                        <a
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(settings.contact_address)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          規劃路線
+                        </a>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <Placeholder ratio="16x9" hint={'地圖\n（後台填入地址後會自動顯示）'} alt="位置地圖" />
                 )}
+                <p className="small muted" style={{ marginTop: 10, marginBottom: 0 }}>
+                  地圖上的位置由 Google 依地址推算，可能與實際門牌略有落差，請以上方地址為準。
+                </p>
               </div>
             </div>
           </div>
