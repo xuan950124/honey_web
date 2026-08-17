@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
 
 from .config import settings
@@ -14,10 +15,30 @@ from .routers import (
     auth, content, logistics, membership, orders, payments, products, uploads,
 )
 
-log = logging.getLogger(__name__)
+# 讓我們自己的 log.info／log.warning 真的出現在平台的日誌裡。
+# uvicorn 只設定它自己的 logger，root logger 預設沒有 handler，
+# 沒有這一行的話啟動階段的訊息會全部消失，出事時完全沒有線索。
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+log = logging.getLogger("honey")
 
+
+def say(message: str) -> None:
+    """一定要出現在日誌裡的訊息。直接 print 到 stdout，
+    不管 logging 怎麼設定，Zeabur 的日誌都看得到。"""
+    print(message, flush=True)
+
+# 這裡在 import 階段執行，一旦拋例外容器會直接死掉（連日誌都不容易看出原因），
+# 所以就算建不出資料夾也只記錄不中斷 —— 上傳功能壞掉遠好過整站掛掉。
 UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+UPLOADS_OK = True
+try:
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+except OSError as exc:
+    UPLOADS_OK = False
+    print(f"[啟動] 無法建立上傳資料夾 {UPLOAD_DIR}：{exc}", flush=True)
 
 app = FastAPI(
     title="蜂蜜商城 API",
@@ -105,7 +126,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+if UPLOADS_OK:
+    app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 app.include_router(auth.router)
 app.include_router(products.router)
@@ -147,14 +169,105 @@ async def _expire_unpaid_loop() -> None:
             log.exception("清理逾期未付款訂單時發生錯誤")
 
 
-@app.on_event("startup")
-async def on_startup() -> None:
+# ------------------------------------------------------------------ 啟動
+
+# 資料庫準備好了嗎。前端要能分辨「程式掛了」跟「資料庫還沒好」，
+# 這兩件事的處理方式完全不同。
+DB_STATE: dict[str, object] = {"ready": False, "error": None, "attempts": 0}
+
+INIT_RETRY_SECONDS = 15      # 資料庫還沒好時，每 15 秒再試一次
+INIT_MAX_ATTEMPTS_AT_BOOT = 6  # 啟動時最多等 6 次（約 90 秒）
+
+
+def _init_database_once() -> None:
+    """建資料庫、建表、補欄位。三步各自防護，一步失敗不影響下一步。"""
     ensure_database()
     Base.metadata.create_all(bind=engine)
     sync_schema()
-    asyncio.create_task(_expire_unpaid_loop())
 
+
+def _try_init_database() -> bool:
+    """試一次初始化。成功回 True。"""
+    DB_STATE["attempts"] = int(DB_STATE["attempts"]) + 1
+    n = DB_STATE["attempts"]
+    try:
+        _init_database_once()
+    except Exception as exc:  # noqa: BLE001
+        DB_STATE["ready"] = False
+        DB_STATE["error"] = f"{type(exc).__name__}: {exc}"
+        say(f"[啟動] 資料庫初始化失敗（第 {n} 次）：{type(exc).__name__}: {exc}")
+        log.warning("資料庫初始化失敗（第 %s 次）", n, exc_info=True)
+        return False
+    DB_STATE["ready"] = True
+    DB_STATE["error"] = None
+    say(f"[啟動] 資料庫初始化完成（第 {n} 次嘗試）")
+    return True
+
+
+async def _init_database_with_retry() -> None:
+    """啟動時初始化資料庫，失敗就在背景一直重試。
+
+    為什麼不讓它直接拋出例外：拋出的話 startup 事件失敗、uvicorn 直接結束，
+    整個網站變成 502 —— 而瀏覽器只會顯示「已被 CORS 政策封鎖」，
+    看不出來是資料庫的問題，非常難查。
+
+    在 Zeabur 這種平台上，應用常常比資料庫先啟動。
+    第一次連不上是很正常的事，那不該是永久性的死亡，而是等一下再試。
+    """
+    for _ in range(INIT_MAX_ATTEMPTS_AT_BOOT):
+        if await asyncio.to_thread(_try_init_database):
+            return
+        await asyncio.sleep(INIT_RETRY_SECONDS)
+
+    waited = INIT_MAX_ATTEMPTS_AT_BOOT * INIT_RETRY_SECONDS
+    say(f"[啟動] 資料庫在 {waited} 秒內都連不上。網站仍會啟動，"
+        f"但 API 會回 503。最後的錯誤：{DB_STATE['error']}")
+    say("[啟動] 請檢查 DB_HOST / DB_USER / DB_PASSWORD / DB_NAME 這四個環境變數，"
+        "以及資料庫服務是否還在運作。連得回來之後系統會自己恢復，不用手動重啟。")
+    # 繼續在背景慢慢試，資料庫回來就會自己好，不需要人工重啟
+    while not DB_STATE["ready"]:
+        await asyncio.sleep(INIT_RETRY_SECONDS * 4)
+        await asyncio.to_thread(_try_init_database)
+
+
+@app.on_event("startup")
+async def on_startup() -> None:
+    say(f"[啟動] 蜂蜜商城 API 啟動中．環境 ={settings.APP_ENV}"
+        f"．允許的來源 ={settings.cors_list}")
+    # 刻意不 await —— 資料庫慢的話不要卡住整個啟動，
+    # 這樣 /api/health 立刻就能回應，平台的健康檢查才不會判定失敗把容器殺掉。
+    asyncio.create_task(_init_database_with_retry())
+    asyncio.create_task(_expire_unpaid_loop())
+    say("[啟動] HTTP 服務已就緒（資料庫在背景初始化）")
+
+
+# ------------------------------------------------------------------ 健康檢查
 
 @app.get("/api/health")
 def health():
+    """程式活著嗎。**刻意不碰資料庫** —— 這支要能在資料庫掛掉時照樣回 200，
+    平台的健康檢查才不會因為資料庫暫時抽風就把容器殺掉重啟。"""
     return {"status": "ok"}
+
+
+@app.get("/api/health/db")
+def health_db():
+    """資料庫連得上嗎。排查時先看這一支，就知道問題在哪一層。"""
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        DB_STATE["ready"] = True
+        DB_STATE["error"] = None
+        return {"status": "ok", "ready": True, "attempts": DB_STATE["attempts"]}
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "error",
+                "ready": False,
+                "attempts": DB_STATE["attempts"],
+                "detail": "資料庫連不上。請確認資料庫服務是否啟動，以及 DB_HOST／DB_USER／"
+                          "DB_PASSWORD／DB_NAME 是否正確。",
+                "error": f"{type(exc).__name__}: {exc}"[:300],
+            },
+        )

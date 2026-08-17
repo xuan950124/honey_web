@@ -1,7 +1,11 @@
+import logging
+
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from .config import settings
+
+log = logging.getLogger(__name__)
 
 engine = create_engine(
     settings.database_url,
@@ -107,20 +111,48 @@ def _widen_sql(table_name: str, column, dialect) -> str:
     return f"ALTER TABLE `{table_name}` MODIFY `{column.name}` {col_type} {null_clause}"
 
 
-def should_widen(db_column: dict, model_column) -> bool:
+def should_widen(db_column: dict, model_column, indexed_names: set[str] | None = None) -> bool:
     """資料庫這一欄比模型要求的窄嗎？
 
     只回答「該不該加寬」。縮小永遠回 False —— 縮小會截斷既有資料，
     那是不可逆的，寧可資料庫比程式寬鬆。
+
+    `indexed_names` 是**資料庫實際上**有索引的欄位名稱。
+    為什麼不能只看模型宣告：MySQL 不允許把有索引的欄位改成 TEXT
+    （會報 "BLOB/TEXT column used in key specification without a key length"），
+    而資料庫裡可能存在模型沒宣告的索引（早期手動加的、或外鍵自動建的）。
+    只看模型會漏掉那些，ALTER 就會失敗。
     """
     if model_column.primary_key or model_column.unique or model_column.index:
-        # 有索引的欄位改成 TEXT 會讓 MySQL 抱怨索引長度，別動
+        return False
+    if indexed_names and model_column.name in indexed_names:
         return False
     have = _current_width(db_column)
     want = _target_width(model_column)
     if have is None or want is None:
         return False
     return want > have
+
+
+def indexed_columns(inspector, table_name: str) -> set[str]:
+    """問資料庫：這張表哪些欄位被索引到了（含主鍵與唯一鍵）。"""
+    names: set[str] = set()
+    try:
+        for idx in inspector.get_indexes(table_name):
+            names.update(c for c in (idx.get("column_names") or []) if c)
+    except Exception:  # noqa: BLE001 - 讀不到索引就當作全部都有索引，寧可不改
+        return {"*"}
+    try:
+        pk = inspector.get_pk_constraint(table_name) or {}
+        names.update(pk.get("constrained_columns") or [])
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        for fk in inspector.get_foreign_keys(table_name):
+            names.update(fk.get("constrained_columns") or [])
+    except Exception:  # noqa: BLE001
+        pass
+    return names
 
 
 def sync_schema() -> None:
@@ -139,34 +171,76 @@ def sync_schema() -> None:
 
     **只加寬，永遠不縮小。** 縮小會截斷既有資料，那是不可逆的，
     所以就算模型改小了也不動 —— 寧可資料庫比程式寬鬆。
+
+    **每一句 ALTER 都各自獨立執行、各自防護。** 這一點是踩過坑才改的：
+    原本整批包在一個交易裡，只要有一句失敗就整個往上拋，
+    startup 事件掛掉、uvicorn 起不來、整個網站 502 ——
+    而使用者在瀏覽器看到的是「已被 CORS 政策封鎖」，
+    完全看不出來是資料表調整失敗。
+    調欄位寬度這種小事，絕對不該有能力讓整站下線。
     """
     from sqlalchemy import inspect
 
-    inspector = inspect(engine)
-    existing_tables = set(inspector.get_table_names())
+    # inspect() 自己就會連線，連不上時會在這裡就丟例外，所以要一起包進來
+    try:
+        inspector = inspect(engine)
+        existing_tables = set(inspector.get_table_names())
+    except Exception as exc:  # noqa: BLE001
+        log.warning("[資料表更新] 讀不到現有資料表，略過這次同步：%s", exc)
+        return
 
-    with engine.begin() as conn:
-        for table in Base.metadata.sorted_tables:
-            if table.name not in existing_tables:
-                continue  # 新表交給 create_all 處理
+    statements: list[tuple[str, str]] = []   # (說明, SQL)
 
+    for table in Base.metadata.sorted_tables:
+        if table.name not in existing_tables:
+            continue  # 新表交給 create_all 處理
+
+        try:
             db_cols = {c["name"]: c for c in inspector.get_columns(table.name)}
+        except Exception:  # noqa: BLE001
+            log.exception("[資料表更新] 讀不到 %s 的欄位，略過這張表", table.name)
+            continue
 
-            for column in table.columns:
-                # ---------- 1. 缺少的欄位 ----------
-                if column.name not in db_cols:
-                    conn.execute(text(_add_column_sql(table.name, column, engine.dialect)))
-                    print(f"[資料表更新] {table.name} 新增欄位 {column.name}")
-                    continue
+        indexed = indexed_columns(inspector, table.name)
 
-                # ---------- 2. 太窄的字串欄位 ----------
-                if not should_widen(db_cols[column.name], column):
-                    continue
+        for column in table.columns:
+            # ---------- 1. 缺少的欄位 ----------
+            if column.name not in db_cols:
+                statements.append((
+                    f"{table.name} 新增欄位 {column.name}",
+                    _add_column_sql(table.name, column, engine.dialect),
+                ))
+                continue
 
-                # SQLite 不支援 MODIFY COLUMN，但它本來就不檢查長度，跳過沒差
-                if engine.dialect.name == "sqlite":
-                    continue
+            # ---------- 2. 太窄的字串欄位 ----------
+            if not should_widen(db_cols[column.name], column, indexed):
+                continue
 
-                conn.execute(text(_widen_sql(table.name, column, engine.dialect)))
-                print(f"[資料表更新] {table.name}.{column.name} 加寬為 "
-                      f"{column.type.compile(dialect=engine.dialect)}")
+            # SQLite 不支援 MODIFY COLUMN，但它本來也不檢查長度，跳過沒差
+            if engine.dialect.name == "sqlite":
+                continue
+
+            statements.append((
+                f"{table.name}.{column.name} 加寬為 "
+                f"{column.type.compile(dialect=engine.dialect)}",
+                _widen_sql(table.name, column, engine.dialect),
+            ))
+
+    if not statements:
+        return
+
+    done = failed = 0
+    for description, sql in statements:
+        # 一句一個交易。MySQL 的 DDL 本來就不能回滾，
+        # 包在一起只會讓「前面成功、中間失敗」變得更難收拾。
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(sql))
+            done += 1
+            print(f"[資料表更新] {description}")
+        except Exception as exc:  # noqa: BLE001 - 單句失敗不能中斷其他句，更不能讓網站起不來
+            failed += 1
+            log.warning("[資料表更新] 失敗：%s\n  SQL: %s\n  原因: %s", description, sql, exc)
+
+    print(f"[資料表更新] 完成 {done} 項"
+          + (f"，失敗 {failed} 項（詳見上方日誌，網站仍可正常啟動）" if failed else ""))

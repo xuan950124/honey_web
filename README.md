@@ -389,7 +389,8 @@ honey_web/
 │   ├── uploads/                   後台上傳的照片存在這裡
 │   ├── tests/                     測試（用 SQLite 跑，不會碰到正式資料）
 │   │   ├── test_payment_flow.py   運費、重新付款、逾期取消、庫存回補
-│   │   └── test_long_urls.py      長網址、欄位加寬、錯誤訊息與 CORS 標頭
+│   │   ├── test_long_urls.py      長網址、欄位加寬、錯誤訊息與 CORS 標頭
+│   │   └── test_startup_resilience.py  資料庫壞掉時網站要活著
 │   └── app/
 │       ├── main.py                進入點、錯誤處理、CORS、靜態檔案掛載
 │       ├── config.py              讀取 .env
@@ -438,11 +439,12 @@ honey_web/
 ```
 cd backend  && python tests/test_payment_flow.py             (138 項)
 cd backend  && python tests/test_long_urls.py                 (84 項)
+cd backend  && python tests/test_startup_resilience.py        (35 項)
 cd frontend && node tests/cart-stock-and-map.test.mjs         (58 項)
 cd frontend && node tests/edit-mode.test.mjs                  (89 項)
 ```
 
-四份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
+五份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
 
 ---
 
@@ -479,6 +481,17 @@ cd frontend && node tests/edit-mode.test.mjs                  (89 項)
 
 ## 十五、常見問題
 
+**Q：整個網站的 API 都失敗，主控台一片 CORS 錯誤**
+先確認後端還活著，**不要一開始就去改 CORS 設定**。打開這兩個網址：
+
+| 網址 | 有回應代表 |
+|---|---|
+| `api.你的網域.com/api/health` | 後端程式活著（這支刻意不碰資料庫）|
+| `api.你的網域.com/api/health/db` | 資料庫也正常 |
+
+後端沒起來時，閘道回的錯誤頁不帶 CORS 標頭，瀏覽器就會報成 CORS 問題 ——
+那是**結果不是原因**。排查步驟請看 **[docs/網站掛掉時怎麼查.md](docs/網站掛掉時怎麼查.md)**。
+
 **Q：後台存檔出現 500，主控台顯示「已被 CORS 政策封鎖」**
 CORS 通常是**結果不是原因**。真正的錯誤在最裡面發生，回應來不及帶上 CORS 標頭，
 瀏覽器就只能報 CORS。實際遇過的一次是「Facebook 網址有 753 字元，超過欄位上限」。
@@ -496,6 +509,10 @@ CORS 通常是**結果不是原因**。真正的錯誤在最裡面發生，回�
 資料表的型別要重新啟動後端才會更新。到 Zeabur 按一次 Redeploy，
 日誌會印出 `[資料表更新] news.source_url 加寬為 TEXT`。
 這個動作**只會加寬、不會縮小**，所以不會弄丟資料。
+
+如果看到 `[資料表更新] 失敗：` 開頭的行，**網站仍會正常運作**，
+只是那個欄位還是舊寬度。把那幾行連同 SQL 貼出來就能判斷原因
+（最常見的是該欄位有索引，MySQL 不允許改成 TEXT）。
 
 **Q：後端出現 `ModuleNotFoundError: No module named 'app'`**
 uvicorn 是在錯的資料夾啟動的。它必須在 `backend` 資料夾裡跑，

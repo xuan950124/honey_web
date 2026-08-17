@@ -41,9 +41,19 @@ async function request(path, { method = 'GET', body, isForm = false } = {}) {
       body: isForm ? body : body !== undefined ? JSON.stringify(body) : undefined,
     })
   } catch (cause) {
-    // 連線失敗（斷網、DNS、CORS 被擋、伺服器沒回應）。
-    // 這裡刻意不帶 status，呼叫端才能區分「網路問題」與「伺服器說不行」。
-    const err = new Error('無法連線到伺服器，請稍後再試')
+    // 連線失敗（斷網、DNS、伺服器沒回應、或後端整個沒起來）。
+    //
+    // 這裡也包含一種很容易誤判的情況：後端掛掉時，反向代理會回一個
+    // 不帶 CORS 標頭的錯誤頁，瀏覽器就報「已被 CORS 政策封鎖」。
+    // 看起來像跨網域設定壞了，其實是後端根本沒在跑 ——
+    // 所以訊息裡直接給出健康檢查網址，一點就知道是哪一層的問題。
+    const err = new Error(
+      API_BASE
+        ? `無法連線到伺服器。可能是後端服務沒有啟動，或資料庫連不上。`
+          + `　可以打開 ${API_BASE}/api/health 確認：有回應代表程式活著，`
+          + `再看 ${API_BASE}/api/health/db 確認資料庫。`
+        : '無法連線到伺服器，請稍後再試',
+    )
     err.isNetworkError = true
     err.cause = cause
     throw err
