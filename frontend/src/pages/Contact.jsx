@@ -1,7 +1,9 @@
 import Placeholder from '../components/Placeholder'
+import { editable } from '../context/EditModeContext'
 import { useSettings } from '../context/SettingsContext'
 
 const Empty = ({ text = '（待補上）' }) => <span className="empty">{text}</span>
+const SETTINGS = '/admin/settings'
 
 /** 純座標，例如「25.105821, 121.712378」。Google 地圖右鍵複製出來就是這個格式。 */
 const COORD_ONLY = /^\s*(-?\d{1,3}\.\d+)\s*[,，]\s*(-?\d{1,3}\.\d+)\s*$/
@@ -81,9 +83,11 @@ export default function Contact() {
   const { settings } = useSettings()
   const mapSrc = buildMapSrc(settings)
 
+  // field 是後台對應的設定欄位，編輯模式點下去會直接捲到那一格
   const rows = [
     {
       label: '訂購專線',
+      field: 'contact_phone',
       value: settings.contact_phone ? (
         <>
           <a href={`tel:${settings.contact_phone}`}>{settings.contact_phone}</a>
@@ -100,6 +104,7 @@ export default function Contact() {
     },
     {
       label: 'LINE',
+      field: 'line_id',
       value: settings.line_id ? (
         <>
           {settings.line_id}
@@ -116,6 +121,8 @@ export default function Contact() {
     },
     {
       label: '地址',
+      field: 'contact_address',
+      hint: '地圖上的位置是 Google 依這個地址推算的。想讓點完全精準，請填「Google 地圖位置（座標）」。',
       value: settings.contact_address ? (
         <a
           href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(settings.contact_address)}`}
@@ -130,15 +137,17 @@ export default function Contact() {
     },
     {
       label: 'Email',
+      field: 'contact_email',
       value: settings.contact_email ? (
         <a href={`mailto:${settings.contact_email}`}>{settings.contact_email}</a>
       ) : (
         <Empty />
       ),
     },
-    { label: '營業時間', value: settings.business_hours || <Empty /> },
+    { label: '營業時間', field: 'business_hours', value: settings.business_hours || <Empty /> },
     {
       label: '溯源編號',
+      field: 'traceability_code',
       value: settings.traceability_code ? (
         <>
           <a
@@ -159,6 +168,7 @@ export default function Contact() {
     },
     {
       label: '社群',
+      field: 'facebook_url',
       value:
         settings.facebook_url || settings.instagram_url ? (
           <>
@@ -192,7 +202,8 @@ export default function Contact() {
               <h2 className="story-row__title" style={{ fontSize: 24, marginBottom: 20 }}>聯絡資訊</h2>
               <div className="contact-list">
                 {rows.map((r) => (
-                  <div className="contact-row" key={r.label}>
+                  <div className="contact-row" key={r.label}
+                       {...editable(r.label, SETTINGS, r.field, r.hint)}>
                     <div className="contact-row__label">{r.label}</div>
                     <div className="contact-row__value">{r.value}</div>
                   </div>
@@ -220,7 +231,8 @@ export default function Contact() {
                     加入 LINE 好友
                   </button>
                 )}
-                <div style={{ maxWidth: 180, margin: '22px auto 0' }}>
+                <div style={{ maxWidth: 180, margin: '22px auto 0' }}
+                     {...editable('LINE QR Code', SETTINGS, 'line_qr_url', '正方形圖檔。從 LINE 官方帳號後台可以下載自己的 QR Code。')}>
                   <Placeholder
                     src={settings.line_qr_url}
                     ratio="1x1"
@@ -233,7 +245,8 @@ export default function Contact() {
               <div style={{ marginTop: 26 }}>
                 <h3 className="line-box__title" style={{ marginBottom: 14 }}>位置地圖</h3>
                 {mapSrc ? (
-                  <div style={{ border: '1px solid var(--line)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+                  <div style={{ border: '1px solid var(--line)', borderRadius: 'var(--radius)', overflow: 'hidden' }}
+                       {...editable('位置地圖', SETTINGS, 'map_embed_url', '要讓地圖上的點完全精準，填座標：Google 地圖 → 對著自家門口按右鍵 → 點最上面那組數字 → 貼上。')}>
                     <iframe
                       title="位置地圖"
                       src={mapSrc}

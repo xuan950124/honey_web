@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom'
+import { editable } from '../context/EditModeContext'
 import { useSettings } from '../context/SettingsContext'
 
 const Empty = () => <span className="footer__empty">（待補）</span>
+const SETTINGS = '/admin/settings'
 
 export default function Footer() {
   const { settings, loaded } = useSettings()
@@ -12,7 +14,8 @@ export default function Footer() {
       <div className="container">
         <div className="footer__grid">
           <div>
-            <div className={`footer__brand${loaded ? '' : ' is-pending'}`}>
+            <div className={`footer__brand${loaded ? '' : ' is-pending'}`}
+                 {...editable('網站名稱', SETTINGS, 'shop_name')}>
               {settings.shop_name || '蜂蜜工坊'}
             </div>
             {/*
@@ -20,12 +23,14 @@ export default function Footer() {
               shop_slogan 是頁首橫條那句短標語，拿來當頁尾的品牌介紹太短，
               而且頁首已經出現過一次，重複沒有意義。
             */}
-            <p className={`footer__desc${loaded ? '' : ' is-pending'}`}>
+            <p className={`footer__desc${loaded ? '' : ' is-pending'}`}
+               {...editable('品牌介紹', SETTINGS, 'hero_desc', '這一段跟首頁大標下的說明是同一個欄位。')}>
               {settings.hero_desc ||
                 '基隆七堵的自家蜂場。等蜜在巢裡封蓋熟成才採收，裝瓶前不加水、不加糖，每一瓶都查得到生產者。'}
             </p>
             {settings.traceability_code && (
               <a
+                {...editable('溯源追溯編號', SETTINGS, 'traceability_code')}
                 className="trace-badge"
                 href={`https://qrc.afa.gov.tw/blog/${settings.traceability_code}`}
                 target="_blank"
@@ -37,7 +42,8 @@ export default function Footer() {
             )}
           </div>
 
-          <div>
+          {/* data-edit-skip：編輯模式下這兩欄還是純導覽，點了要真的換頁 */}
+          <div data-edit-skip>
             <h4>網站導覽</h4>
             <ul>
               <li><Link to="/products">蜂蜜商品</Link></li>
@@ -48,7 +54,7 @@ export default function Footer() {
             </ul>
           </div>
 
-          <div>
+          <div data-edit-skip>
             <h4>會員服務</h4>
             <ul>
               <li><Link to="/login">會員登入</Link></li>
@@ -58,7 +64,7 @@ export default function Footer() {
             </ul>
           </div>
 
-          <div>
+          <div {...editable('聯絡資訊', SETTINGS, 'contact_phone', '電話、LINE、地址、Email、營業時間都在「網站設定 → 聯絡資訊與基本設定」。')}>
             <h4>聯絡資訊</h4>
             <ul>
               <li>

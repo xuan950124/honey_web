@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
+import { editable } from '../context/EditModeContext'
 import { useSettings } from '../context/SettingsContext'
+
+const SETTINGS = '/admin/settings'
 
 const NAV = [
   { to: '/', label: '首頁', end: true },
@@ -43,10 +46,11 @@ export default function Header() {
     <header className="header">
       <div className="header__topbar">
         <div className="container">
-          <span className={loaded ? '' : 'is-pending'}>
+          <span className={loaded ? '' : 'is-pending'}
+                {...editable('頁首標語', SETTINGS, 'shop_slogan', '這一條深色橫條上的短標語，10~16 個字最好看。')}>
             {settings.shop_slogan || '台灣蜂場直送．純粹不添加'}
           </span>
-          <span>
+          <span {...editable('訂購專線', SETTINGS, 'contact_phone')}>
             {settings.contact_phone ? (
               <a href={`tel:${settings.contact_phone}`}>訂購專線 {settings.contact_phone}</a>
             ) : (
@@ -58,7 +62,7 @@ export default function Header() {
 
       <div className="container">
         <div className="header__inner">
-          <Link to="/" className="logo">
+          <Link to="/" className="logo" {...editable('網站名稱', SETTINGS, 'shop_name')}>
             <span className={`logo__mark${loaded ? '' : ' is-pending'}`}>
               {settings.shop_name || '蜂蜜工坊'}
             </span>
@@ -73,7 +77,8 @@ export default function Header() {
             {isStaff && <NavLink to="/admin">後台管理</NavLink>}
           </nav>
 
-          <div className="header__actions">
+          {/* data-edit-skip：購物車與會員按鈕在編輯模式下要照正常運作 */}
+          <div className="header__actions" data-edit-skip>
             <Link to="/cart" className="icon-btn icon-btn--cart" aria-label="購物車">
               <span className="icon-btn__text">購物車</span>
               <span className="icon-btn__icon" aria-hidden="true">

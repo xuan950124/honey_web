@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, formatDate } from '../api/client'
 import Placeholder from '../components/Placeholder'
+import { editable } from '../context/EditModeContext'
 
 const TABS = [
   { key: '', label: '全部' },
@@ -52,7 +53,9 @@ export default function News() {
           ) : items.length ? (
             <div style={{ maxWidth: 900, margin: '0 auto' }}>
               {items.map((n) => (
-                <Link to={`/news/${n.id}`} key={n.id} className="news-item">
+                <Link to={`/news/${n.id}`} key={n.id} className="news-item"
+                      {...editable(`報導：${n.title}`, '/admin/news', null,
+                        '在新聞管理裡找到這一則點「編輯」。')}>
                   <Placeholder
                     src={n.cover_url}
                     ratio="4x3"

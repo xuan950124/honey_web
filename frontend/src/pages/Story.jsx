@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import Placeholder from '../components/Placeholder'
+import { editable } from '../context/EditModeContext'
 
 export default function Story() {
   const [stories, setStories] = useState([])
@@ -30,10 +31,14 @@ export default function Story() {
             <div className="loading">載入中…</div>
           ) : stories.length ? (
             stories.map((s, idx) => (
-              <div className="story-row" key={s.id}>
+              <div className="story-row" key={s.id}
+                   {...editable(`故事：${s.title}`, '/admin/stories', null,
+                     '標題、副標題、內文與照片都在故事管理裡改。')}>
                 <div className="story-row__media">
+                  {/* 不裁切：故事照片是實景照，裁掉一半就失去意義了 */}
                   <Placeholder
                     src={s.cover_url}
+                    fit="auto"
                     ratio={idx % 2 === 0 ? '4x3' : '3x2'}
                     alt={s.title}
                     hint={`故事照片\nstory-${s.id}.jpg`}

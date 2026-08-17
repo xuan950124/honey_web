@@ -179,6 +179,23 @@ ul { margin: 0; padding: 0; list-style: none; }
   text-align: center; padding: 8px 12px; line-height: 1.6; user-select: none;
 }
 .ph img { width: 100%; height: 100%; object-fit: cover; }
+
+/*
+  不裁切的圖片（報導、故事的內文照片）。
+  用 max-width/max-height 而不是 width:100% ——
+  這樣圖比內文寬時剛好縮到跟內文一樣寬（左右對齊），
+  直式的高圖會被 max-height 擋住不吃掉整個畫面，
+  而且兩種情況都是等比縮放，不會變形也不會裁掉內容。
+  小圖則保持原尺寸置中，不硬拉大變模糊。
+*/
+.ph-auto { text-align: center; line-height: 0; }
+.ph-auto img {
+  max-width: 100%; max-height: 78vh; width: auto; height: auto;
+  margin: 0 auto; border-radius: var(--radius); background: var(--cream-2);
+}
+@media (max-width: 620px) {
+  .ph-auto img { max-height: 62vh; }
+}
 .ph--1x1 { aspect-ratio: 1 / 1; }
 .ph--4x3 { aspect-ratio: 4 / 3; }
 .ph--3x2 { aspect-ratio: 3 / 2; }
@@ -491,6 +508,106 @@ ul { margin: 0; padding: 0; list-style: none; }
   transition: all 0.18s;
 }
 .preview-fab:hover { background: var(--honey-800); transform: translateY(-2px); }
+
+/* ============ 編輯模式（工作人員專用）============ */
+
+/* 兩顆浮動按鈕疊在右下角，編輯模式在上面 */
+.edit-fab {
+  position: fixed; right: 22px; bottom: 68px; z-index: 900;
+  padding: 11px 20px; border-radius: 40px; border: 1px solid var(--honey-400);
+  background: var(--white); color: var(--honey-800);
+  font-size: 13.5px; letter-spacing: 0.05em; box-shadow: var(--shadow-lg);
+  transition: all 0.18s;
+}
+.edit-fab:hover { border-color: var(--honey-500); color: var(--honey-600); transform: translateY(-2px); }
+
+.edit-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 1200;
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  padding: 11px 18px; background: var(--honey-900); color: var(--honey-100);
+  font-size: 13.5px; flex-wrap: wrap;
+}
+.edit-bar__dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--honey-300);
+  animation: edit-pulse 1.6s ease-in-out infinite;
+}
+@keyframes edit-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+.edit-bar__text strong { color: var(--honey-300); }
+.edit-bar__off {
+  padding: 5px 14px; border-radius: 20px; border: 1px solid rgba(247, 223, 160, 0.35);
+  background: none; color: var(--honey-200); font-size: 12.5px;
+}
+.edit-bar__off:hover { background: rgba(247, 223, 160, 0.14); color: var(--honey-100); }
+
+/*
+  編輯模式開啟時，可編輯的區塊浮出虛線框。
+  用 outline 而不是 border —— outline 不佔空間，加上去不會把版面推位移。
+*/
+body.edit-mode [data-edit] {
+  outline: 1.5px dashed var(--honey-400);
+  outline-offset: 3px;
+  border-radius: 2px;
+  cursor: pointer;
+  position: relative;
+}
+body.edit-mode [data-edit]:hover {
+  outline: 2px solid var(--honey-500);
+  background: rgba(224, 171, 60, 0.09);
+}
+/* 巢狀時只讓最內層那個明顯，不然整頁都是框看不出點哪裡 */
+body.edit-mode [data-edit] [data-edit] { outline-color: var(--honey-500); }
+/* 編輯模式下不要真的跳走，也不要出現文字選取的游標 */
+body.edit-mode a, body.edit-mode button:not(.edit-fab):not(.edit-bar__off):not(.edit-pop *) {
+  cursor: pointer;
+}
+body.edit-mode { user-select: none; }
+/* 底部工具列會蓋住內容，留出空間 */
+body.edit-mode { padding-bottom: 46px; }
+
+.edit-pop__backdrop {
+  position: fixed; inset: 0; z-index: 1200; background: rgba(43, 33, 20, 0.32);
+  border: none; padding: 0; cursor: default;
+}
+.edit-pop {
+  position: fixed; z-index: 1210; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: calc(100% - 40px); max-width: 380px;
+  background: var(--white); border: 1px solid var(--honey-200);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+  padding: 22px 24px; text-align: center;
+}
+.edit-pop__label {
+  font-size: 11.5px; letter-spacing: 0.16em; color: var(--honey-600);
+  text-transform: uppercase; margin-bottom: 6px;
+}
+.edit-pop__title {
+  font-family: var(--serif); font-size: 21px; font-weight: 600;
+  color: var(--honey-900); margin-bottom: 10px;
+}
+.edit-pop__hint {
+  font-size: 13px; color: var(--ink-soft); line-height: 1.75;
+  margin: 0 0 14px; text-align: left;
+  background: var(--honey-50); border-radius: var(--radius); padding: 10px 13px;
+}
+.edit-pop__ask { font-size: 14.5px; color: var(--ink); margin: 0 0 18px; }
+.edit-pop__actions { display: flex; gap: 10px; justify-content: center; }
+
+/* 後台被指定的欄位：捲到之後閃一下，讓人知道是哪一個 */
+.field.is-focus-target > label { color: var(--honey-600); font-weight: 600; }
+.field.is-focus-target .input,
+.field.is-focus-target textarea.input {
+  border-color: var(--honey-500);
+  box-shadow: 0 0 0 3px rgba(224, 171, 60, 0.22);
+  animation: field-flash 1.1s ease-out 2;
+}
+@keyframes field-flash {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(224, 171, 60, 0.22); }
+  50% { box-shadow: 0 0 0 7px rgba(224, 171, 60, 0.34); }
+}
+
+@media (max-width: 620px) {
+  .edit-fab { right: 14px; bottom: 60px; padding: 9px 16px; font-size: 12.5px; }
+  .edit-bar { font-size: 12.5px; padding: 9px 12px; gap: 8px; }
+}
 
 .preview-overlay {
   position: fixed; inset: 0; z-index: 1000; background: #2a2118;

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { formatPrice } from '../api/client'
+import { editable } from '../context/EditModeContext'
 import Placeholder from './Placeholder'
 
 /**
@@ -11,7 +12,12 @@ export default function ProductCard({ product, hint }) {
   const onSale = product.original_price && Number(product.original_price) > Number(product.price)
 
   return (
-    <Link to={`/products/${product.id}`} className="card">
+    <Link
+      to={`/products/${product.id}`}
+      className="card"
+      {...editable(`商品：${product.name}`, `/admin/products/${product.id}`, null,
+        '可以改名稱、價格、庫存、照片、規格與介紹。')}
+    >
       <div className="card__media">
         {product.is_group_buy && <span className="card__badge">團購</span>}
         {!product.is_group_buy && onSale && <span className="card__badge card__badge--sale">優惠</span>}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
 import ImageUploader from '../../components/ImageUploader'
 import { useSettings } from '../../context/SettingsContext'
+import useFocusField from '../../hooks/useFocusField'
 
 const FIELDS = [
   { key: 'shop_name', label: '網站名稱', hint: '顯示在頁首 Logo 與頁尾' },
@@ -143,10 +144,17 @@ export default function AdminSettings() {
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
   const [saving, setSaving] = useState(false)
+  const [loaded, setLoaded] = useState(false)
   const { reload } = useSettings()
 
+  // 從前台編輯模式帶 ?focus=欄位 過來時，捲到那一格並高亮
+  const focused = useFocusField(loaded)
+
   useEffect(() => {
-    api.getSettings().then(setValues).catch((e) => setErr(e.message))
+    api.getSettings()
+      .then(setValues)
+      .catch((e) => setErr(e.message))
+      .finally(() => setLoaded(true))
   }, [])
 
   const change = (e) => setValues((v) => ({ ...v, [e.target.name]: e.target.value }))
@@ -174,6 +182,13 @@ export default function AdminSettings() {
 
       {err && <div className="alert alert--error">{err}</div>}
       {msg && <div className="alert alert--success">{msg}</div>}
+
+      {focused && (
+        <div className="alert alert--info">
+          已經幫你捲到你剛剛點的那一格（有金色外框的那個）。
+          改完記得按下方的<strong>「儲存全部設定」</strong> —— 這一頁的所有區塊都是一起存的。
+        </div>
+      )}
 
       <form className="panel" onSubmit={submit}>
         <h2 className="panel__title">聯絡資訊與基本設定</h2>
@@ -219,6 +234,7 @@ export default function AdminSettings() {
         {IMAGE_FIELDS.map((f) => (
           <ImageUploader
             key={f.key}
+            name={f.key}
             label={f.label}
             ratio={f.ratio}
             hint={f.hint}

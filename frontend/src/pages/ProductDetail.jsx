@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { api, formatPrice } from '../api/client'
 import Placeholder from '../components/Placeholder'
 import { useCart } from '../context/CartContext'
+import { editable } from '../context/EditModeContext'
 import { useSettings } from '../context/SettingsContext'
 
 export default function ProductDetail() {
@@ -62,7 +63,7 @@ export default function ProductDetail() {
           {product.name}
         </div>
 
-        <div className="pd">
+        <div className="pd" {...editable(`商品：${product.name}`, `/admin/products/${product.id}`)}>
           <div>
             <Placeholder
               src={mainImage}
@@ -182,7 +183,12 @@ export default function ProductDetail() {
             <h2 className="section-head__title" style={{ fontSize: 22, marginBottom: 18 }}>商品介紹</h2>
             <p style={{ whiteSpace: 'pre-line', color: 'var(--ink-soft)' }}>{product.description}</p>
             <div style={{ marginTop: 28 }}>
-              <Placeholder ratio="16x9" hint={`商品情境照\nproduct-${product.id}-detail.jpg`} alt="商品情境照" />
+              <Placeholder
+                src={product.images?.[1]?.image_url}
+                fit="auto"
+                hint={`商品情境照\nproduct-${product.id}-detail.jpg`}
+                alt="商品情境照"
+              />
             </div>
           </div>
         )}

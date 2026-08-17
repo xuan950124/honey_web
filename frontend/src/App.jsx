@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Route, Routes, useLocation, useSearchParams } from 'react-router-dom'
 
+import EditOverlay from './components/EditOverlay'
 import Footer from './components/Footer'
 import Header from './components/Header'
 import DevicePreview from './components/DevicePreview'
@@ -8,6 +9,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import SiteMeta from './components/SiteMeta'
 import { useAuth } from './context/AuthContext'
 import { useCart } from './context/CartContext'
+import { useEditMode } from './context/EditModeContext'
 
 import Cart from './pages/Cart'
 import ForgotPassword from './pages/ForgotPassword'
@@ -48,9 +50,15 @@ function ScrollToTop() {
 export default function App() {
   const { toast } = useCart()
   const { isStaff } = useAuth()
+  const { enabled: editing, setEnabled: setEditing } = useEditMode()
   const [params] = useSearchParams()
   // 在預覽用的 iframe 裡面不要再顯示預覽按鈕，避免無限巢狀
   const inPreview = params.get('preview') === '1'
+
+  // 登出之後要把編輯模式關掉，不然下一個登入的一般會員會看到虛線框
+  useEffect(() => {
+    if (!isStaff && editing) setEditing(false)
+  }, [isStaff, editing, setEditing])
 
   return (
     <>
@@ -103,6 +111,7 @@ export default function App() {
       <Footer />
       {toast && <div className="toast">{toast}</div>}
       {isStaff && !inPreview && <DevicePreview />}
+      {isStaff && !inPreview && <EditOverlay />}
     </>
   )
 }

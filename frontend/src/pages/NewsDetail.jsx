@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, formatDate } from '../api/client'
 import Placeholder from '../components/Placeholder'
+import { editable } from '../context/EditModeContext'
 
 export default function NewsDetail() {
   const { id } = useParams()
@@ -42,15 +43,19 @@ export default function NewsDetail() {
           {item.source && <span className="news-item__date">來源：{item.source}</span>}
         </div>
 
-        <h1 style={{ fontSize: 30, color: 'var(--honey-900)', marginBottom: 24, lineHeight: 1.45 }}>
+        <h1 style={{ fontSize: 30, color: 'var(--honey-900)', marginBottom: 24, lineHeight: 1.45 }}
+            {...editable('報導標題', '/admin/news')}>
           {item.title}
         </h1>
 
+        {/* fit="auto"：報導照片常常是截圖或直式照片，固定 16:9 會把標題和人切掉 */}
         <Placeholder
           src={item.cover_url}
-          ratio="16x9"
+          fit="auto"
           alt={item.title}
           hint={`報導主圖\nnews-${item.id}.jpg`}
+          {...editable('報導主圖', '/admin/news', null,
+            '照片會照原始比例顯示、不裁切，太大會自動縮到跟內文一樣寬。')}
         />
 
         {item.summary && (

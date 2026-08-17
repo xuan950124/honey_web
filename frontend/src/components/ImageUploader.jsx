@@ -6,7 +6,11 @@ import Placeholder from './Placeholder'
  * 工作人員上傳照片元件。
  * 上傳成功後回傳圖片網址（例如 /uploads/xxxx.jpg），由父層存進商品或新聞。
  */
-export default function ImageUploader({ value, onChange, label = '照片', ratio = '1x1', hint }) {
+export default function ImageUploader({
+  value, onChange, label = '照片', ratio = '1x1', hint,
+  // 設定的欄位名稱。從前台編輯模式跳過來時，useFocusField 靠這個找到要高亮的區塊
+  name,
+}) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const inputRef = useRef(null)
@@ -28,7 +32,7 @@ export default function ImageUploader({ value, onChange, label = '照片', ratio
   }
 
   return (
-    <div className="field">
+    <div className="field" data-field={name || undefined}>
       <label>{label}</label>
       <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 16, alignItems: 'start' }}>
         <Placeholder src={value} ratio={ratio} hint={hint ?? '尚未上傳'} alt={label} />

@@ -3,7 +3,10 @@ import { Link } from 'react-router-dom'
 import { api, formatDate } from '../api/client'
 import Placeholder from '../components/Placeholder'
 import ProductCard from '../components/ProductCard'
+import { editable } from '../context/EditModeContext'
 import { useSettings } from '../context/SettingsContext'
+
+const SETTINGS = '/admin/settings'
 
 // 首頁主視覺的預設文案。後台「網站設定 → 首頁主視覺文案」可以改，不用動程式碼。
 //
@@ -47,12 +50,14 @@ export default function Home() {
           <div className="hero__grid">
             <div>
               <div className="hero__eyebrow">Keelung Local Honey</div>
-              <h1 className="hero__title">
+              <h1 className="hero__title"
+                  {...editable('首頁大標', SETTINGS, 'hero_title', '兩行大字。第二行會是金色，那是整個網站最先被看到的一句話。')}>
                 {settings.hero_title || HERO.title}
                 <br />
                 <em>{settings.hero_highlight || HERO.highlight}</em>
               </h1>
-              <p className={`hero__desc${loaded ? '' : ' is-pending'}`}>
+              <p className={`hero__desc${loaded ? '' : ' is-pending'}`}
+                 {...editable('首頁說明文', SETTINGS, 'hero_desc', '頁尾的品牌介紹也會用這一段。')}>
                 {settings.hero_desc || HERO.desc}
               </p>
               <div className="hero__actions">
@@ -74,7 +79,7 @@ export default function Home() {
                 </div>
               </div>
             </div>
-            <div>
+            <div {...editable('首頁主視覺照片', SETTINGS, 'hero_image_url', '建議橫式、約 1200×900。蜂場或蜂箱的實景照最有說服力。')}>
               <Placeholder
                 src={settings.hero_image_url}
                 ratio="4x3"
@@ -89,7 +94,9 @@ export default function Home() {
       {/* 特色 */}
       <section className="section--tight">
         <div className="container">
-          <div className="features">
+          {/* 這四個特色目前寫在程式裡（上方的 FEATURES），所以提示會說明要找我改 */}
+          <div className="features"
+               {...editable('品牌四大特色', '/admin/settings', null, '這四項目前寫在程式碼裡，後台改不了。要調整請跟我說要換成哪四點。')}>
             {FEATURES.map((f) => (
               <div className="feature" key={f.num}>
                 <div className="feature__num">{f.num}</div>
@@ -111,7 +118,8 @@ export default function Home() {
           </div>
 
           {featured.length ? (
-            <div className="grid grid--4 grid--products">
+            <div className="grid grid--4 grid--products"
+                 {...editable('首頁精選商品', '/admin/products', null, '在商品管理裡把商品勾選「首頁精選」，就會出現在這一區。')}>
               {featured.map((p) => <ProductCard key={p.id} product={p} />)}
             </div>
           ) : (
@@ -137,7 +145,8 @@ export default function Home() {
           </div>
 
           {groupBuy.length ? (
-            <div className="grid grid--3 grid--products">
+            <div className="grid grid--3 grid--products"
+                 {...editable('團購商品', '/admin/products', null, '把商品勾選「團購商品」就會出現在這一區與團購專區。')}>
               {groupBuy.map((p) => <ProductCard key={p.id} product={p} />)}
             </div>
           ) : (
@@ -157,10 +166,12 @@ export default function Home() {
       {story && (
         <section className="section">
           <div className="container">
-            <div className="story-row" style={{ marginBottom: 0 }}>
+            <div className="story-row" style={{ marginBottom: 0 }}
+                 {...editable('品牌故事', '/admin/stories', null, '這裡顯示排序第一則故事的開頭 160 字。')}>
               <div className="story-row__media">
                 <Placeholder
                   src={story.cover_url}
+                  fit="auto"
                   ratio="4x3"
                   alt={story.title}
                   hint={'故事照片\nstory-1.jpg'}
@@ -192,7 +203,8 @@ export default function Home() {
           </div>
 
           {news.length ? (
-            <div className="grid grid--news" style={{ gap: '0 48px' }}>
+            <div className="grid grid--news" style={{ gap: '0 48px' }}
+                 {...editable('最新消息與報導', '/admin/news')}>
               {news.map((n) => (
                 <Link to={`/news/${n.id}`} key={n.id} className="news-item" style={{ gridTemplateColumns: '1fr' }}>
                   <div>

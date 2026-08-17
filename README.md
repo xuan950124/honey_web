@@ -235,8 +235,10 @@ UPDATE users SET role = 'staff' WHERE email = '要升級的Email';
 **還沒設定寄信服務也能完整測試** —— 信件會存成 HTML 放在 `backend/outbox/`，
 而且畫面會直接顯示驗證連結，不用真的收信。
 
-另外，用**工作人員帳號**登入後，右下角會出現「**手機版預覽**」按鈕，
-可以切換 iPhone / Android / iPad 尺寸即時檢視手機版畫面，並直接在裡面操作。
+另外，用**工作人員帳號**登入後，右下角會出現兩顆按鈕：
+
+- **編輯模式** —— 打開後點前台任何地方，都會問你要不要修改，按下去直接跳到後台對應的欄位
+- **手機版預覽** —— 切換 iPhone / Android / iPad 尺寸即時檢視手機版畫面，並直接在裡面操作
 
 設定 Gmail 寄信、SMTP 參數與安全性說明請看
 **[docs/會員帳號與寄信設定.md](docs/會員帳號與寄信設定.md)**。
@@ -270,6 +272,23 @@ UPDATE users SET role = 'staff' WHERE email = '要升級的Email';
 賣點刻意選「**可以被查證的事**」—— 產地、熟成採收、農業部溯源編號。
 不談「第幾代養蜂」，因為第一次買的人查不到也比不出來，而且那講的是你、不是蜜。
 理由與完整文案草稿請看 **[docs/網站文案.md](docs/網站文案.md)**。
+
+### 不想找「這個東西在後台哪裡改」
+
+用工作人員帳號登入 → 右下角「**編輯模式**」→ 點前台任何地方，
+會跳出「這個區塊是 XXX．要現在去修改嗎？」，按下去直接到後台那一格（會自動捲到並閃兩下）。
+
+導覽列、購物車、麵包屑在編輯模式下照正常運作，可以邊逛邊改。按 Esc 退出。
+
+### 照片不會再被裁切
+
+報導、故事、商品情境照都照原始比例顯示，**一個像素都不裁**：
+比內文寬的縮到跟內文一樣寬（左右剛好對齊）、直式的高圖最高佔畫面 78%、小圖不硬拉大。
+
+只有商品卡的縮圖仍是正方形裁切 —— 那些要排成整齊的一排，
+所以**商品主圖建議上傳正方形**，其他地方的照片不用管比例。
+
+兩者的完整說明請看 **[docs/編輯模式與照片顯示.md](docs/編輯模式與照片顯示.md)**。
 
 ### 地圖要顯示正確門牌
 
@@ -390,14 +409,18 @@ honey_web/
     ├── public/images/             ← 固定圖片放這裡
     ├── vite.config.js             開發用 proxy 設定
     ├── tests/                     純邏輯測試，用 node 直接跑
-    │   └── cart-stock-and-map.test.mjs  購物車庫存上限、地圖網址
+    │   ├── cart-stock-and-map.test.mjs  購物車庫存上限、地圖網址
+    │   └── edit-mode.test.mjs           編輯模式的路徑對照與區塊標記
     └── src/
         ├── styles.css             全站樣式（暖琥珀色系）
         ├── App.jsx                路由設定
         ├── api/client.js          呼叫後端的統一入口
-        ├── context/               登入狀態、購物車、網站設定
+        ├── lib/editTargets.js     編輯模式的路徑對照（純邏輯）
+        ├── hooks/useFocusField.js 後台捲到指定欄位並高亮
+        ├── context/               登入狀態、購物車、網站設定、編輯模式
         ├── components/
-        │   ├── Placeholder.jsx    ★ 空白圖片佔位元件
+        │   ├── Placeholder.jsx    ★ 圖片元件（可選裁切或不裁切）
+        │   ├── EditOverlay.jsx    ★ 編輯模式的點擊提示
         │   ├── ImageUploader.jsx  ★ 後台上傳照片元件
         │   ├── ProductCard.jsx
         │   ├── Header.jsx / Footer.jsx
@@ -412,11 +435,12 @@ honey_web/
 ### 跑測試
 
 ```
-cd backend  && python tests/test_payment_flow.py            (138 項)
-cd frontend && node tests/cart-stock-and-map.test.mjs        (58 項)
+cd backend  && python tests/test_payment_flow.py             (138 項)
+cd frontend && node tests/cart-stock-and-map.test.mjs         (58 項)
+cd frontend && node tests/edit-mode.test.mjs                  (89 項)
 ```
 
-兩份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
+三份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
 
 ---
 
