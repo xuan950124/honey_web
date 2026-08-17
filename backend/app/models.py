@@ -8,6 +8,14 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
 
+# 存網址的欄位一律用 TEXT，不要用 VARCHAR。
+#
+# 原因是社群平台的網址長度沒有上限可言：Facebook 會把整篇貼文標題
+# 做 URL 編碼塞進路徑，一個中文字變成 9 個字元（%E6%AD%A1 這樣），
+# 實測一則基隆美食部落客的貼文網址是 753 個字元。
+# 之前設 VARCHAR(400) 的結果就是 MySQL 直接拒絕寫入，前台看到 500 錯誤。
+URL_TEXT = Text
+
 
 class UserRole(str, enum.Enum):
     member = "member"   # 一般會員
@@ -140,10 +148,10 @@ class Product(Base):
     price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False, default=0)
     original_price: Mapped[float | None] = mapped_column(Numeric(10, 2))
     stock: Mapped[int] = mapped_column(Integer, default=0)
-    image_url: Mapped[str | None] = mapped_column(String(255))       # 空值 = 前端顯示空白佔位
+    image_url: Mapped[str | None] = mapped_column(URL_TEXT)          # 空值 = 前端顯示空白佔位
     is_group_buy: Mapped[bool] = mapped_column(Boolean, default=False)   # 是否為團購商品
     group_buy_min_qty: Mapped[int | None] = mapped_column(Integer)       # 團購成團門檻
-    group_buy_note: Mapped[str | None] = mapped_column(String(255))
+    group_buy_note: Mapped[str | None] = mapped_column(String(500))
     is_featured: Mapped[bool] = mapped_column(Boolean, default=False)    # 首頁精選
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
@@ -168,7 +176,7 @@ class ProductImage(Base):
     product_id: Mapped[int] = mapped_column(
         ForeignKey("products.id", ondelete="CASCADE"), nullable=False
     )
-    image_url: Mapped[str] = mapped_column(String(255), nullable=False)
+    image_url: Mapped[str] = mapped_column(URL_TEXT, nullable=False)
     caption: Mapped[str | None] = mapped_column(String(150))
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
@@ -180,12 +188,14 @@ class News(Base):
     __tablename__ = "news"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    title: Mapped[str] = mapped_column(String(200), nullable=False)
-    summary: Mapped[str | None] = mapped_column(String(300))
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+    summary: Mapped[str | None] = mapped_column(String(600))
     content: Mapped[str | None] = mapped_column(Text)
     source: Mapped[str | None] = mapped_column(String(120))        # 報導媒體
-    source_url: Mapped[str | None] = mapped_column(String(400))    # 原文連結
-    cover_url: Mapped[str | None] = mapped_column(String(255))
+    # 原文連結。Facebook 貼文的網址會把整篇標題做 URL 編碼塞進路徑，
+    # 一個中文字變 9 個字元，實測 753 字元 —— 所以這裡不能用 VARCHAR，要用 TEXT。
+    source_url: Mapped[str | None] = mapped_column(URL_TEXT)
+    cover_url: Mapped[str | None] = mapped_column(URL_TEXT)
     category: Mapped[str] = mapped_column(String(40), default="news")  # news / media
     published_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -196,10 +206,10 @@ class Story(Base):
     __tablename__ = "stories"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    title: Mapped[str] = mapped_column(String(200), nullable=False)
-    subtitle: Mapped[str | None] = mapped_column(String(200))
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+    subtitle: Mapped[str | None] = mapped_column(String(300))
     content: Mapped[str | None] = mapped_column(Text)
-    cover_url: Mapped[str | None] = mapped_column(String(255))
+    cover_url: Mapped[str | None] = mapped_column(URL_TEXT)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)

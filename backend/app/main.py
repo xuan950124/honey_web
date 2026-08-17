@@ -2,9 +2,11 @@ import asyncio
 import logging
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
 
 from .config import settings
 from .database import Base, SessionLocal, engine, ensure_database, sync_schema
@@ -23,6 +25,78 @@ app = FastAPI(
     version="1.0.0",
 )
 
+
+def _friendly_db_error(exc: Exception) -> tuple[int, str]:
+    """把資料庫的英文錯誤翻成看得懂、而且知道下一步怎麼做的中文。"""
+    raw = str(getattr(exc, "orig", exc))
+
+    if "Data too long" in raw or "value too long" in raw.lower():
+        # 抓出是哪一個欄位，例如 Data too long for column 'source_url' at row 1
+        import re
+        m = re.search(r"column '([^']+)'", raw)
+        field = m.group(1) if m else ""
+        names = {
+            "source_url": "原文連結",
+            "cover_url": "封面圖片網址",
+            "image_url": "圖片網址",
+            "title": "標題",
+            "summary": "摘要",
+            "subtitle": "副標題",
+            "note": "備註",
+        }
+        label = names.get(field, field or "某個欄位")
+        return 400, (
+            f"「{label}」的內容太長，資料庫存不下。"
+            "如果是很長的社群網址，請重新啟動一次後端讓資料表自動加寬，或改貼短一點的連結。"
+        )
+
+    if isinstance(exc, IntegrityError):
+        if "Duplicate entry" in raw or "UNIQUE constraint" in raw:
+            return 400, "這筆資料和現有的重複了（例如 Email 或代碼已經被使用）。"
+        if "foreign key" in raw.lower():
+            return 400, "關聯的資料不存在或已被刪除，請重新整理後再試。"
+        return 400, "資料不符合限制，無法儲存。請檢查必填欄位是否都填了。"
+
+    if isinstance(exc, OperationalError):
+        return 503, "資料庫暫時連不上，請稍後再試。如果一直這樣，請確認資料庫服務是否還在運作。"
+
+    return 500, "伺服器處理這筆資料時發生問題，已記錄下來。"
+
+
+@app.middleware("http")
+async def error_to_json(request: Request, call_next):
+    """把所有沒被接住的例外都變成帶 CORS 標頭的中文 JSON。
+
+    為什麼一定要在 middleware 這一層做，而不是用 @app.exception_handler(Exception)：
+
+    Starlette 的處理順序是
+        ServerErrorMiddleware → 使用者的 middleware（含 CORS）→ ExceptionMiddleware → 路由
+    而註冊給 Exception 的 handler 是交給**最外層**的 ServerErrorMiddleware，
+    那一層在 CORSMiddleware 外面，所以回應不會帶 Access-Control-Allow-Origin。
+
+    結果就是瀏覽器只會說「已被 CORS 政策封鎖」——
+    明明真正的原因是「網址太長，資料庫存不下」，卻長得像跨網域設定壞掉，
+    這種誤導性的錯誤訊息會讓人往完全錯誤的方向查半天。
+
+    寫成 middleware 並且放在 CORS 之前宣告，CORS 就會包在外面（後加的在最外層），
+    錯誤回應也就帶得到標頭了。
+    """
+    try:
+        return await call_next(request)
+    except SQLAlchemyError as exc:
+        status, message = _friendly_db_error(exc)
+        log.exception("資料庫錯誤 %s %s", request.method, request.url.path)
+        return JSONResponse(status_code=status, content={"detail": message})
+    except Exception as exc:  # noqa: BLE001 - 最後一道防線，什麼都不能漏
+        log.exception("未處理的錯誤 %s %s", request.method, request.url.path)
+        return JSONResponse(
+            status_code=500,
+            content={"detail": f"伺服器發生未預期的錯誤（{type(exc).__name__}），已記錄下來。"},
+        )
+
+
+# CORS 一定要最後加。Starlette 的 middleware 是「後加的在最外層」，
+# 放最後才能包住上面的錯誤回應，讓它們也帶到 CORS 標頭。
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_list,

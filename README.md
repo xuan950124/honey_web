@@ -388,9 +388,10 @@ honey_web/
 │   ├── requirements.txt
 │   ├── uploads/                   後台上傳的照片存在這裡
 │   ├── tests/                     測試（用 SQLite 跑，不會碰到正式資料）
-│   │   └── test_payment_flow.py   運費、重新付款、逾期取消、庫存回補
+│   │   ├── test_payment_flow.py   運費、重新付款、逾期取消、庫存回補
+│   │   └── test_long_urls.py      長網址、欄位加寬、錯誤訊息與 CORS 標頭
 │   └── app/
-│       ├── main.py                進入點、CORS、靜態檔案掛載
+│       ├── main.py                進入點、錯誤處理、CORS、靜態檔案掛載
 │       ├── config.py              讀取 .env
 │       ├── database.py            MySQL 連線、自動建立資料庫
 │       ├── models.py              資料表定義
@@ -436,11 +437,12 @@ honey_web/
 
 ```
 cd backend  && python tests/test_payment_flow.py             (138 項)
+cd backend  && python tests/test_long_urls.py                 (84 項)
 cd frontend && node tests/cart-stock-and-map.test.mjs         (58 項)
 cd frontend && node tests/edit-mode.test.mjs                  (89 項)
 ```
 
-三份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
+四份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
 
 ---
 
@@ -476,6 +478,24 @@ cd frontend && node tests/edit-mode.test.mjs                  (89 項)
 ---
 
 ## 十五、常見問題
+
+**Q：後台存檔出現 500，主控台顯示「已被 CORS 政策封鎖」**
+CORS 通常是**結果不是原因**。真正的錯誤在最裡面發生，回應來不及帶上 CORS 標頭，
+瀏覽器就只能報 CORS。實際遇過的一次是「Facebook 網址有 753 字元，超過欄位上限」。
+
+現在後端會把這類錯誤翻成中文 JSON 並帶上 CORS 標頭，直接告訴你是哪個欄位出問題。
+完整的排錯過程請看 **[docs/存檔失敗的排錯記錄.md](docs/存檔失敗的排錯記錄.md)**。
+
+**Q：主控台一堆 `Cannot read properties of undefined (reading 'M_ID')`**
+那是**瀏覽器擴充功能**在報錯，不是網站的問題。
+把滑鼠移到來源檔名上會看到 `chrome-extension://...` 開頭。
+想看乾淨的主控台，開無痕視窗（擴充功能預設停用）再檢查。
+`MaxListenersExceededWarning`、`ObjectMultiplex - orphaned data` 也是同一個來源。
+
+**Q：改了欄位長度，但正式環境還是存不進去**
+資料表的型別要重新啟動後端才會更新。到 Zeabur 按一次 Redeploy，
+日誌會印出 `[資料表更新] news.source_url 加寬為 TEXT`。
+這個動作**只會加寬、不會縮小**，所以不會弄丟資料。
 
 **Q：後端出現 `ModuleNotFoundError: No module named 'app'`**
 uvicorn 是在錯的資料夾啟動的。它必須在 `backend` 資料夾裡跑，

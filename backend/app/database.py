@@ -52,13 +52,93 @@ def get_db():
     finally:
         db.close()
 
+def _current_width(col: dict) -> int | None:
+    """讀出資料庫裡這個欄位目前能存幾個字元。不是字串型別就回 None。
+
+    TEXT / LONGTEXT 這類沒有 length，SQLAlchemy 會給 None，
+    這裡回一個很大的數字代表「已經夠寬了」。
+    """
+    col_type = col.get("type")
+    type_name = type(col_type).__name__.upper()
+    if "TEXT" in type_name:
+        return 10 ** 9
+    length = getattr(col_type, "length", None)
+    if length is None:
+        return None
+    return int(length)
+
+
+def _target_width(column) -> int | None:
+    """模型希望這個欄位能存幾個字元。"""
+    type_name = type(column.type).__name__.upper()
+    if "TEXT" in type_name:
+        return 10 ** 9
+    length = getattr(column.type, "length", None)
+    if length is None:
+        return None
+    return int(length)
+
+
+def _add_column_sql(table_name: str, column, dialect) -> str:
+    """組出「新增欄位」的 ALTER TABLE。抽出來是為了能單獨測。"""
+    col_type = column.type.compile(dialect=dialect)
+    clause = f"ADD COLUMN `{column.name}` {col_type}"
+
+    default = column.default
+    if default is not None and getattr(default, "is_scalar", False):
+        value = default.arg
+        if isinstance(value, bool):
+            clause += f" NOT NULL DEFAULT {1 if value else 0}"
+        elif isinstance(value, (int, float)):
+            clause += f" NOT NULL DEFAULT {value}"
+        else:
+            literal = str(getattr(value, "value", value)).replace("'", "''")
+            clause += f" NOT NULL DEFAULT '{literal}'"
+    elif not column.nullable:
+        clause += " NULL"  # 既有資料列沒有值，只能先放寬為可空
+
+    return f"ALTER TABLE `{table_name}` {clause}"
+
+
+def _widen_sql(table_name: str, column, dialect) -> str:
+    """組出「加寬欄位」的 ALTER TABLE。"""
+    col_type = column.type.compile(dialect=dialect)
+    null_clause = "NULL" if column.nullable else "NOT NULL"
+    return f"ALTER TABLE `{table_name}` MODIFY `{column.name}` {col_type} {null_clause}"
+
+
+def should_widen(db_column: dict, model_column) -> bool:
+    """資料庫這一欄比模型要求的窄嗎？
+
+    只回答「該不該加寬」。縮小永遠回 False —— 縮小會截斷既有資料，
+    那是不可逆的，寧可資料庫比程式寬鬆。
+    """
+    if model_column.primary_key or model_column.unique or model_column.index:
+        # 有索引的欄位改成 TEXT 會讓 MySQL 抱怨索引長度，別動
+        return False
+    have = _current_width(db_column)
+    want = _target_width(model_column)
+    if have is None or want is None:
+        return False
+    return want > have
+
+
 def sync_schema() -> None:
-    """把資料表補齊到與程式模型一致（只新增欄位，不會刪除或改動既有資料）。
+    """把資料表補齊到與程式模型一致。
 
     這個專案沒有導入 Alembic 這類正式的 migration 工具，
     而 SQLAlchemy 的 create_all() 只會建立「不存在的表」，
-    已存在的表新增欄位時不會自動處理。
-    這裡用最保守的方式：比對模型與實際資料表，只對缺少的欄位下 ALTER TABLE ADD COLUMN。
+    已存在的表不會自動處理。這裡做兩件事，兩件都不會弄丟資料：
+
+      1. 缺少的欄位 -> ALTER TABLE ADD COLUMN
+      2. 太窄的字串欄位 -> ALTER TABLE MODIFY 加寬
+
+    第 2 項是後來加的。起因是 news.source_url 原本設 VARCHAR(400)，
+    但 Facebook 貼文的網址會把整篇標題做 URL 編碼塞進路徑（一個中文字 9 個字元），
+    實測 753 個字元，MySQL 直接拒絕寫入，前台只看到 500 錯誤。
+
+    **只加寬，永遠不縮小。** 縮小會截斷既有資料，那是不可逆的，
+    所以就算模型改小了也不動 —— 寧可資料庫比程式寬鬆。
     """
     from sqlalchemy import inspect
 
@@ -70,26 +150,23 @@ def sync_schema() -> None:
             if table.name not in existing_tables:
                 continue  # 新表交給 create_all 處理
 
-            existing_cols = {c["name"] for c in inspector.get_columns(table.name)}
+            db_cols = {c["name"]: c for c in inspector.get_columns(table.name)}
+
             for column in table.columns:
-                if column.name in existing_cols:
+                # ---------- 1. 缺少的欄位 ----------
+                if column.name not in db_cols:
+                    conn.execute(text(_add_column_sql(table.name, column, engine.dialect)))
+                    print(f"[資料表更新] {table.name} 新增欄位 {column.name}")
                     continue
 
-                col_type = column.type.compile(dialect=engine.dialect)
-                clause = f"ADD COLUMN `{column.name}` {col_type}"
+                # ---------- 2. 太窄的字串欄位 ----------
+                if not should_widen(db_cols[column.name], column):
+                    continue
 
-                default = column.default
-                if default is not None and getattr(default, "is_scalar", False):
-                    value = default.arg
-                    if isinstance(value, bool):
-                        clause += f" NOT NULL DEFAULT {1 if value else 0}"
-                    elif isinstance(value, (int, float)):
-                        clause += f" NOT NULL DEFAULT {value}"
-                    else:
-                        literal = str(getattr(value, "value", value)).replace("'", "''")
-                        clause += f" NOT NULL DEFAULT '{literal}'"
-                elif not column.nullable:
-                    clause += " NULL"  # 既有資料列沒有值，只能先放寬為可空
+                # SQLite 不支援 MODIFY COLUMN，但它本來就不檢查長度，跳過沒差
+                if engine.dialect.name == "sqlite":
+                    continue
 
-                conn.execute(text(f"ALTER TABLE `{table.name}` {clause}"))
-                print(f"[資料表更新] {table.name} 新增欄位 {column.name}")
+                conn.execute(text(_widen_sql(table.name, column, engine.dialect)))
+                print(f"[資料表更新] {table.name}.{column.name} 加寬為 "
+                      f"{column.type.compile(dialect=engine.dialect)}")
