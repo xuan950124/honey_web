@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { api, formatPrice } from '../api/client'
+import { api, formatPrice, mediaUrl } from '../api/client'
 import Placeholder from '../components/Placeholder'
+import { setMetaTag, setStructuredData } from '../components/SiteMeta'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { editable } from '../context/EditModeContext'
@@ -30,6 +31,47 @@ export default function ProductDetail() {
       .catch((e) => setError(e.message))
   }, [id])
 
+  // 商品頁的標題、分享預覽與 Product 結構化資料。
+  // 結構化資料會讓 Google 在搜尋結果直接顯示價格與庫存狀態。
+  useEffect(() => {
+    if (!product) return undefined
+    const shop = settings.shop_name || '皇龍蜂蜜'
+    const desc = (product.subtitle || product.description || '')
+      .replace(/\s+/g, ' ').slice(0, 120) || `${shop}的${product.name}`
+    const url = window.location.origin + `/products/${product.id}`
+    const image = product.image_url ? mediaUrl(product.image_url) : undefined
+
+    document.title = `${product.name}｜${shop}`
+    setMetaTag('name', 'description', desc)
+    setMetaTag('property', 'og:title', `${product.name}｜${shop}`)
+    setMetaTag('property', 'og:description', desc)
+    setMetaTag('property', 'og:type', 'product')
+    setMetaTag('property', 'og:url', url)
+    if (image) setMetaTag('property', 'og:image', image)
+
+    setStructuredData('product', {
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: product.name,
+      description: desc,
+      ...(image ? { image: [image] } : null),
+      ...(product.origin ? { countryOfOrigin: product.origin } : null),
+      brand: { '@type': 'Brand', name: shop },
+      offers: {
+        '@type': 'Offer',
+        url,
+        priceCurrency: 'TWD',
+        price: String(Number(product.price) || 0),
+        availability: product.stock > 0
+          ? 'https://schema.org/InStock'
+          : 'https://schema.org/OutOfStock',
+        seller: { '@type': 'Organization', name: settings.business_name || shop },
+      },
+    })
+
+    return () => setStructuredData('product', null)
+  }, [product, settings])
+
   if (error) {
     return (
       <div className="container section">
@@ -54,6 +96,45 @@ export default function ProductDetail() {
   const cartFull = !soldOut && room <= 0
   const maxQty = Number.isFinite(room) ? Math.max(1, room) : undefined
   const clampQty = (n) => Math.min(Math.max(1, Math.floor(Number(n) || 1)), maxQty ?? Infinity)
+
+  // 食品標示。商品沒填就用網站設定的共用值 ——
+  // 大部分蜂蜜的內容物與保存方式都一樣，不用每個商品重打一次。
+  const ingredients = product.ingredients || settings.food_default_ingredients
+  const storage = product.storage || settings.food_default_storage
+  const allergens = product.allergens || settings.food_default_allergens
+  const netWeight = product.net_weight || product.spec
+  const infantWarning = settings.food_infant_warning
+
+  // 廠商資訊：法規要求標示，統一由網站設定提供
+  const maker = [
+    ['廠商名稱', settings.business_name],
+    ['廠商地址', settings.business_address || settings.contact_address],
+    ['廠商電話', settings.business_phone || settings.contact_phone],
+    ['食品業者登錄字號', settings.food_registration_no],
+  ].filter(([, v]) => Boolean((v || '').trim()))
+
+  const labelRows = [
+    ['內容物名稱', ingredients],
+    ['淨重／內容量', netWeight],
+    ['原產地（國）', product.origin],
+    ['有效日期／保存期限', product.shelf_life],
+    ['保存方式', storage],
+    ['食品添加物名稱', product.additives],
+    ['過敏原資訊', allergens],
+    ['營養標示', product.nutrition],
+    ...maker,
+  ].filter(([, v]) => Boolean((v || '').trim()))
+
+  // 還沒填的欄位有哪些（只給工作人員看，提醒上線前要補齊）
+  const missing = [
+    ['內容物', ingredients],
+    ['淨重', netWeight],
+    ['原產地', product.origin],
+    ['保存期限', product.shelf_life],
+    ['保存方式', storage],
+    ['廠商名稱', settings.business_name],
+    ['食品業者登錄字號', settings.food_registration_no],
+  ].filter(([, v]) => !(v || '').trim()).map(([k]) => k)
 
   return (
     <section className="section has-buy-bar">
@@ -121,7 +202,10 @@ export default function ProductDetail() {
             <table className="spec-table">
               <tbody>
                 {product.spec && <tr><th>規格</th><td>{product.spec}</td></tr>}
-                {product.origin && <tr><th>產地</th><td>{product.origin}</td></tr>}
+                {netWeight && <tr><th>淨重／內容量</th><td>{netWeight}</td></tr>}
+                {ingredients && <tr><th>內容物</th><td>{ingredients}</td></tr>}
+                {product.origin && <tr><th>原產地</th><td>{product.origin}</td></tr>}
+                {product.shelf_life && <tr><th>保存期限</th><td>{product.shelf_life}</td></tr>}
                 <tr>
                   <th>庫存</th>
                   <td>
@@ -176,6 +260,14 @@ export default function ProductDetail() {
               </p>
             )}
 
+            {/* 嬰兒警語。這是安全性資訊，要在買之前就看到，不能埋在頁面最下面 */}
+            {infantWarning && (
+              <div className="warn-box">
+                <strong>食用注意</strong>
+                <span>{infantWarning}</span>
+              </div>
+            )}
+
             {settings.line_id && (
               <p className="small muted" style={{ marginTop: 18 }}>
                 大量訂購或需要客製包裝，歡迎加 LINE：{settings.line_id}
@@ -185,8 +277,67 @@ export default function ProductDetail() {
           </div>
         </div>
 
+        {/*
+          食品標示。網路販售包裝食品，這些資訊在「購買前」就要揭露，
+          所以放在商品頁而不是只印在瓶身上。
+        */}
+        <div style={{ marginTop: 64, maxWidth: 760 }}
+             {...editable('食品標示', `/admin/products/${product.id}`, null,
+               '共用的內容物、保存方式在「政策條款 → 食品標示預設值」，個別商品可以覆寫。')}>
+          <h2 className="section-head__title" style={{ fontSize: 22, marginBottom: 6 }}>
+            食品標示
+          </h2>
+          <p className="small muted" style={{ marginBottom: 18 }}>
+            依食品安全衛生管理法，網路販售包裝食品應於購買前揭露下列資訊。
+          </p>
+
+          {isStaff && missing.length > 0 && (
+            <div className="alert alert--error">
+              <strong>上線前要補齊：{missing.join('、')}</strong>
+              <p className="small" style={{ margin: '6px 0 0' }}>
+                商品自己的欄位在「商品管理 → 編輯」；
+                共用的內容物、保存方式與廠商資訊在「政策條款」。
+                （這段只有工作人員看得到。）
+              </p>
+            </div>
+          )}
+
+          {labelRows.length ? (
+            <table className="spec-table">
+              <tbody>
+                {labelRows.map(([label, value]) => (
+                  <tr key={label}>
+                    <th>{label}</th>
+                    <td style={{ whiteSpace: 'pre-line' }}>{value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="muted small">標示資訊整理中，如需詳細資料歡迎與我們聯繫。</p>
+          )}
+
+          {settings.traceability_code && (
+            <p className="small" style={{ marginTop: 14 }}>
+              生產者可查證：
+              <a
+                href={`https://qrc.afa.gov.tw/blog/${settings.traceability_code}`}
+                target="_blank" rel="noreferrer"
+                style={{ color: 'var(--honey-600)', textDecoration: 'underline' }}
+              >
+                農業部溯源追溯編號 {settings.traceability_code}
+              </a>
+            </p>
+          )}
+
+          <p className="small muted" style={{ marginTop: 14 }}>
+            蜂蜜為天然農產品，顏色、風味與結晶狀態會因花期與氣候而不同，屬正常現象。
+            退換貨規則請見 <Link to="/refund" style={{ textDecoration: 'underline' }}>退換貨政策</Link>。
+          </p>
+        </div>
+
         {product.description && (
-          <div style={{ marginTop: 72, maxWidth: 760 }}>
+          <div style={{ marginTop: 56, maxWidth: 760 }}>
             <h2 className="section-head__title" style={{ fontSize: 22, marginBottom: 18 }}>商品介紹</h2>
             <p style={{ whiteSpace: 'pre-line', color: 'var(--ink-soft)' }}>
               {stripEditorNotes(product.description)}

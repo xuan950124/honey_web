@@ -10,6 +10,7 @@ const MENU = [
   { to: '/admin/members', label: '會員管理' },
   { to: '/admin/membership', label: '等級與折價券' },
   { to: '/admin/settings', label: '網站設定' },
+  { to: '/admin/policies', label: '政策條款' },
 ]
 
 export default function AdminLayout() {

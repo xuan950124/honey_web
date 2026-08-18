@@ -9,7 +9,21 @@ const EMPTY = {
   price: 0, original_price: '', stock: 0, image_url: null,
   is_group_buy: false, group_buy_min_qty: '', group_buy_note: '',
   is_featured: false, is_active: true, sort_order: 0, category_id: '',
+  // 食品標示。留空會用「政策條款 → 食品標示預設值」的共用內容
+  ingredients: '', net_weight: '', shelf_life: '', storage: '',
+  nutrition: '', allergens: '', additives: '',
 }
+
+// 這些欄位留空時會退回共用預設值，所以不是每個都非填不可
+const FOOD_FIELDS = [
+  { key: 'ingredients', label: '內容物名稱', hint: '留空用共用預設。純蜜請寫「100% 蜂蜜」' },
+  { key: 'net_weight', label: '淨重／內容量', hint: '例：700 公克。留空會用上面的「規格」' },
+  { key: 'shelf_life', label: '有效日期／保存期限', hint: '例：製造日期起 2 年（瓶身標示為準）' },
+  { key: 'storage', label: '保存方式', hint: '留空用共用預設', textarea: true },
+  { key: 'additives', label: '食品添加物名稱', hint: '純蜜沒有添加物就留空' },
+  { key: 'allergens', label: '過敏原資訊', hint: '留空用共用預設' },
+  { key: 'nutrition', label: '營養標示', hint: '每 100 公克的熱量、蛋白質、脂肪、碳水化合物、糖、鈉', textarea: true },
+]
 
 export default function AdminProductForm() {
   const { id } = useParams()
@@ -41,6 +55,7 @@ export default function AdminProductForm() {
           category_id: p.category?.id ?? '',
           subtitle: p.subtitle ?? '', description: p.description ?? '',
           spec: p.spec ?? '', origin: p.origin ?? '', group_buy_note: p.group_buy_note ?? '',
+          ...Object.fromEntries(FOOD_FIELDS.map((f) => [f.key, p[f.key] ?? ''])),
         })
         setImages(p.images || [])
       })
@@ -65,6 +80,7 @@ export default function AdminProductForm() {
       category_id: form.category_id === '' ? null : Number(form.category_id),
       subtitle: form.subtitle || null, description: form.description || null,
       spec: form.spec || null, origin: form.origin || null, group_buy_note: form.group_buy_note || null,
+      ...Object.fromEntries(FOOD_FIELDS.map((f) => [f.key, form[f.key] || null])),
     }
     delete payload.id; delete payload.category; delete payload.images
 
@@ -216,6 +232,29 @@ export default function AdminProductForm() {
               </div>
             </>
           )}
+        </div>
+
+        <div className="panel">
+          <h2 className="panel__title">食品標示</h2>
+          <div className="alert alert--info">
+            網路販售包裝食品，這些資訊在<strong>購買前</strong>就要揭露，商品頁會自動顯示。
+            <br />
+            留空的欄位會用「政策條款 → 食品標示預設值」的共用內容，
+            不用每個商品都重打一次。
+          </div>
+          {FOOD_FIELDS.map((f) => (
+            <div className="field" key={f.key}>
+              <label htmlFor={`p-${f.key}`}>{f.label}</label>
+              {f.textarea ? (
+                <textarea id={`p-${f.key}`} className="input" name={f.key} rows={3}
+                          value={form[f.key] || ''} onChange={change} />
+              ) : (
+                <input id={`p-${f.key}`} className="input" name={f.key}
+                       value={form[f.key] || ''} onChange={change} />
+              )}
+              {f.hint && <div className="field__hint">{f.hint}</div>}
+            </div>
+          ))}
         </div>
 
         <div className="panel">

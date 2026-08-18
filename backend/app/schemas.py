@@ -102,7 +102,18 @@ class ProductImageOut(ORMModel):
     sort_order: int
 
 
-class ProductIn(BaseModel):
+class FoodLabel(BaseModel):
+    """食品標示。網路販售包裝食品，這些在購買前就要揭露。"""
+    ingredients: str | None = None   # 內容物名稱
+    net_weight: str | None = None    # 淨重／內容量
+    shelf_life: str | None = None    # 有效日期／保存期限
+    storage: str | None = None       # 保存方式
+    nutrition: str | None = None     # 營養標示
+    allergens: str | None = None     # 過敏原
+    additives: str | None = None     # 食品添加物
+
+
+class ProductIn(FoodLabel):
     name: str = Field(min_length=1, max_length=150)
     subtitle: str | None = None
     description: str | None = None
@@ -121,7 +132,7 @@ class ProductIn(BaseModel):
     category_id: int | None = None
 
 
-class ProductOut(ORMModel):
+class ProductOut(FoodLabel, ORMModel):
     id: int
     name: str
     subtitle: str | None = None

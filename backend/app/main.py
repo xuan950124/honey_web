@@ -12,7 +12,7 @@ from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
 from .config import settings
 from .database import Base, SessionLocal, engine, ensure_database, sync_schema
 from .routers import (
-    auth, content, logistics, membership, orders, payments, products, uploads,
+    auth, content, logistics, membership, orders, payments, products, seo, uploads,
 )
 
 # 讓我們自己的 log.info／log.warning 真的出現在平台的日誌裡。
@@ -155,6 +155,7 @@ app.include_router(uploads.router)
 app.include_router(logistics.router)
 app.include_router(payments.router)
 app.include_router(membership.router)
+app.include_router(seo.router)
 
 
 EXPIRE_SWEEP_SECONDS = 3600  # 每小時清一次逾期未付款訂單

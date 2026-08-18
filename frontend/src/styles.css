@@ -511,6 +511,66 @@ ul { margin: 0; padding: 0; list-style: none; }
 }
 .preview-fab:hover { background: var(--honey-800); transform: translateY(-2px); }
 
+/* ============ 政策條款頁 ============ */
+.policy { font-size: 15px; line-height: 1.95; color: var(--ink); }
+.policy__h2 {
+  font-size: 19px; color: var(--honey-900); margin: 36px 0 14px;
+  padding-bottom: 8px; border-bottom: 1px solid var(--line);
+}
+.policy__h2:first-child { margin-top: 0; }
+.policy__p { margin: 0 0 14px; }
+.policy__list { margin: 0 0 16px; padding-left: 22px; list-style: disc; }
+.policy__list li { margin-bottom: 6px; }
+ol.policy__list { list-style: decimal; }
+.policy__quote {
+  margin: 0 0 18px; padding: 14px 18px;
+  background: var(--honey-50); border-left: 3px solid var(--honey-500);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  font-size: 14.5px; color: var(--honey-900);
+}
+.policy__foot {
+  margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--line);
+  display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+}
+.policy__links { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; }
+.policy__links a { color: var(--honey-600); text-decoration: underline; }
+
+/* 頁尾的業者資訊（法定揭露事項） */
+.footer__legal {
+  margin-top: 28px; padding-top: 18px; border-top: 1px solid rgba(247, 223, 160, 0.16);
+  display: flex; flex-wrap: wrap; gap: 6px 24px;
+  font-size: 12.5px; color: var(--honey-200);
+}
+.footer__legal-label { color: var(--honey-300); margin-right: 6px; }
+.footer__policy-links { display: flex; gap: 14px; flex-wrap: wrap; }
+.footer__policy-links a { text-decoration: underline; }
+.footer__policy-links a:hover { color: var(--honey-300); }
+
+/* 食用警語。用實心底色而不是淡淡的提示 —— 這是安全性資訊 */
+.warn-box {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  margin-top: 18px; padding: 12px 16px;
+  background: #fdf3ef; border: 1px solid #f0c6b6; border-radius: var(--radius);
+  font-size: 13.5px; line-height: 1.7; color: var(--ink);
+}
+.warn-box strong { color: var(--danger); white-space: nowrap; }
+
+/* 結帳前的退換貨告知。法規要求下單前要看得到，所以放在送出按鈕正上方 */
+.checkout-notice {
+  margin-top: 18px; padding: 14px 16px;
+  background: var(--cream-2); border: 1px solid var(--line); border-radius: var(--radius);
+  font-size: 12.5px; line-height: 1.75; color: var(--ink-soft);
+}
+.checkout-notice strong { display: block; color: var(--honey-900); margin-bottom: 6px; font-size: 13px; }
+.checkout-notice p { margin: 0 0 8px; }
+.checkout-notice a { color: var(--honey-600); text-decoration: underline; }
+
+@media (max-width: 620px) {
+  .policy { font-size: 14.5px; }
+  .policy__h2 { font-size: 17px; margin-top: 28px; }
+  .footer__legal { gap: 4px 16px; }
+}
+
 /* ============ 編輯模式（工作人員專用）============ */
 
 /* 兩顆浮動按鈕疊在右下角，編輯模式在上面 */

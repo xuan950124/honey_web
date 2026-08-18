@@ -220,6 +220,10 @@ export const api = {
   getSettings: () => request('/api/settings'),
   updateSettings: (values) => request('/api/settings', { method: 'PUT', body: { values } }),
 
+  // 政策條款（分開的端點：這幾份文字很長，不該讓每一頁都載）
+  policies: () => request('/api/policies'),
+  structuredData: () => request('/api/seo/structured-data'),
+
   // 上傳
   uploadImage: (file) => {
     const fd = new FormData()

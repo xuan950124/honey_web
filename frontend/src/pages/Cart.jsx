@@ -19,6 +19,7 @@ export default function Cart() {
   const { settings } = useSettings()
   const navigate = useNavigate()
   const [stockNotices, setStockNotices] = useState([])
+  const [notice, setNotice] = useState('')
 
   const [options, setOptions] = useState(null)
   const [shippingMethod, setShippingMethod] = useState('cvs_unimart_c2c')
@@ -39,6 +40,9 @@ export default function Cart() {
 
   useEffect(() => {
     api.checkoutOptions().then(setOptions).catch((e) => setError(e.message))
+    api.policies()
+      .then((p) => setNotice(p.policy_checkout_notice || ''))
+      .catch(() => {})
   }, [])
 
   // 進到購物車就跟後端要一次最新庫存。
@@ -480,8 +484,20 @@ export default function Cart() {
                 </span>
               </div>
 
+              {/*
+                退換貨告知。法規要求「必須在消費者下單前明確告知」才能排除七天猶豫期，
+                只放在頁尾的連結裡不算數，所以放在送出按鈕的正上方。
+              */}
+              {notice && (
+                <div className="checkout-notice">
+                  <strong>訂購前請確認</strong>
+                  <p>{notice}</p>
+                  <Link to="/refund" target="_blank">完整退換貨政策</Link>
+                </div>
+              )}
+
               <button type="submit" form="checkout-form" className="btn btn--primary btn--block"
-                      style={{ marginTop: 20 }} disabled={submitting || hasStockIssue}>
+                      style={{ marginTop: 16 }} disabled={submitting || hasStockIssue}>
                 {submitting ? '處理中…' : hasStockIssue ? '請先調整數量' : isCod ? '送出訂單' : '前往付款'}
               </button>
               <p className="small muted text-center" style={{ marginTop: 12, marginBottom: 0 }}>

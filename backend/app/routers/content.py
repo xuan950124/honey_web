@@ -1,7 +1,8 @@
-"""新聞報導、品牌故事、站台設定（聯絡方式）。"""
+"""新聞報導、品牌故事、站台設定（聯絡方式）、政策條款。"""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from .. import policies
 from ..database import get_db
 from ..deps import require_staff
 from ..models import News, SiteSetting, Story
@@ -147,6 +148,18 @@ DEFAULT_SETTINGS = {
     # 農業部農糧署「溯源農糧產品追溯系統」資訊
     "producer_name": "",
     "traceability_code": "",
+    # 業者資訊（賣包裝食品的法定揭露事項，顯示在頁尾與商品頁）
+    "business_name": "",          # 商號 / 公司名稱
+    "business_tax_id": "",        # 統一編號
+    "food_registration_no": "",   # 食品業者登錄字號（非登不可）
+    "business_owner": "",         # 負責人
+    "business_address": "",       # 廠商地址（與蜂場地址可能不同）
+    "business_phone": "",         # 廠商電話
+    # 商品的共用食品標示。個別商品可以覆寫，沒填就用這裡的值
+    "food_default_ingredients": "100% 蜂蜜",
+    "food_default_storage": "請置於陰涼乾燥處，避免陽光直射；開封後請鎖緊瓶蓋。",
+    "food_default_allergens": "",
+    "food_infant_warning": "一歲以下嬰兒不宜食用蜂蜜（可能含肉毒桿菌孢子）。",
     # 運費設定
     "shipping_fee_cvs": "70",
     "shipping_fee_cvs_hilife": "60",
@@ -172,6 +185,22 @@ def get_settings(db: Session = Depends(get_db)) -> dict[str, str]:
     for row in rows:
         result[row.key] = row.value or ""
     return result
+
+
+# ---------- 政策條款 ----------
+
+@router.get("/policies")
+def get_policies(db: Session = Depends(get_db)) -> dict[str, str]:
+    """隱私權、服務條款、退換貨的內文。
+
+    工作人員沒改過就給預設草稿。分成獨立的端點是因為這幾份文字很長，
+    塞進 /settings 會讓每一頁都多載好幾 KB —— 而政策頁很少被打開。
+    """
+    settings_map = {r.key: (r.value or "") for r in db.query(SiteSetting).all()}
+    out: dict[str, str] = {}
+    for key, default in policies.DEFAULTS.items():
+        out[key] = policies.render(settings_map.get(key) or default, settings_map)
+    return out
 
 
 @router.put("/settings", dependencies=[Depends(require_staff)])

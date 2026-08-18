@@ -9,6 +9,16 @@ export default function Footer() {
   const { settings, loaded } = useSettings()
   const year = new Date().getFullYear()
 
+  // 只列有填的。空的欄位對客人露出來只會顯得沒做完
+  const business = [
+    ['商號', settings.business_name],
+    ['統一編號', settings.business_tax_id],
+    ['食品業者登錄字號', settings.food_registration_no],
+    ['負責人', settings.business_owner],
+    ['地址', settings.business_address],
+    ['電話', settings.business_phone],
+  ].filter(([, v]) => Boolean((v || '').trim()))
+
   return (
     <footer className="footer">
       <div className="container">
@@ -55,12 +65,13 @@ export default function Footer() {
           </div>
 
           <div data-edit-skip>
-            <h4>會員服務</h4>
+            <h4>會員與條款</h4>
             <ul>
               <li><Link to="/login">會員登入</Link></li>
-              <li><Link to="/register">加入會員</Link></li>
               <li><Link to="/member">訂單查詢</Link></li>
-              <li><Link to="/cart">購物車</Link></li>
+              <li><Link to="/refund">退換貨政策</Link></li>
+              <li><Link to="/privacy">隱私權政策</Link></li>
+              <li><Link to="/terms">服務條款</Link></li>
             </ul>
           </div>
 
@@ -83,11 +94,32 @@ export default function Footer() {
           </div>
         </div>
 
+        {/*
+          業者資訊。賣包裝食品要揭露商號、統編與食品業者登錄字號，
+          沒填的欄位不顯示（不要對客人露出空欄位）。
+        */}
+        {business.length > 0 && (
+          <div className="footer__legal"
+               {...editable('業者資訊', '/admin/policies', 'business_name',
+                 '商號名稱、統一編號、食品業者登錄字號都在「政策條款 → 業者資訊」。')}>
+            {business.map(([label, value]) => (
+              <span key={label}>
+                <span className="footer__legal-label">{label}</span>
+                {value}
+              </span>
+            ))}
+          </div>
+        )}
+
         <div className="footer__bottom">
           <span className={loaded ? '' : 'is-pending'}>
             © {year} {settings.shop_name || '蜂蜜工坊'}．All rights reserved.
           </span>
-          <span>本網站商品照片與文案內容陸續更新中</span>
+          <span className="footer__policy-links">
+            <Link to="/privacy">隱私權</Link>
+            <Link to="/terms">服務條款</Link>
+            <Link to="/refund">退換貨</Link>
+          </span>
         </div>
       </div>
     </footer>

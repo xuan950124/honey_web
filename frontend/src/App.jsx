@@ -22,6 +22,7 @@ import News from './pages/News'
 import NewsDetail from './pages/NewsDetail'
 import NotFound from './pages/NotFound'
 import OrderDetail from './pages/OrderDetail'
+import Policy from './pages/Policy'
 import ProductDetail from './pages/ProductDetail'
 import Products from './pages/Products'
 import Register from './pages/Register'
@@ -36,6 +37,7 @@ import AdminMembers from './pages/admin/AdminMembers'
 import AdminMembership from './pages/admin/AdminMembership'
 import AdminNews from './pages/admin/AdminNews'
 import AdminOrders from './pages/admin/AdminOrders'
+import AdminPolicies from './pages/admin/AdminPolicies'
 import AdminProductForm from './pages/admin/AdminProductForm'
 import AdminProducts from './pages/admin/AdminProducts'
 import AdminSettings from './pages/admin/AdminSettings'
@@ -75,6 +77,9 @@ export default function App() {
           <Route path="/news/:id" element={<NewsDetail />} />
           <Route path="/story" element={<Story />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/privacy" element={<Policy page="privacy" />} />
+          <Route path="/terms" element={<Policy page="terms" />} />
+          <Route path="/refund" element={<Policy page="refund" />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/order/:orderNo" element={<OrderDetail />} />
           <Route path="/login" element={<Login />} />
@@ -103,6 +108,7 @@ export default function App() {
             <Route path="members" element={<AdminMembers />} />
             <Route path="membership" element={<AdminMembership />} />
             <Route path="settings" element={<AdminSettings />} />
+            <Route path="policies" element={<AdminPolicies />} />
           </Route>
 
           <Route path="*" element={<NotFound />} />

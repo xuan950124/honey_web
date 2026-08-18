@@ -140,6 +140,7 @@ UPDATE users SET role = 'staff' WHERE email = '要升級的Email';
 | `/news/:id` | 報導內頁 | 內文與原文連結 |
 | `/story` | 品牌故事 | 圖文左右交錯排版 |
 | `/contact` | 聯絡我們 | LINE、電話、地址、Email、營業時間、地圖、訂購須知 |
+| `/privacy`、`/terms`、`/refund` | 隱私權／服務條款／退換貨 | 內文可於後台「政策條款」修改 |
 | `/cart` | 購物車 | 修改數量、填寫收件資料、送出訂單 |
 | `/login`、`/register` | 登入／註冊 | |
 
@@ -161,6 +162,7 @@ UPDATE users SET role = 'staff' WHERE email = '要升級的Email';
 | `/admin/stories` | 故事管理 |
 | `/admin/orders` | 訂單管理：查看明細、更改出貨狀態 |
 | `/admin/settings` | **網站設定：LINE ID、電話、地址、營業時間、社群連結、地圖** |
+| `/admin/policies` | **政策條款：業者資訊、食品標示預設值、三份政策內文** |
 
 ---
 
@@ -437,6 +439,7 @@ honey_web/
 ### 跑測試
 
 ```
+cd backend  && python tests/test_compliance_seo.py           (158 項)
 cd backend  && python tests/test_payment_flow.py             (139 項)
 cd backend  && python tests/test_security.py                  (95 項)
 cd backend  && python tests/test_long_urls.py                 (84 項)
@@ -445,7 +448,7 @@ cd frontend && node tests/cart-stock-and-map.test.mjs         (58 項)
 cd frontend && node tests/edit-mode.test.mjs                  (89 項)
 ```
 
-六份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
+七份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
 
 ---
 
@@ -480,14 +483,15 @@ cd frontend && node tests/edit-mode.test.mjs                  (89 項)
 
 ### 上線前務必做的事
 
-1. 把 `.env` 的 `SECRET_KEY` 換成一段長的隨機字串
-2. 改掉預設管理員密碼 `admin1234`
-3. 把 `.env` 加進 `.gitignore`，不要上傳到公開的 git（已預設加入）
-4. `CORS_ORIGINS` 改成正式網域
-5. **`ECPAY_ENV` 設成 `production` 並填入正式金鑰** ——
-   沒改的話客人的付款不會真的入帳。後台總覽會一直提醒你
-6. 補上隱私權政策、服務條款、退換貨政策與商品的食品標示
-   （台灣賣包裝食品的硬性要求，見上面那份文件的第九節）
+完整清單（含法規、SEO、備份、監控）請看
+**[docs/上線前必辦清單.md](docs/上線前必辦清單.md)**。最關鍵的六項：
+
+1. **`ECPAY_ENV` 設成 `production` 並填正式金鑰** —— 沒改客人的錢收不到
+2. **申請食品業者登錄字號**（非登不可）並填進後台 → 政策條款
+3. **補齊每個商品的食品標示** —— 用工作人員帳號開商品頁會列出缺哪幾項
+4. 把 `.env` 的 `SECRET_KEY` 換成一段長的隨機字串，改掉預設管理員密碼
+5. `CORS_ORIGINS` 只留正式網域
+6. 補上商品照片 —— 沒照片的商品幾乎不會有人下單，後台總覽會列出來
 
 ---
 

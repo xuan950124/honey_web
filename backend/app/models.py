@@ -145,6 +145,16 @@ class Product(Base):
     description: Mapped[str | None] = mapped_column(Text)
     spec: Mapped[str | None] = mapped_column(String(120))            # 例：700g / 玻璃瓶
     origin: Mapped[str | None] = mapped_column(String(120))          # 產地
+    # ---------------- 食品標示 ----------------
+    # 網路販售包裝食品，這些資訊在「購買前」就要揭露。
+    # 留空的欄位會用網站設定裡的共用值（例如內容物預設「100% 蜂蜜」）。
+    ingredients: Mapped[str | None] = mapped_column(String(500))     # 內容物名稱
+    net_weight: Mapped[str | None] = mapped_column(String(80))       # 淨重／內容量
+    shelf_life: Mapped[str | None] = mapped_column(String(120))      # 有效日期／保存期限
+    storage: Mapped[str | None] = mapped_column(String(300))         # 保存方式
+    nutrition: Mapped[str | None] = mapped_column(Text)              # 營養標示
+    allergens: Mapped[str | None] = mapped_column(String(300))       # 過敏原資訊
+    additives: Mapped[str | None] = mapped_column(String(300))       # 食品添加物名稱
     price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False, default=0)
     original_price: Mapped[float | None] = mapped_column(Numeric(10, 2))
     stock: Mapped[int] = mapped_column(Integer, default=0)
