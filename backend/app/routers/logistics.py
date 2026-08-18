@@ -206,6 +206,84 @@ def _check_sender(cfg: dict, logistics_type: str, sub_type: str) -> None:
         raise HTTPException(status_code=400, detail=SETTINGS_HINT + "、".join(problems))
 
 
+# 綠界建單失敗的常見原因，翻成「看得懂而且知道下一步」的說明。
+#
+# 綠界回的是一句話，沒有錯誤代碼可以對照，所以只能比對關鍵字。
+# 每一條都寫出「為什麼」和「怎麼辦」——
+# 只把原文貼給店家看，他還是不知道要去哪裡按什麼。
+LOGISTICS_HINTS: list[tuple[tuple[str, ...], str, list[str]]] = [
+    (
+        ("可提領餘額", "餘額為負數", "不足支付物流運費"),
+        "綠界帳戶餘額不足，付不出這筆運費",
+        [
+            "超商店到店的運費是**由你先付**的 —— 綠界會從你的帳戶餘額扣，"
+            "不是等買家取貨才收。所以帳戶是 0 元就建不了單。",
+            "解法：到綠界廠商後台 →「綠界帳戶管理 →**預付款項**」儲值。"
+            "一筆超商運費約 70 元，先存個一兩千塊就夠跑一陣子。",
+            "**順便檢查「自動提領設定」**。如果設了每日自動提領，"
+            "錢一進來就被領走，餘額永遠是 0，建單會一直失敗。"
+            "建議先關掉，等出貨穩定了再改成每週或每月。",
+            "（提領手續費 15 元／次，每天領一次也不划算。）",
+        ],
+    ),
+    (
+        ("門市", "不存在", "已停止", "暫停營業"),
+        "買家選的門市目前無法收件",
+        [
+            "可能是門市整修、停業，或綠界的門市資料還沒更新。",
+            "請聯絡買家改選其他門市，或改用宅配。",
+        ],
+    ),
+    (
+        ("金額", "上限", "超過"),
+        "訂單金額超過這個配送方式的上限",
+        [
+            "超商取貨與代收貨款的單筆上限是 20,000 元。",
+            "請改用宅配，或請買家分兩筆下單。",
+        ],
+    ),
+    (
+        ("MerchantID", "廠商編號", "查無此廠商"),
+        "綠界的廠商編號或金鑰不正確",
+        [
+            "檢查後端環境變數的 `ECPAY_C2C_MERCHANT_ID` / `HASH_KEY` / `HASH_IV`，"
+            "是否與綠界後台「系統設定 → 系統介接設定」的**物流**那一列相同。",
+            "另外確認 `ECPAY_LOGISTICS_ENV` 有沒有設對 —— "
+            "正式金鑰配測試環境（或反過來）都會被退回。",
+        ],
+    ),
+    (
+        ("CheckMacValue",),
+        "檢查碼驗證失敗",
+        [
+            "通常是 HashKey 或 HashIV 貼錯（少一個字、多一個空格）。",
+            "綠界的金鑰有容易看錯的字元：數字 0 與大寫 O、數字 1 與大寫 I 和小寫 l。"
+            "建議直接從後台複製貼上，不要用打的。",
+        ],
+    ),
+    (
+        ("尚未申請", "未開通", "未啟用"),
+        "這個物流服務還沒開通",
+        [
+            "到綠界後台「驗證/服務申請」確認物流已開通，"
+            "並在「物流管理 → 修改物流型態」把要用的超商與宅配都勾起來。",
+        ],
+    ),
+]
+
+
+def explain_logistics_error(raw: str) -> tuple[str, list[str]]:
+    """把綠界的錯誤訊息翻成標題與處理步驟。認不出來就回原文。"""
+    text = raw or ""
+    for keywords, title, steps in LOGISTICS_HINTS:
+        if sum(1 for k in keywords if k in text) >= min(2, len(keywords)):
+            return title, steps
+    return "綠界建立物流單失敗", [
+        f"綠界回報：{text[:200]}",
+        "如果看不懂這句話，把它整段貼給我，我幫你看是什麼問題。",
+    ]
+
+
 def _build_create_params(db: Session, order: Order) -> tuple[str, dict, str, str]:
     """組出建立物流訂單所需的參數。回傳 (物流類型, 參數, HashKey, HashIV)。"""
     mapping = SHIPPING_MAP.get(order.shipping_method.value)
@@ -317,10 +395,16 @@ def create_logistics_order(order_id: int, db: Session = Depends(get_db)):
          {"request": signed, "response": body})
 
     if not ok:
+        title, steps = explain_logistics_error(err)
         order.logistics_status = LogisticsStatus.failed
-        order.logistics_message = err[:300]
+        order.logistics_message = f"{title}｜綠界原文：{err}"[:300]
         db.commit()
-        raise HTTPException(status_code=400, detail=f"綠界建立物流單失敗：{err}")
+        # detail 用結構化的內容，前端才能把「怎麼辦」排版成清單，
+        # 而不是把一整段文字塞在紅色橫條裡
+        raise HTTPException(
+            status_code=400,
+            detail={"title": title, "steps": steps, "raw": err[:300]},
+        )
 
     order.allpay_logistics_id = data.get("AllPayLogisticsID") or None
     order.cvs_payment_no = data.get("CVSPaymentNo") or None

@@ -93,9 +93,16 @@ async function request(path, { method = 'GET', body, isForm = false } = {}) {
         ? data.detail
         : Array.isArray(data?.detail)
           ? data.detail.map((d) => d.msg).join('、')
-          : `發生錯誤（${res.status}）`
+          : data?.detail?.title
+            ? data.detail.title
+            : `發生錯誤（${res.status}）`
     const err = new Error(message)
     err.status = res.status
+    // 後端有時候會回結構化的說明（標題 + 處理步驟），
+    // 讓畫面能排成清單而不是把一整段塞進紅色橫條。
+    if (data?.detail && typeof data.detail === 'object' && !Array.isArray(data.detail)) {
+      err.detail = data.detail
+    }
     throw err
   }
   return data

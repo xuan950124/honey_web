@@ -42,6 +42,8 @@ export default function AdminOrders() {
   const [openId, setOpenId] = useState(null)
   const [busyId, setBusyId] = useState(null)
   const [sweeping, setSweeping] = useState(false)
+  // 綠界建單失敗時的結構化說明（標題 + 處理步驟）
+  const [help, setHelp] = useState(null)
   // 把未收款的訂單標成出貨／完成時，先跳出來確認的那一筆
   const [pendingStatus, setPendingStatus] = useState(null)
   const [filter, setFilter] = useState('')
@@ -94,7 +96,7 @@ export default function AdminOrders() {
   }
 
   const createLogistics = async (order) => {
-    setErr(''); setMsg(''); setBusyId(order.id)
+    setErr(''); setMsg(''); setHelp(null); setBusyId(order.id)
     try {
       const res = await api.createLogistics(order.id)
       setMsg(
@@ -105,7 +107,11 @@ export default function AdminOrders() {
       setOpenId(order.id)
       load()
     } catch (e) {
-      setErr(e.message)
+      // 綠界的失敗多半不是「再按一次就會好」，而是有東西要先去設定。
+      // 有結構化說明就排成步驟，沒有才退回單行訊息。
+      if (e.detail?.steps?.length) setHelp(e.detail)
+      else setErr(e.message)
+      load()
     } finally {
       setBusyId(null)
     }
@@ -184,6 +190,42 @@ export default function AdminOrders() {
 
       {err && <div className="alert alert--error">{err}</div>}
       {msg && <div className="alert alert--success">{msg}</div>}
+
+      {/*
+        綠界建單失敗的說明。刻意排成步驟清單而不是一行紅字 ——
+        這類失敗（餘額不足、金鑰設錯、門市停業）都不是「再按一次就會好」，
+        店家需要知道去哪裡按什麼。
+      */}
+      {help && (
+        <div className="alert alert--error">
+          <strong>建立物流單失敗：{help.title}</strong>
+          <ol style={{ margin: '10px 0 0', paddingLeft: 20, listStyle: 'decimal' }}>
+            {help.steps.map((step, i) => (
+              <li key={i} className="small" style={{ marginBottom: 6, lineHeight: 1.75 }}>
+                {step.split(/(\*\*[^*]+\*\*)/g).map((part, n) => (
+                  part.startsWith('**') && part.endsWith('**')
+                    ? <strong key={n}>{part.slice(2, -2)}</strong>
+                    : <span key={n}>{part}</span>
+                ))}
+              </li>
+            ))}
+          </ol>
+          {help.raw && (
+            <p className="small muted" style={{ margin: '10px 0 0' }}>
+              綠界原文：{help.raw}
+            </p>
+          )}
+          <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+            <a className="btn btn--outline btn--sm" href="https://vendor.ecpay.com.tw/"
+               target="_blank" rel="noreferrer">
+              開啟綠界廠商後台
+            </a>
+            <button type="button" className="btn btn--ghost btn--sm" onClick={() => setHelp(null)}>
+              我知道了
+            </button>
+          </div>
+        </div>
+      )}
 
       {pendingStatus && (
         <>

@@ -304,6 +304,62 @@ def test_purchasable_defaults():
 
 # ---------------------------------------------------------------- 前端接線
 
+def test_logistics_error_guidance():
+    """綠界建單失敗要講得出「怎麼辦」。
+
+    實際踩到的：正式環境第一次出貨，綠界回
+    「訂單建立失敗(綠界帳戶可提領餘額為負數或不足支付物流運費無法建立訂單)」。
+    只把這句話貼給店家看，他還是不知道要去哪裡按什麼 ——
+    結果就是對著同一顆按鈕按了二十幾次（瀏覽器主控台整排 400）。
+    """
+    print("\n[綠界建單失敗要講得出怎麼辦]")
+    from app.routers.logistics import explain_logistics_error
+
+    # 這一句就是正式站實際收到的訊息，一字不改
+    real = "訂單建立失敗(綠界帳戶可提領餘額為負數或不足支付物流運費無法建立訂單)"
+    title, steps = explain_logistics_error(real)
+    check("認得出餘額不足", "餘額不足" in title, title)
+    joined = " ".join(steps)
+    check("說明運費是店家先付的", "由你先付" in joined or "先付" in joined, joined[:80])
+    check("告訴店家去儲值", "預付款項" in joined, joined[:120])
+    check("提醒檢查自動提領", "自動提領" in joined,
+          "每日自動提領會把餘額領光，建單會一直失敗")
+    check("有講到大概要存多少", "70" in joined or "一兩千" in joined, joined[:200])
+
+    cases = [
+        ("門市不存在或已停止營業", "門市"),
+        ("代收金額超過上限", "上限"),
+        ("CheckMacValue Error", "檢查碼"),
+        ("查無此廠商編號 MerchantID", "廠商編號"),
+        ("該服務尚未申請或未開通", "開通"),
+    ]
+    for raw, expect in cases:
+        title, steps = explain_logistics_error(raw)
+        check(f"「{raw[:12]}…」翻得出來", expect in title, title)
+        check(f"「{raw[:12]}…」有處理步驟", len(steps) >= 1)
+
+    # 認不出來的也要給得出東西，不能回空的
+    title, steps = explain_logistics_error("某個從沒看過的錯誤")
+    check("沒對照的錯誤仍有標題", bool(title))
+    check("沒對照的錯誤會附上原文", "某個從沒看過的錯誤" in " ".join(steps))
+    check("沒對照的錯誤請店家回報", "貼給我" in " ".join(steps))
+
+    # 空字串不能爆炸
+    title, steps = explain_logistics_error("")
+    check("空訊息不會壞掉", bool(title) and len(steps) >= 1)
+
+    src = (ROOT / "backend/app/routers/logistics.py").read_text("utf-8")
+    check("失敗時回結構化說明", '"steps": steps' in src)
+    check("失敗原因也存進訂單", "order.logistics_message = f" in src)
+
+    admin = (ROOT / "frontend/src/pages/admin/AdminOrders.jsx").read_text("utf-8")
+    check("後台會排成步驟清單", "help.steps.map" in admin)
+    check("後台附上綠界後台連結", "vendor.ecpay.com.tw" in admin)
+
+    client_js = (ROOT / "frontend/src/api/client.js").read_text("utf-8")
+    check("前端會保留結構化說明", "err.detail = data.detail" in client_js)
+
+
 def test_frontend_wiring():
     print("\n[前端有接上]")
     src = ROOT / "frontend/src"
@@ -366,6 +422,7 @@ if __name__ == "__main__":
         test_query_count, test_pool_settings,
         test_store_must_match_chain,
         test_purchasable_flag, test_purchasable_defaults,
+        test_logistics_error_guidance,
         test_frontend_wiring,
     ):
         fn()

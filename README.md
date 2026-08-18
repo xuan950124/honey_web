@@ -188,6 +188,17 @@ UPDATE users SET role = 'staff' WHERE email = '要升級的Email';
 出貨流程：後台「訂單與出貨管理」→ 展開訂單 → 按「建立物流單並取得寄件代碼」
 → 拿到寄件代碼後，包裹帶到超商機台輸入代碼列印單據即可寄件。
 
+> **第一次出貨前一定要先在綠界儲值。** 超商運費是**你先付**的，
+> 綠界從帳戶餘額扣，帳戶是 0 元就會出現
+> 「可提領餘額為負數或不足支付物流運費」而建不了單。
+> 到「綠界帳戶管理 → 預付款項」存個一兩千塊即可。
+> **另外要檢查「自動提領設定」** —— 設成每日自動提領的話錢一進來就被領走，
+> 餘額永遠是 0，出貨會一直失敗。詳見
+> **[docs/綠界帳戶餘額與出貨.md](docs/綠界帳戶餘額與出貨.md)**。
+>
+> 建單失敗時後台會直接把處理步驟排出來（餘額不足、金鑰設錯、門市停業…），
+> 不用自己去猜綠界那句話是什麼意思。
+
 完整說明（含切換正式環境、申請流程、金額限制）請看
 **[docs/綠界金流物流串接說明.md](docs/綠界金流物流串接說明.md)**。
 
@@ -493,7 +504,7 @@ cd backend  && python tests/test_payment_flow.py             (139 項)
 cd backend  && python tests/test_security.py                  (95 項)
 cd backend  && python tests/test_long_urls.py                 (84 項)
 cd backend  && python tests/test_cart_and_order_state.py      (81 項)
-cd backend  && python tests/test_checkout_stability.py        (77 項)
+cd backend  && python tests/test_checkout_stability.py       (101 項)
 cd backend  && python tests/test_ecpay_env.py                 (61 項)
 cd backend  && python tests/test_startup_resilience.py        (43 項)
 cd frontend && node tests/cart-stock-and-map.test.mjs         (75 項)
@@ -501,7 +512,7 @@ cd frontend && node tests/edit-mode.test.mjs                  (89 項)
 ```
 
 十份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
-共 903 項。
+共 927 項。
 
 ---
 
