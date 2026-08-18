@@ -89,6 +89,16 @@ export default function Cart() {
     if (selectedShipping && !selectedShipping.supports_temperature) setTemperature('0001')
   }, [selectedShipping, isCod])
 
+  // 預設選的付款方式被後端停用時（例如金流還在審核，只開放貨到付款），
+  // 自動換成第一個還能用的。不換的話買家會看到一個選不動的選項卡在那裡。
+  useEffect(() => {
+    if (!options?.payment) return
+    const current = options.payment.find((p) => p.value === paymentMethod)
+    if (current && !current.disabled) return
+    const usable = options.payment.find((p) => !p.disabled)
+    if (usable) setPaymentMethod(usable.value)
+  }, [options, paymentMethod])
+
   // 試算運費
   useEffect(() => {
     if (!items.length) return setQuote(null)
@@ -311,7 +321,10 @@ export default function Cart() {
                   <h2 className="panel__title">付款方式</h2>
                   <div className="option-grid">
                     {(options?.payment || []).map((p) => {
-                      const disabled = p.value === 'cod' && selectedShipping && !selectedShipping.supports_cod
+                      // 兩種停用原因：送貨方式不支援（例如郵局不能貨到付款），
+                      // 以及後端說這個付款方式現在不能用（金流還在審核）
+                      const unsupported = p.value === 'cod' && selectedShipping && !selectedShipping.supports_cod
+                      const disabled = unsupported || p.disabled
                       return (
                         <label key={p.value}
                                className={`option${paymentMethod === p.value ? ' active' : ''}${disabled ? ' disabled' : ''}`}>
@@ -321,18 +334,31 @@ export default function Cart() {
                           <div>
                             <div className="option__title">{p.label}</div>
                             <div className="option__meta">
-                              {disabled ? '此送貨方式不支援' : p.note}
+                              {unsupported ? '此送貨方式不支援' : (p.disabled_reason || p.note)}
                             </div>
                           </div>
                         </label>
                       )
                     })}
                   </div>
-                  {options?.ecpay_env !== 'production' && (
+                  {/*
+                    只有「金流測試 + 物流也測試」時才是開發中，顯示測試卡號。
+                    物流已正式時代表真的在賣了，那時線上付款已被後端停用，
+                    再顯示測試卡號只會讓客人困惑。
+                  */}
+                  {options && !options.ecpay_status?.payment_production
+                    && !options.ecpay_status?.logistics_production && (
                     <div className="alert alert--info" style={{ marginTop: 16, marginBottom: 0 }}>
                       目前是綠界<strong>測試環境</strong>，不會真的扣款。
                       測試卡號 4311-9511-1111-1111，安全碼任意三碼，
                       有效期限填未來日期，3D 驗證碼 1234。
+                    </div>
+                  )}
+
+                  {options?.payment?.some((p) => p.disabled) && (
+                    <div className="alert alert--info" style={{ marginTop: 16, marginBottom: 0 }}>
+                      線上付款服務仍在審核中，目前<strong>僅開放貨到付款</strong>
+                      —— 到超商取貨時付現即可。造成不便請見諒。
                     </div>
                   )}
                 </div>

@@ -328,7 +328,13 @@ def test_upload_endpoint():
             check("工作人員可以上傳真圖", r.status_code == 200, str(r.status_code)[:120])
             if r.status_code == 200:
                 url = r.json()["url"]
-                check("檔名被重新產生（不用原始檔名）", "a.jpg" not in url, url)
+                name = r.json()["filename"]
+                # 用格式判斷而不是「原始檔名不在裡面」——
+                # uuid 剛好以 a 結尾時，"a.jpg" 會意外命中，測試會隨機失敗
+                import re as _re
+                check("檔名被重新產生（32 碼十六進位）",
+                      bool(_re.fullmatch(r"[0-9a-f]{32}\.jpg", name)), name)
+                check("沒有沿用原始檔名", not name.startswith("a."), name)
                 check("存放在 /uploads 下", url.startswith("/uploads/"), url)
 
             r = client.post("/api/uploads", files={"file": ("x.jpg", HTML, "image/jpeg")},

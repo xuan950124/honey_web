@@ -30,7 +30,12 @@ export default function AdminDashboard() {
     api.checkoutOptions().then(setCheckout).catch(() => {})
   }, [])
 
-  const isTestPayment = checkout && checkout.ecpay_env !== 'production'
+  // 綠界的金流與物流是分開審核的，狀態要分開看。
+  // 物流過了就能用貨到付款開賣，不必等金流。
+  const ec = checkout?.ecpay_status || {}
+  const loaded = Boolean(checkout)
+  const canCod = Boolean(ec.can_sell_cod)
+  const canOnline = Boolean(ec.can_sell_online)
 
   return (
     <>
@@ -44,14 +49,50 @@ export default function AdminDashboard() {
         測試金流收不到錢，沒照片的商品幾乎不會有人買。
         所以放在後台第一眼看得到的位置，而不是等人自己想起來。
       */}
-      {isTestPayment && (
-        <div className="alert alert--error">
-          <strong>目前是綠界「測試環境」，客人的付款不會真的入帳。</strong>
-          <p className="small" style={{ margin: '6px 0 0' }}>
-            結帳頁也會顯示測試卡號提示。正式開賣前，請把後端的環境變數
-            <code> ECPAY_ENV </code>設成<code> production </code>
-            並填入綠界正式的商店代號與金鑰，那些提示會自動消失。
-          </p>
+      {loaded && !(canOnline && canCod) && (
+        <div className={`alert alert--${canCod ? 'info' : 'error'}`}>
+          <strong>
+            綠界目前的狀態：金流「{canOnline ? '正式' : '測試'}」．物流「{canCod ? '正式' : '測試'}」
+          </strong>
+
+          <table className="spec-table" style={{ margin: '10px 0' }}>
+            <tbody>
+              <tr>
+                <th style={{ width: 130 }}>線上付款</th>
+                <td>
+                  {canOnline
+                    ? '正式環境，客人的付款會真的入帳。'
+                    : '還是測試環境，信用卡／ATM／超商代碼收不到錢。結帳頁會顯示測試卡號提示。'}
+                </td>
+              </tr>
+              <tr>
+                <th>物流與貨到付款</th>
+                <td>
+                  {canCod
+                    ? '正式環境，可以真的建立物流單、真的收現金。'
+                    : '還是測試環境，建立的物流單不是真的，不要拿去超商寄件。'}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {canCod && !canOnline ? (
+            <p className="small" style={{ margin: 0 }}>
+              <strong>物流已經可以用了，所以你現在就能開賣 —— 只開放「貨到付款」。</strong>
+              客人在超商取貨時付現，錢由綠界代收後撥到你的綠界帳戶
+              （提領要等金流審核通過，但那筆錢跑不掉）。
+              等金流過了再把 <code>ECPAY_ENV</code> 設成 <code>production</code>，
+              信用卡與 ATM 就會一起開放。
+            </p>
+          ) : (
+            <p className="small" style={{ margin: 0 }}>
+              綠界的金流與物流是<strong>分開審核</strong>的，物流通常先過。
+              物流一過就可以先開賣貨到付款 —— 把後端的
+              <code> ECPAY_LOGISTICS_ENV </code>設成<code> production </code>
+              並填入正式的物流金鑰即可，不用等金流。
+              金流過了之後再設<code> ECPAY_ENV=production </code>。
+            </p>
+          )}
         </div>
       )}
 

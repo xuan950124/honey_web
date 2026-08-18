@@ -73,6 +73,14 @@ class Settings(BaseSettings):
     # production = 正式環境（請務必換成自己後台的金鑰）
     ECPAY_ENV: str = "stage"
 
+    # 物流可以跟金流分開切換。
+    #
+    # 綠界的物流與金流是**分開審核**的，物流常常先通過。
+    # 兩者綁在同一個開關的話，就得等金流也過才能用真的物流 ——
+    # 但其實物流一過就可以先用「貨到付款」開賣了。
+    # 留空 = 跟著 ECPAY_ENV 走，不影響原本的設定。
+    ECPAY_LOGISTICS_ENV: str = ""
+
     # 金流（全方位金流）
     ECPAY_MERCHANT_ID: str = "3002607"
     ECPAY_HASH_KEY: str = "pwFHCqoQZGmho4w6"
@@ -93,9 +101,21 @@ class Settings(BaseSettings):
     BACKEND_BASE_URL: str = "http://127.0.0.1:8000"
     FRONTEND_BASE_URL: str = "http://localhost:5173"
 
+    @staticmethod
+    def _is_production(value: str) -> bool:
+        return (value or "").strip().lower() in ("production", "prod", "正式")
+
     @property
     def is_ecpay_production(self) -> bool:
-        return self.ECPAY_ENV.lower() in ("production", "prod", "正式")
+        """金流是不是正式環境。"""
+        return self._is_production(self.ECPAY_ENV)
+
+    @property
+    def is_logistics_production(self) -> bool:
+        """物流是不是正式環境。沒特別設定就跟著金流。"""
+        if self.ECPAY_LOGISTICS_ENV.strip():
+            return self._is_production(self.ECPAY_LOGISTICS_ENV)
+        return self.is_ecpay_production
 
     @property
     def ecpay_payment_host(self) -> str:
@@ -109,9 +129,28 @@ class Settings(BaseSettings):
     def ecpay_logistics_host(self) -> str:
         return (
             "https://logistics.ecpay.com.tw"
-            if self.is_ecpay_production
+            if self.is_logistics_production
             else "https://logistics-stage.ecpay.com.tw"
         )
+
+    @property
+    def ecpay_status(self) -> dict[str, object]:
+        """綠界目前各服務的狀態，給後台顯示用。
+
+        分開回報是因為兩者的意義完全不同：
+          - 金流還在測試 → 客人的錢收不到，不能開賣線上付款
+          - 物流已正式   → 可以真的寄件，也可以用貨到付款收現金
+        """
+        payment = self.is_ecpay_production
+        logistics = self.is_logistics_production
+        return {
+            "payment_production": payment,
+            "logistics_production": logistics,
+            # 貨到付款只需要物流（代收貨款），不需要金流服務
+            "can_sell_cod": logistics,
+            # 線上付款（信用卡／ATM／超商代碼）要金流正式才收得到錢
+            "can_sell_online": payment,
+        }
 
     def logistics_credentials(self, logistics_type: str) -> tuple[str, str, str]:
         """依物流類型取出對應的 (廠商編號, HashKey, HashIV)。

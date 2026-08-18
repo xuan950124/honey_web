@@ -320,6 +320,10 @@ class PaymentOption(BaseModel):
     value: str
     label: str
     note: str | None = None
+    # 金流還在審核但物流已正式時，線上付款要停用 ——
+    # 不然客人會被帶到測試付款頁，刷了也收不到錢
+    disabled: bool = False
+    disabled_reason: str | None = None
 
 
 class CheckoutOptions(BaseModel):
@@ -328,6 +332,10 @@ class CheckoutOptions(BaseModel):
     free_shipping_threshold: float
     cod_fee: float
     ecpay_env: str
+    # 金流與物流是分開審核的，狀態要分開回報。
+    # 前台用 payment_production 決定要不要顯示測試卡號提示，
+    # 後台用整包判斷現在能不能開賣、能用哪些付款方式。
+    ecpay_status: dict[str, bool] = {}
     backend_base_url: str
 
 

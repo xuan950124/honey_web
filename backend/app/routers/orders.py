@@ -194,8 +194,23 @@ def checkout_options(db: Session = Depends(get_db)):
         PaymentMethod.cvs_code.value: "取得代碼後 3 天內至超商繳費",
         PaymentMethod.cod.value: "取貨時付款，僅限支援的送貨方式",
     }
+
+    # 「物流已正式、金流還在審核」時，只開放貨到付款。
+    #
+    # 這個組合代表店家已經在真的出貨了。如果還讓客人選信用卡，
+    # 他會被帶到綠界的**測試**付款頁，刷了也收不到錢 ——
+    # 客人以為買到了，你這邊卻沒有一毛錢進來，是最糟的狀況。
+    #
+    # 兩邊都還在測試時不擋，那是開發中的正常狀態，要能測所有付款方式。
+    cod_only = settings.is_logistics_production and not settings.is_ecpay_production
+    online_reason = "線上付款服務審核中，目前僅開放貨到付款" if cod_only else None
+
     payment = [
-        PaymentOption(value=v, label=lbl, note=payment_notes.get(v))
+        PaymentOption(
+            value=v, label=lbl, note=payment_notes.get(v),
+            disabled=bool(cod_only and v != PaymentMethod.cod.value),
+            disabled_reason=online_reason if v != PaymentMethod.cod.value else None,
+        )
         for v, (_, lbl) in PAYMENT_MAP.items()
     ]
 
@@ -205,6 +220,7 @@ def checkout_options(db: Session = Depends(get_db)):
         free_shipping_threshold=float(cfg.get("free_shipping_threshold") or 0),
         cod_fee=float(cfg.get("cod_fee") or 0),
         ecpay_env=settings.ECPAY_ENV,
+        ecpay_status=settings.ecpay_status,
         backend_base_url=settings.BACKEND_BASE_URL.rstrip('/'),
     )
 
@@ -325,6 +341,16 @@ def create_order(
     )
     if error:
         raise HTTPException(status_code=400, detail=error)
+
+    # 金流還在審核、物流已正式時，線上付款一律擋掉。
+    # 前端已經把選項停用了，但那只是畫面 —— 直接打 API 一樣要擋得住，
+    # 不然會出現「客人刷了測試卡以為買到，店家一毛錢都沒收到」的狀況。
+    if (settings.is_logistics_production and not settings.is_ecpay_production
+            and payload.payment_method != PaymentMethod.cod):
+        raise HTTPException(
+            status_code=400,
+            detail="線上付款服務仍在審核中，目前僅開放貨到付款。造成不便請見諒。",
+        )
 
     shipping_fee, _ = calc_shipping_fee(
         db, subtotal, payload.shipping_method, payload.temperature

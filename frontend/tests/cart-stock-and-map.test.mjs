@@ -9,6 +9,8 @@
  * 而地圖網址的分支多到用眼睛看不完（座標／分享網址／iframe／純地址）。
  */
 
+import { addressQuery, buildMapSrc, directionsUrl, mapPoint } from '../src/lib/maps.js'
+
 let passed = 0
 const failures = []
 
@@ -173,46 +175,6 @@ function testCheckoutGuard() {
 
 // ---------------------------------------------------------------- 地圖網址
 
-const COORD_ONLY = /^\s*(-?\d{1,3}\.\d+)\s*[,，]\s*(-?\d{1,3}\.\d+)\s*$/
-
-function addressQuery(settings) {
-  const address = (settings.contact_address || '').trim()
-  if (!address) return ''
-  const zhi = address.replace(/(\d+)-(\d+)號/g, '$1之$2號')
-  const name = (settings.shop_name || '').trim()
-  return [name, zhi].filter(Boolean).join(' ')
-}
-
-function buildMapSrc(settings = {}) {
-  const raw = (settings.map_embed_url || '').trim()
-  const query = addressQuery(settings)
-  const byAddress = query
-    ? `https://maps.google.com/maps?q=${encodeURIComponent(query)}&z=17&output=embed`
-    : ''
-
-  if (raw) {
-    const pin = raw.match(COORD_ONLY)
-    if (pin) return `https://maps.google.com/maps?q=${pin[1]},${pin[2]}&z=18&output=embed`
-
-    const iframeSrc = raw.match(/src=["']([^"']+)["']/i)
-    const url = iframeSrc ? iframeSrc[1] : raw
-    if (/\/maps\/embed/i.test(url) || /[?&]output=embed/i.test(url)) return url
-
-    const coords = url.match(/@(-?\d+\.\d+),\s*(-?\d+\.\d+)/)
-    if (coords) return `https://maps.google.com/maps?q=${coords[1]},${coords[2]}&z=18&output=embed`
-    const place = url.match(/\/place\/([^/@?#]+)/)
-    if (place) return `https://maps.google.com/maps?q=${place[1]}&z=17&output=embed`
-    const q = url.match(/[?&]q=([^&]+)/)
-    if (q) return `https://maps.google.com/maps?q=${q[1]}&z=17&output=embed`
-    if (byAddress) return byAddress
-    if (!/^https?:\/\//i.test(url)) {
-      return `https://maps.google.com/maps?q=${encodeURIComponent(url)}&z=17&output=embed`
-    }
-    return ''
-  }
-  return byAddress
-}
-
 function testMap() {
   console.log('\n[地圖網址]')
   const base = { shop_name: '皇龍蜂蜜', contact_address: '基隆市七堵區華新一路89-6號' }
@@ -277,6 +239,57 @@ function testMap() {
   )
 }
 
+function testDirections() {
+  console.log('\n[規劃路線的目的地]')
+  const base = { shop_name: '皇龍蜂蜜', contact_address: '基隆市七堵區華新一路89-6號' }
+
+  // 沒填座標：只能用地址，Google 會自己猜（這正是會導到 89 號的原因）
+  const byAddress = directionsUrl(base)
+  check('沒座標時用地址', byAddress.includes('dir/?api=1&destination='), byAddress)
+  check('地址有轉成「之」的寫法', byAddress.includes(encodeURIComponent('89之6號')), byAddress)
+
+  // 填了座標：一定要用座標，不能再讓 Google 猜
+  const withPoint = { ...base, map_embed_url: '25.098406, 121.665791' }
+  const url = directionsUrl(withPoint)
+  check('有座標時改用座標', url.includes('25.098406%2C121.665791') || url.includes('25.098406,121.665791'), url)
+  check('有座標時不再送地址', !url.includes('%E8%8F%AF%E6%96%B0'), url)
+  check('仍是 Google 導航網址', url.startsWith('https://www.google.com/maps/dir/?api=1&destination='), url)
+
+  // 各種能抓到座標的來源
+  const sources = [
+    ['純座標', '25.098406, 121.665791'],
+    ['沒有空格', '25.098406,121.665791'],
+    ['全形逗號', '25.098406，121.665791'],
+    ['分享網址的 @座標', 'https://www.google.com/maps/place/x/@25.098406,121.665791,18z'],
+    ['?q= 座標', 'https://maps.google.com/?q=25.098406,121.665791'],
+    ['整段 iframe', '<iframe src="https://maps.google.com/maps?q=25.098406,121.665791&output=embed"></iframe>'],
+  ]
+  for (const [name, value] of sources) {
+    const point = mapPoint({ ...base, map_embed_url: value })
+    check(`${name} 抓得出座標`, point === '25.098406,121.665791', String(point))
+  }
+
+  // 抓不到座標的情況要回 null，不能亂猜
+  for (const [name, value] of [
+    ['留空', ''],
+    ['短網址', 'https://maps.app.goo.gl/abcdef'],
+    ['一段地址文字', '基隆市七堵區華新一路89-6號'],
+    ['沒有座標的 place 網址', 'https://www.google.com/maps/place/%E7%9A%87%E9%BE%8D'],
+  ]) {
+    check(`${name} 回 null`, mapPoint({ ...base, map_embed_url: value }) === null,
+          String(mapPoint({ ...base, map_embed_url: value })))
+  }
+
+  // 地圖與導航要指到同一個點，不然「地圖對了、導航錯了」更難察覺
+  const embed = buildMapSrc(withPoint)
+  check('地圖與導航用同一組座標',
+        embed.includes('25.098406,121.665791') && url.includes('25.098406'),
+        `${embed} | ${url}`)
+
+  // 什麼都沒有時不要產生半殘的網址
+  check('完全沒資料時回空字串', directionsUrl({}) === '', directionsUrl({}))
+}
+
 console.log('='.repeat(60))
 console.log('購物車庫存與地圖網址測試')
 console.log('='.repeat(60))
@@ -285,6 +298,7 @@ testUpdateQty()
 testSyncStock()
 testCheckoutGuard()
 testMap()
+testDirections()
 
 console.log('\n' + '='.repeat(60))
 if (failures.length) {

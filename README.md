@@ -177,6 +177,14 @@ UPDATE users SET role = 'staff' WHERE email = '要升級的Email';
 **目前預設是測試環境**，用綠界公開的測試金鑰，不會真的扣款。
 測試卡號 `4311-9511-1111-1111`，安全碼任意三碼，有效期限填未來日期，3D 驗證碼 `1234`。
 
+> **金流與物流可以分開切正式。** 綠界是分開審核的，物流通常先過 ——
+> 物流一過就能先用「**貨到付款**」開賣，不必等金流（貨到付款走的是物流的代收貨款）。
+> 設 `ECPAY_LOGISTICS_ENV=production` 即可，`ECPAY_ENV` 留在 `stage`。
+>
+> 那種狀態下系統會**自動只開放貨到付款**，線上付款在前端與後端都擋住 ——
+> 不然客人會被帶到測試付款頁，刷了你卻收不到錢。
+> 做法見 **[docs/綠界審核期間怎麼開賣.md](docs/綠界審核期間怎麼開賣.md)**。
+
 出貨流程：後台「訂單與出貨管理」→ 展開訂單 → 按「建立物流單並取得寄件代碼」
 → 拿到寄件代碼後，包裹帶到超商機台輸入代碼列印單據即可寄件。
 
@@ -317,8 +325,13 @@ Google 對「89-6號」這種細分門牌常常會就近對到「89號」。系�
 1. 查詢時自動把 `89-6號` 轉成 `89之6號`（Google 台灣的辨識率較高），並帶上店名
 2. 地圖下方一律顯示**你自己填的完整地址**，不依賴 Google 標的那張小卡
 
-想讓地圖上的點完全精準，到 **網站設定 → Google 地圖位置（座標）** 填座標：
-打開 Google 地圖 → 對著自家門口按滑鼠右鍵 → 點最上面那組數字（會自動複製）→ 貼上。
+**「規劃路線」也是同一個問題** —— 送地址過去，Google 一樣會把客人導到 89 號。
+
+到 **網站設定 → Google 地圖位置（座標）** 填座標，地圖的紅點與導航目的地就會**用同一組座標**，
+Google 沒有猜的空間：打開 Google 地圖 → 對著自家門口按滑鼠右鍵 →
+點最上面那組數字（會自動複製）→ 貼上。
+
+沒填的話，工作人員登入時會在地圖下方看到提醒（客人看不到）。
 
 ---
 
@@ -462,13 +475,14 @@ cd backend  && python tests/test_payment_flow.py             (139 項)
 cd backend  && python tests/test_security.py                  (95 項)
 cd backend  && python tests/test_long_urls.py                 (84 項)
 cd backend  && python tests/test_cart_and_order_state.py      (81 項)
+cd backend  && python tests/test_ecpay_env.py                 (61 項)
 cd backend  && python tests/test_startup_resilience.py        (43 項)
-cd frontend && node tests/cart-stock-and-map.test.mjs         (58 項)
+cd frontend && node tests/cart-stock-and-map.test.mjs         (75 項)
 cd frontend && node tests/edit-mode.test.mjs                  (89 項)
 ```
 
-八份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
-共 747 項。
+九份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
+共 826 項。
 
 ---
 
