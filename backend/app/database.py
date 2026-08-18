@@ -12,6 +12,18 @@ engine = create_engine(
     pool_pre_ping=True,
     pool_recycle=3600,
     echo=False,
+    # 連線池設定。
+    #
+    # 這幾個數字是踩過坑才調的：前端有個無限迴圈一直打試算 API，
+    # 預設的 5 + 10 條連線幾秒就被吃光，接著每個請求都卡滿
+    # **30 秒**才回一個 500 —— 整個網站看起來像當掉。
+    #
+    # pool_timeout 從 30 秒縮到 5 秒是刻意的：連線要不到就要**快點失敗**。
+    # 讓使用者等 30 秒再看到錯誤，比等 5 秒看到錯誤糟得多，
+    # 而且卡著的請求會佔住工作執行緒，把問題放大。
+    pool_size=settings.DB_POOL_SIZE,
+    max_overflow=settings.DB_MAX_OVERFLOW,
+    pool_timeout=settings.DB_POOL_TIMEOUT,
 )
 
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)

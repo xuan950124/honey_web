@@ -9,6 +9,7 @@ const EMPTY = {
   price: 0, original_price: '', stock: 0, image_url: null,
   is_group_buy: false, group_buy_min_qty: '', group_buy_note: '',
   is_featured: false, is_active: true, sort_order: 0, category_id: '',
+  is_purchasable: true, unavailable_note: '',
   // 食品標示。留空會用「政策條款 → 食品標示預設值」的共用內容
   ingredients: '', net_weight: '', shelf_life: '', storage: '',
   nutrition: '', allergens: '', additives: '',
@@ -55,6 +56,8 @@ export default function AdminProductForm() {
           category_id: p.category?.id ?? '',
           subtitle: p.subtitle ?? '', description: p.description ?? '',
           spec: p.spec ?? '', origin: p.origin ?? '', group_buy_note: p.group_buy_note ?? '',
+          is_purchasable: p.is_purchasable !== false,
+          unavailable_note: p.unavailable_note ?? '',
           ...Object.fromEntries(FOOD_FIELDS.map((f) => [f.key, p[f.key] ?? ''])),
         })
         setImages(p.images || [])
@@ -80,6 +83,7 @@ export default function AdminProductForm() {
       category_id: form.category_id === '' ? null : Number(form.category_id),
       subtitle: form.subtitle || null, description: form.description || null,
       spec: form.spec || null, origin: form.origin || null, group_buy_note: form.group_buy_note || null,
+      unavailable_note: form.unavailable_note || null,
       ...Object.fromEntries(FOOD_FIELDS.map((f) => [f.key, form[f.key] || null])),
     }
     delete payload.id; delete payload.category; delete payload.images
@@ -282,7 +286,7 @@ export default function AdminProductForm() {
         </div>
 
         <div className="panel">
-          <h2 className="panel__title">顯示設定</h2>
+          <h2 className="panel__title">顯示與販售</h2>
           <div className="stack-sm">
             <label className="checkbox">
               <input type="checkbox" name="is_featured" checked={form.is_featured} onChange={change} />
@@ -290,9 +294,52 @@ export default function AdminProductForm() {
             </label>
             <label className="checkbox">
               <input type="checkbox" name="is_active" checked={form.is_active} onChange={change} />
-              上架中（取消勾選則前台不顯示）
+              上架中（取消勾選則前台完全看不到這個商品）
+            </label>
+            <label className="checkbox">
+              <input type="checkbox" name="is_purchasable" checked={form.is_purchasable} onChange={change} />
+              開放購買（取消勾選則客人看得到但不能買）
             </label>
           </div>
+
+          <div className="alert alert--info" style={{ marginTop: 14 }}>
+            <strong>「上架中」和「開放購買」是兩件事</strong>
+            <table className="spec-table" style={{ margin: '8px 0 0' }}>
+              <tbody>
+                <tr>
+                  <th style={{ width: 150 }}>兩個都勾</th>
+                  <td>正常販售</td>
+                </tr>
+                <tr>
+                  <th>只勾上架中</th>
+                  <td>
+                    <strong>看得到、資訊都在，但不能加入購物車。</strong>
+                    用在還在試賣、還沒定價、等檢驗報告的商品 ——
+                    可以先讓客人看到並詢問，累積興趣。
+                    <br />
+                    <span className="muted">工作人員仍然買得到，方便你測完整個結帳流程。</span>
+                  </td>
+                </tr>
+                <tr>
+                  <th>都不勾</th>
+                  <td>前台完全看不到</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {!form.is_purchasable && (
+            <div className="field" style={{ marginTop: 14 }}>
+              <label htmlFor="unavailable_note">不能購買時顯示的說明</label>
+              <input id="unavailable_note" className="input" name="unavailable_note"
+                     value={form.unavailable_note} onChange={change}
+                     placeholder="例：新品試作中，預計 10 月開賣" />
+              <div className="field__hint">
+                會顯示在商品頁的購買按鈕上方。留空會顯示「這項商品還在準備中，尚未開放購買」。
+                寫出預計時間比空泛的「敬請期待」有用得多。
+              </div>
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>

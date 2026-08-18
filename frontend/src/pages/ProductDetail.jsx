@@ -94,6 +94,10 @@ export default function ProductDetail() {
   const room = Math.max(0, stock - inCart)
   const soldOut = stock <= 0
   const cartFull = !soldOut && room <= 0
+  // 「看得到但還不能買」。工作人員例外 —— 這個開關就是為了讓你先測完整流程
+  const notForSale = product.is_purchasable === false && !isStaff
+  const notForSaleNote = (product.unavailable_note || '').trim() || '這項商品還在準備中，尚未開放購買'
+  const cannotBuy = notForSale || soldOut || cartFull
   const maxQty = Number.isFinite(room) ? Math.max(1, room) : undefined
   const clampQty = (n) => Math.min(Math.max(1, Math.floor(Number(n) || 1)), maxQty ?? Infinity)
 
@@ -230,26 +234,51 @@ export default function ProductDetail() {
 
             <div className="pd__divider" />
 
+            {/* 還沒開放購買時，把原因講在按鈕上面，不要只給一顆按不動的灰按鈕 */}
+            {notForSale && (
+              <div className="alert alert--info" style={{ marginBottom: 14 }}>
+                <strong>{notForSaleNote}</strong>
+                {settings.line_id && (
+                  <p className="small" style={{ margin: '6px 0 0' }}>
+                    想先預訂或想知道開賣時間，歡迎加 LINE {settings.line_id} 問我們。
+                  </p>
+                )}
+              </div>
+            )}
+
+            {product.is_purchasable === false && isStaff && (
+              <div className="alert alert--error" style={{ marginBottom: 14 }}>
+                <strong>這項商品目前設定為「不開放購買」</strong>
+                <p className="small" style={{ margin: '6px 0 0' }}>
+                  客人看得到但買不了。你是工作人員所以仍可下單測試。
+                  要開賣請到商品編輯頁把「開放購買」打勾。（這段只有工作人員看得到。）
+                </p>
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
               <div className="qty">
-                <button type="button" disabled={soldOut || cartFull || qty <= 1}
+                <button type="button" disabled={cannotBuy || qty <= 1}
                         onClick={() => setQty((q) => clampQty(q - 1))}>−</button>
                 <input
                   type="number" min="1" max={maxQty} value={qty}
                   onChange={(e) => setQty(clampQty(e.target.value))}
-                  disabled={soldOut || cartFull}
+                  disabled={cannotBuy}
                 />
-                <button type="button" disabled={soldOut || cartFull || qty >= room}
+                <button type="button" disabled={cannotBuy || qty >= room}
                         onClick={() => setQty((q) => clampQty(q + 1))}>＋</button>
               </div>
               <button
                 type="button"
                 className="btn btn--primary"
                 style={{ flex: 1, minWidth: 180 }}
-                disabled={soldOut || cartFull}
+                disabled={cannotBuy}
                 onClick={() => { add(product, qty); setQty(1) }}
               >
-                {soldOut ? '補貨中' : cartFull ? '購物車已達庫存上限' : '加入購物車'}
+                {notForSale ? '尚未開放購買'
+                  : soldOut ? '補貨中'
+                    : cartFull ? '購物車已達庫存上限'
+                      : '加入購物車'}
               </button>
             </div>
 
@@ -368,10 +397,13 @@ export default function ProductDetail() {
         <button
           type="button"
           className="btn btn--primary"
-          disabled={soldOut || cartFull}
+          disabled={cannotBuy}
           onClick={() => { add(product, qty); setQty(1) }}
         >
-          {soldOut ? '補貨中' : cartFull ? '已達庫存上限' : `加入購物車（${qty}）`}
+          {notForSale ? '尚未開放購買'
+            : soldOut ? '補貨中'
+              : cartFull ? '已達庫存上限'
+                : `加入購物車（${qty}）`}
         </button>
       </div>
     </section>

@@ -13,6 +13,13 @@ class Settings(BaseSettings):
     DB_PASSWORD: str = ""
     DB_NAME: str = "honey_web"
 
+    # 連線池。要小於資料庫的 max_connections（Zeabur 的 MySQL 預設通常是 151）。
+    # pool_timeout 故意設短 —— 連線要不到就快點回錯誤，
+    # 讓請求卡 30 秒只會把塞車變得更嚴重。
+    DB_POOL_SIZE: int = 10
+    DB_MAX_OVERFLOW: int = 20
+    DB_POOL_TIMEOUT: int = 5
+
     SECRET_KEY: str = "dev-secret-change-me"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7

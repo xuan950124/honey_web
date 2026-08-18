@@ -163,7 +163,18 @@ class Product(Base):
     group_buy_min_qty: Mapped[int | None] = mapped_column(Integer)       # 團購成團門檻
     group_buy_note: Mapped[str | None] = mapped_column(String(500))
     is_featured: Mapped[bool] = mapped_column(Boolean, default=False)    # 首頁精選
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)       # 前台看不看得到
+    # 客人能不能買。
+    #
+    # 跟 is_active 是兩件事：
+    #   is_active=False      → 整個商品前台看不到
+    #   is_purchasable=False → 看得到、資訊都在，但不能加入購物車
+    #
+    # 用在「照片和文案都準備好了，但還在試賣／還沒定價／等檢驗報告」的商品。
+    # 工作人員仍然買得到，這樣才能走完整個結帳流程做測試。
+    is_purchasable: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # 不能買時顯示給客人看的理由（留空會用預設句）
+    unavailable_note: Mapped[str | None] = mapped_column(String(200))
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)

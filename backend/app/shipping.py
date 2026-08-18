@@ -57,14 +57,19 @@ def calc_shipping_fee(
     subtotal: float,
     shipping_method: ShippingMethod | str,
     temperature: str = Temperature.normal.value,
+    values: dict[str, str] | None = None,
 ) -> tuple[float, bool]:
     """計算運費，回傳 (運費, 是否達免運門檻)。
 
     運費依「實際物流商」分開設定，不再一律套同一個數字 ——
     中華郵政和萊爾富的成本本來就比黑貓和 7-11 低，
     分開設定買家才不會被多收，也才有選便宜方式的誘因。
+
+    `values` 是已經讀好的設定。一次要算好幾種送貨方式時傳進來，
+    才不會每算一次就查一次資料庫 —— 那是之前把連線池打爆的原因之一。
     """
-    values = get_shipping_settings(db)
+    if values is None:
+        values = get_shipping_settings(db)
     method = shipping_method.value if isinstance(shipping_method, ShippingMethod) else shipping_method
     logistics_type, sub_type, *_ = SHIPPING_MAP.get(method, ("CVS", "UNIMARTC2C", "", True))
 
@@ -92,11 +97,15 @@ def unpaid_expire_days(db: Session) -> int:
         return 3
 
 
-def calc_cod_fee(db: Session, payment_method: PaymentMethod | str) -> float:
+def calc_cod_fee(
+    db: Session,
+    payment_method: PaymentMethod | str,
+    values: dict[str, str] | None = None,
+) -> float:
     method = payment_method.value if isinstance(payment_method, PaymentMethod) else payment_method
     if method != PaymentMethod.cod.value:
         return 0.0
-    return _number(get_shipping_settings(db), "cod_fee")
+    return _number(values if values is not None else get_shipping_settings(db), "cod_fee")
 
 
 def shipping_label(method: ShippingMethod | str) -> str:

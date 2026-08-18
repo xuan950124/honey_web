@@ -210,6 +210,24 @@ UPDATE users SET role = 'staff' WHERE email = '要升級的Email';
 
 ---
 
+### 「上架中」與「開放購買」是兩件事
+
+商品編輯頁有兩個勾選框：
+
+| 勾選 | 結果 |
+|---|---|
+| 兩個都勾 | 正常販售 |
+| **只勾上架中** | **看得到、資訊都在，但不能加入購物車** |
+| 都不勾 | 前台完全看不到 |
+
+中間那個用在「還在試賣、還沒定價、等檢驗報告」的商品 ——
+可以先讓客人看到並詢問，累積興趣。列表會標上「尚未開賣」，
+商品頁會顯示你寫的說明（例如「新品試作中，預計 10 月開賣」）。
+
+**工作人員仍然買得到**，這樣才能先測完整個結帳流程再開賣。
+
+---
+
 ### 庫存不會被買超
 
 商品頁與購物車的數量都受庫存上限限制：加號按到上限就停用、手動輸入會被壓回上限、
@@ -475,14 +493,15 @@ cd backend  && python tests/test_payment_flow.py             (139 項)
 cd backend  && python tests/test_security.py                  (95 項)
 cd backend  && python tests/test_long_urls.py                 (84 項)
 cd backend  && python tests/test_cart_and_order_state.py      (81 項)
+cd backend  && python tests/test_checkout_stability.py        (77 項)
 cd backend  && python tests/test_ecpay_env.py                 (61 項)
 cd backend  && python tests/test_startup_resilience.py        (43 項)
 cd frontend && node tests/cart-stock-and-map.test.mjs         (75 項)
 cd frontend && node tests/edit-mode.test.mjs                  (89 項)
 ```
 
-九份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
-共 826 項。
+十份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
+共 903 項。
 
 ---
 

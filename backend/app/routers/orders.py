@@ -159,14 +159,12 @@ def expire_unpaid_orders(db: Session) -> list[Order]:
 @router.get("/checkout-options", response_model=CheckoutOptions)
 def checkout_options(db: Session = Depends(get_db)):
     """前端結帳頁用來取得可選的送貨／付款方式與運費，避免在前端寫死。"""
+    # 設定只查一次。以前每算一次運費就查一次資料庫，
+    # 五種送貨方式算三輪等於十幾次查詢，同時有幾個人在結帳就把連線池吃光了。
     cfg = get_shipping_settings(db)
 
-    def fee_of(method: str) -> float:
-        amount, _ = calc_shipping_fee(db, 0, method)
-        return amount
-
-    fees = [fee_of(v) for v in SHIPPING_MAP]
-    cheapest = min(fees) if fees else 0
+    fees = {v: calc_shipping_fee(db, 0, v, values=cfg)[0] for v in SHIPPING_MAP}
+    cheapest = min(fees.values()) if fees else 0
 
     NOTES = {
         "HILIFEC2C": "最省運費的選擇，單件 5 公斤以內",
@@ -175,18 +173,6 @@ def checkout_options(db: Session = Depends(get_db)):
         "POST": "只有常溫，不含離島；多罐一起買最划算",
         "TCAT": "隔日到府，可指定冷藏／冷凍",
     }
-
-    shipping = []
-    for value, (ltype, sub_type, label, supports_cod) in SHIPPING_MAP.items():
-        note = NOTES.get(sub_type)
-        if ltype == "CVS":
-            note = f"{note}．單筆上限 20,000 元" if note else "單筆上限 20,000 元"
-        shipping.append(ShippingOption(
-            value=value, label=label, kind="cvs" if ltype == "CVS" else "home",
-            fee=fee_of(value), supports_cod=supports_cod,
-            supports_temperature=(sub_type == "TCAT"), note=note,
-            is_cheapest=(fee_of(value) <= cheapest),
-        ))
 
     payment_notes = {
         PaymentMethod.credit.value: "由綠界處理，卡號不會經過本站",
@@ -214,6 +200,31 @@ def checkout_options(db: Session = Depends(get_db)):
         for v, (_, lbl) in PAYMENT_MAP.items()
     ]
 
+    shipping = []
+    for value, (ltype, sub_type, label, supports_cod) in SHIPPING_MAP.items():
+        note = NOTES.get(sub_type)
+        if ltype == "CVS":
+            note = f"{note}．單筆上限 20,000 元" if note else "單筆上限 20,000 元"
+
+        # 只開放貨到付款、而這個送貨方式又不支援貨到付款時，它根本沒得選。
+        #
+        # 這一段是踩過坑才加的：原本只停用付款方式，前端就出現
+        # 「這個送貨方式不能貨到付款 → 切回信用卡 → 信用卡被停用 → 切回貨到付款」
+        # 的無限迴圈，每一輪都打一次試算 API，直接把資料庫連線池打爆。
+        # 根本解是「不要留下一個無解的組合」。
+        unavailable = cod_only and not supports_cod
+        shipping.append(ShippingOption(
+            value=value, label=label, kind="cvs" if ltype == "CVS" else "home",
+            fee=fees[value], supports_cod=supports_cod,
+            supports_temperature=(sub_type == "TCAT"), note=note,
+            is_cheapest=(fees[value] <= cheapest and not unavailable),
+            disabled=unavailable,
+            disabled_reason=(
+                "這個配送方式不支援貨到付款，線上付款服務審核通過後才能使用"
+                if unavailable else None
+            ),
+        ))
+
     return CheckoutOptions(
         shipping=shipping,
         payment=payment,
@@ -231,12 +242,16 @@ def quote(
     db: Session = Depends(get_db),
     user: User | None = Depends(get_optional_user),
 ):
-    """試算金額，讓買家在送出訂單前就看得到會員折扣與折價券的效果。"""
-    fee, is_free = calc_shipping_fee(
-        db, payload.subtotal, payload.shipping_method, payload.temperature
-    )
-    cod = calc_cod_fee(db, payload.payment_method)
+    """試算金額，讓買家在送出訂單前就看得到會員折扣與折價券的效果。
+
+    這支是全站被打最兇的 API —— 買家每動一下就會呼叫。
+    設定只查一次，其餘都拿現成的算。
+    """
     cfg = get_shipping_settings(db)
+    fee, is_free = calc_shipping_fee(
+        db, payload.subtotal, payload.shipping_method, payload.temperature, values=cfg
+    )
+    cod = calc_cod_fee(db, payload.payment_method, values=cfg)
 
     tier = membership.current_tier(db, user)
     percent = float(tier.discount_percent) if tier else 0.0
@@ -294,9 +309,26 @@ def create_order(
     if logistics_type == "CVS":
         if not payload.cvs_store_id:
             raise HTTPException(status_code=400, detail="請先選擇取貨門市")
+
+        # 門市必須屬於選的那家超商。
+        #
+        # 門市代號是綁定超商的，7-11 的店號拿去建萊爾富的物流單，
+        # 綠界會退回，運氣不好包裹會被送到錯的地方 —— 而且找不回來。
+        # 前端換超商時會清掉門市，這裡是第二道：直接打 API 也擋得住。
+        expected = SHIPPING_MAP[payload.shipping_method.value][1]
+        got = (payload.cvs_sub_type or "").strip().upper()
+        if got and got != expected:
+            raise HTTPException(
+                status_code=400,
+                detail=f"你選的取貨門市不屬於「{shipping_label(payload.shipping_method)}」，"
+                       "請重新選擇門市。",
+            )
     else:
         if not payload.receiver_address or len(payload.receiver_address.strip()) < 6:
             raise HTTPException(status_code=400, detail="請填寫完整的收件地址（至少 6 個字）")
+
+    # 工作人員可以買「還沒開放購買」的商品，用來測試整個結帳流程
+    is_staff = bool(user and user.role == UserRole.staff)
 
     # 同一個商品可能被送兩行（前端有 bug，或有人手動改請求想繞過庫存檢查）。
     # 先合併再檢查，不然「庫存 5 組」可以用兩行各 3 組通過每一行的檢查。
@@ -319,6 +351,16 @@ def create_order(
         )
         if not product or not product.is_active:
             raise HTTPException(status_code=400, detail=f"商品不存在或已下架（ID {product_id}）")
+
+        # 「看得到但還不能買」的商品。工作人員例外 ——
+        # 那正是這個開關的用途：先把商品掛上去測完整個結帳流程，客人還買不到。
+        if not product.is_purchasable and not is_staff:
+            note = (product.unavailable_note or "").strip()
+            raise HTTPException(
+                status_code=400,
+                detail=f"「{product.name}」{note or '目前尚未開放購買'}，請先從購物車移除。",
+            )
+
         if product.stock is not None and product.stock < quantity:
             remaining = max(0, product.stock)
             detail = (
@@ -352,10 +394,11 @@ def create_order(
             detail="線上付款服務仍在審核中，目前僅開放貨到付款。造成不便請見諒。",
         )
 
+    cfg = get_shipping_settings(db)
     shipping_fee, _ = calc_shipping_fee(
-        db, subtotal, payload.shipping_method, payload.temperature
+        db, subtotal, payload.shipping_method, payload.temperature, values=cfg
     )
-    cod_fee = calc_cod_fee(db, payload.payment_method)
+    cod_fee = calc_cod_fee(db, payload.payment_method, values=cfg)
 
     # 會員等級折扣（沒登入就沒有）
     tier = membership.current_tier(db, user)

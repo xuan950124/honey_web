@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { TEMPERATURE_TEXT, api, formatPrice, orderUrl } from '../api/client'
 import CouponCard from '../components/CouponCard'
@@ -15,7 +15,7 @@ export default function Cart() {
     items, updateQty, remove, clear, syncStock, hasStockIssue, limitOf,
     total: subtotal,
   } = useCart()
-  const { user } = useAuth()
+  const { user, isStaff } = useAuth()
   const { settings } = useSettings()
   const navigate = useNavigate()
   const [stockNotices, setStockNotices] = useState([])
@@ -27,6 +27,9 @@ export default function Cart() {
   const [temperature, setTemperature] = useState('0001')
   const [store, setStore] = useState({})
   const [quote, setQuote] = useState(null)
+  const [quoteError, setQuoteError] = useState('')
+  // 按「重新計算」時 +1，用來重跑試算的 effect
+  const [quoteRetry, setQuoteRetry] = useState(0)
 
   // 折價券
   const [coupons, setCoupons] = useState([])
@@ -53,12 +56,13 @@ export default function Cart() {
     api.listProducts()
       .then((products) => {
         if (cancelled) return
-        const notices = syncStock(products)
+        // 工作人員可以買「還沒開放購買」的商品，所以不要幫他清掉
+        const notices = syncStock(products, { allowUnpurchasable: isStaff })
         if (notices.length) setStockNotices(notices)
       })
       .catch(() => {})   // 拿不到就算了，後端建立訂單時還會再擋一次
     return () => { cancelled = true }
-  }, [syncStock])
+  }, [syncStock, isStaff])
 
   // 登入後載入可用的折價券
   useEffect(() => {
@@ -83,36 +87,108 @@ export default function Cart() {
   const isCvs = selectedShipping?.kind === 'cvs'
   const isCod = paymentMethod === 'cod'
 
-  // 送貨方式改變時，若目前的付款方式不支援就自動切回信用卡
+  /**
+   * 目前這個送貨方式底下，哪些付款方式真的能選。
+   *
+   * 兩個條件要一起看：
+   *   1. 後端有沒有停用（例如金流還在審核，只開放貨到付款）
+   *   2. 這個送貨方式支不支援（例如中華郵政不能貨到付款）
+   *
+   * 之前這兩件事分成兩個 useEffect 各自「自動修正」，結果在
+   * 「只開放貨到付款 + 選了中華郵政」時互相打架：
+   * A 說不支援貨到付款 → 改成信用卡；B 說信用卡被停用 → 改回貨到付款…
+   * 無限迴圈，而且每一輪都打一次試算 API，把後端的資料庫連線池打爆
+   * （Zeabur 日誌上一整排 QueuePool timeout 就是這個）。
+   *
+   * 現在只有一處決定答案，沒有第二個地方能推翻它。
+   */
+  const availablePayments = useMemo(() => {
+    if (!options?.payment) return []
+    return options.payment.filter((p) => {
+      if (p.disabled) return false
+      if (p.value === 'cod' && selectedShipping && !selectedShipping.supports_cod) return false
+      return true
+    })
+  }, [options, selectedShipping])
+
+  // 目前選的不在可用清單裡就換一個。只有這一個地方會動 paymentMethod，
+  // 而且換完之後新的值一定在清單裡，所以不會再被別的地方改回去。
   useEffect(() => {
-    if (isCod && selectedShipping && !selectedShipping.supports_cod) setPaymentMethod('credit')
+    if (!availablePayments.length) return
+    if (availablePayments.some((p) => p.value === paymentMethod)) return
+    setPaymentMethod(availablePayments[0].value)
+  }, [availablePayments, paymentMethod])
+
+  // 不支援溫層的送貨方式一律回常溫
+  useEffect(() => {
     if (selectedShipping && !selectedShipping.supports_temperature) setTemperature('0001')
-  }, [selectedShipping, isCod])
+  }, [selectedShipping])
 
-  // 預設選的付款方式被後端停用時（例如金流還在審核，只開放貨到付款），
-  // 自動換成第一個還能用的。不換的話買家會看到一個選不動的選項卡在那裡。
+  /**
+   * 換送貨方式就把已選的門市清掉。
+   *
+   * 門市代號是**綁定超商**的：7-11 的店號拿去建萊爾富的物流單，
+   * 綠界會退回，運氣不好的話包裹會被送到不存在或錯誤的地方。
+   * 之前選完 7-11 再改萊爾富不會重新叫人選門市，就是這個問題。
+   *
+   * 用 ref 記住上一個送貨方式，只有「真的換了」才清 ——
+   * 直接看 shippingMethod 變化的話，剛選完門市那次 render 也會被清掉。
+   */
+  const lastShipping = useRef(shippingMethod)
   useEffect(() => {
-    if (!options?.payment) return
-    const current = options.payment.find((p) => p.value === paymentMethod)
+    if (lastShipping.current === shippingMethod) return
+    lastShipping.current = shippingMethod
+    setStore({})
+  }, [shippingMethod])
+
+  // 後端把整個送貨方式停用時（例如只開放貨到付款、而它不支援），自動換一個能用的
+  useEffect(() => {
+    if (!options?.shipping) return
+    const current = options.shipping.find((s) => s.value === shippingMethod)
     if (current && !current.disabled) return
-    const usable = options.payment.find((p) => !p.disabled)
-    if (usable) setPaymentMethod(usable.value)
-  }, [options, paymentMethod])
+    const usable = options.shipping.find((s) => !s.disabled)
+    if (usable) setShippingMethod(usable.value)
+  }, [options, shippingMethod])
 
-  // 試算運費
+  /**
+   * 試算運費與折扣。
+   *
+   * 兩個刻意的設計：
+   *
+   * 1. **延遲 250 毫秒再送。** 換送貨方式時可能連帶換掉付款方式，
+   *    不延遲的話一次操作會打兩三次 API。
+   *
+   * 2. **失敗要講出來。** 之前失敗只是 setQuote(null)，畫面就永遠停在
+   *    「計算中…」，客人不知道發生什麼事，也不知道能不能結帳。
+   */
   useEffect(() => {
-    if (!items.length) return setQuote(null)
-    api
-      .quote({
-        subtotal,
-        shipping_method: shippingMethod,
-        payment_method: paymentMethod,
-        temperature,
-        coupon_code: couponCode || null,
-      })
-      .then(setQuote)
-      .catch(() => setQuote(null))
-  }, [subtotal, shippingMethod, paymentMethod, temperature, couponCode, items.length])
+    if (!items.length) {
+      setQuote(null)
+      setQuoteError('')
+      return undefined
+    }
+
+    let cancelled = false
+    const timer = setTimeout(() => {
+      setQuoteError('')
+      api
+        .quote({
+          subtotal,
+          shipping_method: shippingMethod,
+          payment_method: paymentMethod,
+          temperature,
+          coupon_code: couponCode || null,
+        })
+        .then((data) => { if (!cancelled) setQuote(data) })
+        .catch((e) => {
+          if (cancelled) return
+          setQuote(null)
+          setQuoteError(e.message || '運費試算失敗')
+        })
+    }, 250)
+
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [subtotal, shippingMethod, paymentMethod, temperature, couponCode, items.length, quoteRetry])
 
   const change = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }))
 
@@ -267,8 +343,10 @@ export default function Cart() {
                     <>
                       <div className="option-grid">
                         {options.shipping.map((s) => (
-                          <label key={s.value} className={`option${shippingMethod === s.value ? ' active' : ''}`}>
+                          <label key={s.value}
+                                 className={`option${shippingMethod === s.value ? ' active' : ''}${s.disabled ? ' disabled' : ''}`}>
                             <input type="radio" name="shipping" value={s.value}
+                                   disabled={s.disabled}
                                    checked={shippingMethod === s.value}
                                    onChange={() => setShippingMethod(s.value)} />
                             <div>
@@ -277,8 +355,9 @@ export default function Cart() {
                                 {s.is_cheapest && <span className="option__flag">最省運費</span>}
                               </div>
                               <div className="option__meta">
-                                運費 NT${formatPrice(s.fee)}
-                                {s.note ? `．${s.note}` : ''}
+                                {s.disabled
+                                  ? s.disabled_reason
+                                  : `運費 NT$${formatPrice(s.fee)}${s.note ? `．${s.note}` : ''}`}
                               </div>
                             </div>
                           </label>
@@ -287,7 +366,12 @@ export default function Cart() {
 
                       {isCvs && (
                         <div style={{ marginTop: 18 }}>
+                          {/*
+                            key 用 shippingMethod：換超商時整個元件重新掛載，
+                            等待狀態、還開著的地圖視窗、輪詢一次全部乾淨重來。
+                          */}
                           <StorePicker
+                            key={shippingMethod}
                             shippingMethod={shippingMethod}
                             isCollection={isCod}
                             store={store}
@@ -484,13 +568,26 @@ export default function Cart() {
               <div className="summary__row">
                 <span className="muted">運費</span>
                 <span>
-                  {quote
-                    ? quote.shipping_fee === 0
-                      ? <span style={{ color: 'var(--success)' }}>免運</span>
-                      : `NT$${formatPrice(quote.shipping_fee)}`
-                    : '計算中…'}
+                  {quoteError
+                    ? <span style={{ color: 'var(--danger)' }}>試算失敗</span>
+                    : quote
+                      ? quote.shipping_fee === 0
+                        ? <span style={{ color: 'var(--success)' }}>免運</span>
+                        : `NT$${formatPrice(quote.shipping_fee)}`
+                      : '計算中…'}
                 </span>
               </div>
+
+              {/* 試算失敗要講出原因並給一個按鈕，不要讓客人對著「計算中…」乾等 */}
+              {quoteError && (
+                <div className="alert alert--error" style={{ margin: '10px 0' }}>
+                  <div className="small" style={{ marginBottom: 8 }}>{quoteError}</div>
+                  <button type="button" className="btn btn--outline btn--sm"
+                          onClick={() => setQuoteRetry((n) => n + 1)}>
+                    重新計算
+                  </button>
+                </div>
+              )}
               {quote?.cod_fee > 0 && (
                 <div className="summary__row">
                   <span className="muted">貨到付款手續費</span>
@@ -522,9 +619,14 @@ export default function Cart() {
                 </div>
               )}
 
+              {/* 試算失敗時不讓送出 —— 金額都算不出來就下單，客人會不知道自己要付多少 */}
               <button type="submit" form="checkout-form" className="btn btn--primary btn--block"
-                      style={{ marginTop: 16 }} disabled={submitting || hasStockIssue}>
-                {submitting ? '處理中…' : hasStockIssue ? '請先調整數量' : isCod ? '送出訂單' : '前往付款'}
+                      style={{ marginTop: 16 }}
+                      disabled={submitting || hasStockIssue || Boolean(quoteError)}>
+                {submitting ? '處理中…'
+                  : hasStockIssue ? '請先調整數量'
+                    : quoteError ? '請先重新計算金額'
+                      : isCod ? '送出訂單' : '前往付款'}
               </button>
               <p className="small muted text-center" style={{ marginTop: 12, marginBottom: 0 }}>
                 {hasStockIssue

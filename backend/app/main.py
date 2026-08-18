@@ -7,7 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
+from sqlalchemy.exc import (
+    IntegrityError, OperationalError, SQLAlchemyError, TimeoutError,
+)
 
 from . import database
 from .config import settings
@@ -98,6 +100,12 @@ def _friendly_db_error(exc: Exception) -> tuple[int, str]:
 
     if isinstance(exc, OperationalError):
         return 503, "資料庫暫時連不上，請稍後再試。如果一直這樣，請確認資料庫服務是否還在運作。"
+
+    # 連線池被吃光。通常代表有東西在短時間內狂打 API（前端迴圈、爬蟲），
+    # 或有請求握著連線做很慢的事。訊息要能讓人聯想到「是不是有東西在狂打」。
+    if isinstance(exc, TimeoutError):
+        return 503, ("伺服器忙碌中，請稍等幾秒後再試一次。"
+                     "如果一直這樣，可能是有頁面在短時間內重複送出請求。")
 
     return 500, "伺服器處理這筆資料時發生問題，已記錄下來。"
 

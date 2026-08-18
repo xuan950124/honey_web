@@ -128,6 +128,9 @@ class ProductIn(FoodLabel):
     group_buy_note: str | None = None
     is_featured: bool = False
     is_active: bool = True
+    # 看得到但不能買（試賣中、等檢驗報告…）。工作人員仍可下單測試
+    is_purchasable: bool = True
+    unavailable_note: str | None = None
     sort_order: int = 0
     category_id: int | None = None
 
@@ -148,6 +151,8 @@ class ProductOut(FoodLabel, ORMModel):
     group_buy_note: str | None = None
     is_featured: bool
     is_active: bool
+    is_purchasable: bool = True
+    unavailable_note: str | None = None
     sort_order: int
     category: CategoryOut | None = None
     images: list[ProductImageOut] = []
@@ -221,6 +226,9 @@ class OrderCreate(BaseModel):
     cvs_address: str | None = None
     cvs_telephone: str | None = None
     cvs_outside: str | None = None
+    # 選門市時綠界回傳的超商類型。後端會拿它跟送貨方式交叉檢查 ——
+    # 門市代號綁定超商，7-11 的店號拿去寄萊爾富會出事
+    cvs_sub_type: str | None = None
 
     # 宅配
     receiver_address: str | None = None
@@ -314,6 +322,10 @@ class ShippingOption(BaseModel):
     supports_temperature: bool
     note: str | None = None
     is_cheapest: bool = False   # 前端用來標「最省運費」
+    # 這個送貨方式現在完全不能選（例如只開放貨到付款、但它不支援貨到付款）。
+    # 留一個「無解的組合」給前端，會讓自動修正的邏輯來回打架。
+    disabled: bool = False
+    disabled_reason: str | None = None
 
 
 class PaymentOption(BaseModel):

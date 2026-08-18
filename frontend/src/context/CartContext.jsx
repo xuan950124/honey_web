@@ -190,7 +190,7 @@ export function CartProvider({ children }) {
    * `products` 是後端剛回傳的商品清單。回傳一份「改了什麼」的說明，
    * 好讓購物車頁可以老實告訴買家 —— 數量被偷偷改掉最容易讓人不信任。
    */
-  const syncStock = useCallback((products) => {
+  const syncStock = useCallback((products, { allowUnpurchasable = false } = {}) => {
     const byId = new Map((products || []).map((p) => [p.id, p]))
     const notices = []
 
@@ -201,6 +201,14 @@ export function CartProvider({ children }) {
 
         if (!fresh || !fresh.is_active) {
           notices.push(`「${item.name}」已下架，已從購物車移除`)
+          continue
+        }
+
+        // 加入購物車之後才被設成「不開放購買」的商品。
+        // 留著只會讓客人在送出訂單時才被擋，那時他已經填完一整頁資料了。
+        if (fresh.is_purchasable === false && !allowUnpurchasable) {
+          const note = (fresh.unavailable_note || '').trim()
+          notices.push(`「${item.name}」${note || '尚未開放購買'}，已從購物車移除`)
           continue
         }
 
