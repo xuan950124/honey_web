@@ -27,6 +27,7 @@ export default function ProductCard({ product, hint }) {
           alt={product.name}
           ratio="1x1"
           hint={hint ?? `商品照片\nproduct-${product.id}.jpg`}
+          emptyText="照片準備中"
         />
       </div>
 

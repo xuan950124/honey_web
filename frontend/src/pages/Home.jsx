@@ -5,6 +5,7 @@ import Placeholder from '../components/Placeholder'
 import ProductCard from '../components/ProductCard'
 import { editable } from '../context/EditModeContext'
 import { useSettings } from '../context/SettingsContext'
+import { stripEditorNotes } from '../lib/text'
 
 const SETTINGS = '/admin/settings'
 
@@ -182,8 +183,10 @@ export default function Home() {
                 <h2 className="story-row__title">{story.title}</h2>
                 {story.subtitle && <div className="story-row__sub">{story.subtitle}</div>}
                 <p className="story-row__text">
-                  {(story.content || '').slice(0, 160)}
-                  {(story.content || '').length > 160 ? '…' : ''}
+                  {(() => {
+                    const clean = stripEditorNotes(story.content || '')
+                    return clean.slice(0, 160) + (clean.length > 160 ? '…' : '')
+                  })()}
                 </p>
                 <Link to="/story" className="btn btn--outline" style={{ marginTop: 12 }}>
                   閱讀完整故事

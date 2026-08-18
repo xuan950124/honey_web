@@ -7,6 +7,8 @@ export default function AdminDashboard() {
   const { user } = useAuth()
   const [stats, setStats] = useState({ products: 0, groupBuy: 0, news: 0, orders: 0 })
   const [recent, setRecent] = useState([])
+  const [checkout, setCheckout] = useState(null)
+  const [noPhoto, setNoPhoto] = useState([])
 
   useEffect(() => {
     Promise.all([
@@ -22,9 +24,13 @@ export default function AdminDashboard() {
           orders: orders.length,
         })
         setRecent(orders.slice(0, 5))
+        setNoPhoto(products.filter((p) => p.is_active && !p.image_url))
       })
       .catch(() => {})
+    api.checkoutOptions().then(setCheckout).catch(() => {})
   }, [])
+
+  const isTestPayment = checkout && checkout.ecpay_env !== 'production'
 
   return (
     <>
@@ -32,6 +38,38 @@ export default function AdminDashboard() {
         <h1 className="admin-head__title">總覽</h1>
         <span className="muted small">您好，{user?.name}</span>
       </div>
+
+      {/*
+        上線檢查。這兩件事都是「網站看起來正常、但實際上會出事」的類型：
+        測試金流收不到錢，沒照片的商品幾乎不會有人買。
+        所以放在後台第一眼看得到的位置，而不是等人自己想起來。
+      */}
+      {isTestPayment && (
+        <div className="alert alert--error">
+          <strong>目前是綠界「測試環境」，客人的付款不會真的入帳。</strong>
+          <p className="small" style={{ margin: '6px 0 0' }}>
+            結帳頁也會顯示測試卡號提示。正式開賣前，請把後端的環境變數
+            <code> ECPAY_ENV </code>設成<code> production </code>
+            並填入綠界正式的商店代號與金鑰，那些提示會自動消失。
+          </p>
+        </div>
+      )}
+
+      {noPhoto.length > 0 && (
+        <div className="alert alert--info">
+          <strong>有 {noPhoto.length} 個上架中的商品還沒有主圖</strong>
+          <p className="small" style={{ margin: '6px 0 10px' }}>
+            沒有照片的商品幾乎不會有人下單。客人看到的是「照片準備中」的空白框。
+          </p>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {noPhoto.slice(0, 8).map((p) => (
+              <Link key={p.id} to={`/admin/products/${p.id}`} className="btn btn--outline btn--sm">
+                {p.name}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="stat-grid">
         <div className="stat"><div className="stat__label">商品總數</div><div className="stat__num">{stats.products}</div></div>

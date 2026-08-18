@@ -232,6 +232,9 @@ class OrderItemOut(ORMModel):
 class OrderOut(ORMModel):
     id: int
     order_no: str
+    # 訂單頁的存取碼。只有能看到這筆訂單的人才拿得到，
+    # 前端會把它接在訂單頁與付款連結後面，訪客才回得去自己的訂單。
+    access_token: str | None = None
     receiver_name: str
     receiver_phone: str
     receiver_address: str | None = None

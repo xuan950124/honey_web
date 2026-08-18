@@ -437,14 +437,15 @@ honey_web/
 ### 跑測試
 
 ```
-cd backend  && python tests/test_payment_flow.py             (138 項)
+cd backend  && python tests/test_payment_flow.py             (139 項)
+cd backend  && python tests/test_security.py                  (95 項)
 cd backend  && python tests/test_long_urls.py                 (84 項)
 cd backend  && python tests/test_startup_resilience.py        (35 項)
 cd frontend && node tests/cart-stock-and-map.test.mjs         (58 項)
 cd frontend && node tests/edit-mode.test.mjs                  (89 項)
 ```
 
-五份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
+六份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
 
 ---
 
@@ -466,9 +467,16 @@ cd frontend && node tests/edit-mode.test.mjs                  (89 項)
 ## 十四、安全性說明
 
 - 密碼使用 **bcrypt** 雜湊儲存，資料庫裡不會有明碼
-- 登入採 **JWT**，預設 7 天有效
+- 登入採 **JWT**，預設 7 天有效；**連續失敗 5 次鎖 15 分鐘**（同時看帳號與 IP）
 - 所有後台 API 都有 `require_staff` 權限檢查——一般會員即使自己組請求也會被擋下（回 403）
-- 上傳只接受圖片副檔名，且限制 8MB
+- **訂單要本人登入或帶存取碼才看得到**。訂單編號是時間戳猜得到，
+  只憑編號查得到的話等於外洩客人的姓名電話地址
+- **金額一律後端重算**。下單格式裡根本沒有價格欄位，前端只能傳商品 ID 與數量
+- **付款成功只認伺服器對伺服器的通知**，瀏覽器導回的路徑不會寫入付款狀態
+- **下單時鎖定商品列**（`SELECT ... FOR UPDATE`），杜絕同時下單超賣
+- 上傳會驗檔案開頭的魔術位元組，不只看副檔名；不收 SVG；檔名重新產生
+
+完整的問題說明與修正理由請看 **[docs/安全性檢視與修正.md](docs/安全性檢視與修正.md)**。
 
 ### 上線前務必做的事
 
@@ -476,6 +484,10 @@ cd frontend && node tests/edit-mode.test.mjs                  (89 項)
 2. 改掉預設管理員密碼 `admin1234`
 3. 把 `.env` 加進 `.gitignore`，不要上傳到公開的 git（已預設加入）
 4. `CORS_ORIGINS` 改成正式網域
+5. **`ECPAY_ENV` 設成 `production` 並填入正式金鑰** ——
+   沒改的話客人的付款不會真的入帳。後台總覽會一直提醒你
+6. 補上隱私權政策、服務條款、退換貨政策與商品的食品標示
+   （台灣賣包裝食品的硬性要求，見上面那份文件的第九節）
 
 ---
 

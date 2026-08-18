@@ -177,7 +177,9 @@ ul { margin: 0; padding: 0; list-style: none; }
 .ph__hint {
   font-size: 11.5px; letter-spacing: 0.1em; color: #b9ac96;
   text-align: center; padding: 8px 12px; line-height: 1.6; user-select: none;
+  white-space: pre-line; word-break: break-all;
 }
+.ph__hint--error { color: var(--danger); }
 .ph img { width: 100%; height: 100%; object-fit: cover; }
 
 /*

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import {
   LOGISTICS_STATUS_TEXT, ORDER_STATUS_TEXT, PAYMENT_STATUS_TEXT, TEMPERATURE_TEXT,
   api, formatDate, formatPrice,
@@ -10,14 +10,17 @@ import { useSettings } from '../context/SettingsContext'
 /** 訂單完成頁。付款流程結束後綠界會把買家導回這裡。 */
 export default function OrderDetail() {
   const { orderNo } = useParams()
+  const [params] = useSearchParams()
+  const token = params.get('t') || ''
   const [order, setOrder] = useState(null)
   const [error, setError] = useState('')
   const { settings } = useSettings()
 
   useEffect(() => {
     window.scrollTo(0, 0)
-    api.getOrderByNo(orderNo).then(setOrder).catch((e) => setError(e.message))
-  }, [orderNo])
+    // 訪客要憑網址上的存取碼才看得到；會員與工作人員則靠登入身分
+    api.getOrderByNo(orderNo, token).then(setOrder).catch((e) => setError(e.message))
+  }, [orderNo, token])
 
   if (error) {
     return (

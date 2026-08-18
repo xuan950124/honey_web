@@ -7,19 +7,22 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from datetime import datetime, timedelta
 from html import escape
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from sqlalchemy.orm import Session, joinedload
 
 from ..config import settings
 from ..database import get_db
-from ..deps import require_staff
+from ..deps import get_optional_user, require_staff
 from .. import membership
+from ..models import User
+from .orders import can_view_order
 from ..ecpay import (
     auto_submit_form, sanitize_goods_name, verify_check_mac_value, with_check_mac_value,
 )
@@ -29,6 +32,8 @@ from ..models import (
 from ..shipping import unpaid_expire_days
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
+
+log = logging.getLogger("honey")
 
 # 綠界回傳的 RtnCode：1 代表成功；ATM/CVS 取號成功回 2、10100073 等
 SUCCESS_CODES = {"1"}
@@ -101,7 +106,7 @@ def _build_checkout_params(order: Order, trade_no: str) -> dict[str, object]:
         "TradeDesc": "蜂蜜商品訂單",
         "ItemName": item_name[:400],
         "ReturnURL": f"{base}/api/payments/callback",
-        "ClientBackURL": f"{front}/order/{order.order_no}",
+        "ClientBackURL": f"{front}/order/{order.order_no}?t={order.access_token or ''}",
         "OrderResultURL": f"{base}/api/payments/result",
         "ChoosePayment": choose_payment,
         "EncryptType": 1,
@@ -146,18 +151,29 @@ def _payment_error_page(message: str, order_no: str) -> HTMLResponse:
 
 
 @router.get("/{order_no}/checkout", response_class=HTMLResponse)
-def checkout(order_no: str, db: Session = Depends(get_db)):
+def checkout(
+    order_no: str,
+    t: str | None = Query(default=None, description="訂單存取碼"),
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_optional_user),
+):
     """導向綠界付款頁。前端把瀏覽器整頁導到這個網址即可（不要用 iframe）。
 
     第二次以後進來就是「重新付款」：換一組 MerchantTradeNo 再送一次，
     訂單、折價券、庫存都不動。
+
+    需要存取碼或本人登入 —— 沒有的話，任何人都能用猜到的訂單編號叫出
+    別人訂單的付款頁，上面會顯示金額與商品明細。
     """
     order = (
         db.query(Order).options(joinedload(Order.items))
         .filter(Order.order_no == order_no).first()
     )
-    if not order:
-        return _payment_error_page("找不到這筆訂單，請確認訂單編號是否正確。", order_no)
+    if not order or not can_view_order(order, user, t):
+        return _payment_error_page(
+            "找不到這筆訂單，或這個付款連結已經失效。請回到會員中心的訂單列表重新進入。",
+            order_no,
+        )
     if order.payment_status == PaymentStatus.paid:
         return _payment_error_page("這筆訂單已經付款完成，不需要再付一次。", order_no)
     if order.payment_method == PaymentMethod.cod:
@@ -281,37 +297,45 @@ async def payment_callback(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/result")
 async def payment_result(request: Request, db: Session = Depends(get_db)):
-    """付款完成後綠界把「瀏覽器」導回這裡（OrderResultURL），再轉回前端訂單頁。"""
+    """付款完成後綠界把「瀏覽器」導回這裡（OrderResultURL），再轉回前端訂單頁。
+
+    **這條路徑不作為「付款成功」的依據。**
+
+    它是經過使用者的瀏覽器回來的，內容原則上不可信。雖然我們有驗 CheckMacValue，
+    但「金額有沒有真的入帳」這種事應該只由伺服器對伺服器的通知（ReturnURL）決定，
+    或由我們主動去問綠界。少一條可以被操作的路徑，就少一種被鑽的可能。
+
+    所以這裡只做兩件事：主動向綠界查一次真實狀態，然後把人導回訂單頁。
+    """
     form = {k: str(v) for k, v in (await request.form()).items()}
     trade_no = form.get("MerchantTradeNo", "")
-    order_no = trade_no
+    order = _find_order(db, trade_no) if trade_no else None
+    order_no = order.order_no if order else trade_no
+    token = (order.access_token or "") if order else ""
 
-    if verify_check_mac_value(
-        form, settings.ECPAY_HASH_KEY, settings.ECPAY_HASH_IV, algorithm="sha256"
-    ):
-        order = _find_order(db, trade_no)
-        if order:
-            order_no = order.order_no
-            if order.payment_status != PaymentStatus.paid:
-                _apply_payment_result(db, order, form)
-                _log(db, "payment_result", order_no, True, form.get("RtnMsg", ""), form)
-                db.commit()
+    if order:
+        _log(db, "payment_result", order_no, True,
+             f"買家從綠界導回（僅記錄，不據此判定付款）：{form.get('RtnMsg', '')}", form)
+        db.commit()
+
+        # 主動去問綠界這筆到底付了沒。這是伺服器對伺服器，問到的才算數。
+        if order.payment_status != PaymentStatus.paid:
+            try:
+                _query_and_apply(db, order)
+            except Exception:  # noqa: BLE001 - 查不到就等 ReturnURL 通知，別擋住使用者
+                log.warning("導回時向綠界查詢失敗，等待伺服器通知", exc_info=True)
 
     front = settings.FRONTEND_BASE_URL.rstrip("/")
-    return RedirectResponse(url=f"{front}/order/{order_no}", status_code=303)
+    return RedirectResponse(url=f"{front}/order/{order_no}?t={token}", status_code=303)
 
 
-@router.post("/{order_no}/sync", dependencies=[Depends(require_staff)])
-def sync_payment_status(order_no: str, db: Session = Depends(get_db)):
-    """主動向綠界查詢訂單付款狀態。
+def _query_and_apply(db: Session, order: Order) -> tuple[str, dict[str, str]]:
+    """主動向綠界查這筆訂單的真實狀態，並寫回訂單。
 
-    當 ReturnURL 收不到通知時（例如本機開發沒有公開網址），
-    工作人員可以用這個功能手動把付款狀態補回來。
+    這是**伺服器對伺服器**的查詢，問到的結果才算數 ——
+    跟瀏覽器帶回來的參數是完全不同層級的可信度。
+    回傳 (TradeStatus, 綠界回的整包資料)。
     """
-    order = db.query(Order).filter(Order.order_no == order_no).first()
-    if not order:
-        raise HTTPException(status_code=404, detail="找不到訂單")
-
     # 查最後一次真的送出去的交易編號（重新付款過的話會是 R2、R3 那組）
     params = {
         "MerchantID": settings.ECPAY_MERCHANT_ID,
@@ -337,7 +361,7 @@ def sync_payment_status(order_no: str, db: Session = Depends(get_db)):
             data[k] = v
 
     if not data or "TradeStatus" not in data:
-        _log(db, "payment_query", order_no, False, body[:200], body)
+        _log(db, "payment_query", order.order_no, False, body[:200], body)
         db.commit()
         raise HTTPException(status_code=400, detail=f"綠界回應無法解析：{body[:200]}")
 
@@ -346,6 +370,16 @@ def sync_payment_status(order_no: str, db: Session = Depends(get_db)):
     order.payment_type = data.get("PaymentType") or order.payment_type
 
     if trade_status == "1":
+        # 金額也要對得上，避免查到的是別筆或金額被動過
+        try:
+            paid = int(float(data.get("TradeAmt", 0)))
+        except (TypeError, ValueError):
+            paid = -1
+        if paid != int(round(float(order.total_amount))):
+            _log(db, "payment_query", order.order_no, False,
+                 f"金額不符：綠界 {paid} / 訂單 {order.total_amount}", data)
+            db.commit()
+            raise HTTPException(status_code=400, detail="綠界回報的金額與訂單不符，請人工確認")
         order.payment_status = PaymentStatus.paid
         order.paid_at = order.paid_at or datetime.now()
         order.payment_message = None
@@ -357,8 +391,23 @@ def sync_payment_status(order_no: str, db: Session = Depends(get_db)):
     elif trade_status == "10":
         order.payment_status = PaymentStatus.pending
 
-    _log(db, "payment_query", order_no, True, f"TradeStatus={trade_status}", data)
+    _log(db, "payment_query", order.order_no, True, f"TradeStatus={trade_status}", data)
     db.commit()
+    return trade_status, data
+
+
+@router.post("/{order_no}/sync", dependencies=[Depends(require_staff)])
+def sync_payment_status(order_no: str, db: Session = Depends(get_db)):
+    """主動向綠界查詢訂單付款狀態。
+
+    當 ReturnURL 收不到通知時（例如本機開發沒有公開網址），
+    工作人員可以用這個功能手動把付款狀態補回來。
+    """
+    order = db.query(Order).filter(Order.order_no == order_no).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="找不到訂單")
+
+    trade_status, data = _query_and_apply(db, order)
     db.refresh(order)
 
     return {

@@ -13,6 +13,16 @@ const API_BASE = (runtimeApiBase || import.meta.env.VITE_API_BASE || '').replace
 /** 後端的完整網址。給 window.open、表單 action 這類需要絕對路徑的地方用。 */
 export const apiUrl = (path = '') => `${API_BASE}${path}`
 
+/** 訂單的付款連結。要帶存取碼，後端才會認。 */
+export const checkoutUrl = (order) =>
+  apiUrl(`/api/payments/${order.order_no}/checkout`)
+  + (order.access_token ? `?t=${encodeURIComponent(order.access_token)}` : '')
+
+/** 訂單頁的網址（含存取碼）。 */
+export const orderUrl = (order) =>
+  `/order/${order.order_no}`
+  + (order.access_token ? `?t=${encodeURIComponent(order.access_token)}` : '')
+
 /** 後端上傳的圖片網址。資料庫存的是 /uploads/xxx.jpg 這種相對路徑。 */
 export const mediaUrl = (path) => {
   if (!path) return path
@@ -161,16 +171,18 @@ export const api = {
   createOrder: (payload) => request('/api/orders', { method: 'POST', body: payload }),
   myOrders: () => request('/api/orders/my'),
   allOrders: () => request('/api/orders'),
-  getOrderByNo: (orderNo) => request(`/api/orders/by-no/${orderNo}`),
+  // token 是訂單的存取碼。訂單編號是時間戳猜得到，所以訪客要憑這組碼才看得到自己的訂單。
+  getOrderByNo: (orderNo, token) =>
+    request(`/api/orders/by-no/${orderNo}${token ? `?t=${encodeURIComponent(token)}` : ''}`),
   updateOrderStatus: (id, status) =>
     request(`/api/orders/${id}/status`, { method: 'PATCH', body: { status } }),
 
   // 未付款／付款失敗的處理
-  changePaymentMethod: (orderNo, paymentMethod) =>
-    request(`/api/orders/by-no/${orderNo}/payment-method`, {
-      method: 'PATCH',
-      body: { payment_method: paymentMethod },
-    }),
+  changePaymentMethod: (orderNo, paymentMethod, token) =>
+    request(
+      `/api/orders/by-no/${orderNo}/payment-method${token ? `?t=${encodeURIComponent(token)}` : ''}`,
+      { method: 'PATCH', body: { payment_method: paymentMethod } },
+    ),
   cancelOrder: (orderNo) =>
     request(`/api/orders/by-no/${orderNo}/cancel`, { method: 'POST' }),
   expireUnpaid: () => request('/api/orders/expire-unpaid', { method: 'POST' }),

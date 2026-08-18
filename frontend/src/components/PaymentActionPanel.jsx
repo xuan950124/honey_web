@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api, apiUrl, formatPrice } from '../api/client'
+import { api, checkoutUrl, formatPrice } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { useSettings } from '../context/SettingsContext'
 
@@ -57,13 +57,13 @@ export default function PaymentActionPanel({ order, onUpdated }) {
   const isOwner = Boolean(user && order.can_retry_payment)
 
   const pay = () => {
-    window.location.href = apiUrl(`/api/payments/${order.order_no}/checkout`)
+    window.location.href = checkoutUrl(order)
   }
 
   const switchTo = async (method) => {
     setErr(''); setBusy(true)
     try {
-      await api.changePaymentMethod(order.order_no, method)
+      await api.changePaymentMethod(order.order_no, method, order.access_token)
       // 換完直接送去付款，少一次點擊
       pay()
     } catch (e) {

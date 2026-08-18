@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, formatPrice } from '../api/client'
 import Placeholder from '../components/Placeholder'
+import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { editable } from '../context/EditModeContext'
 import { useSettings } from '../context/SettingsContext'
+import { stripEditorNotes } from '../lib/text'
 
 export default function ProductDetail() {
   const { id } = useParams()
@@ -13,6 +15,7 @@ export default function ProductDetail() {
   const [qty, setQty] = useState(1)
   const [mainImage, setMainImage] = useState(null)
   const { add, items } = useCart()
+  const { isStaff } = useAuth()
   const { settings } = useSettings()
 
   useEffect(() => {
@@ -70,25 +73,29 @@ export default function ProductDetail() {
               ratio="1x1"
               alt={product.name}
               hint={`商品主圖\nproduct-${product.id}.jpg`}
+              emptyText="照片準備中"
             />
-            <div className="pd__thumbs">
-              {gallery.length ? (
-                gallery.map((url, i) => (
-                  <button
-                    key={url + i}
-                    type="button"
-                    onClick={() => setMainImage(url)}
-                    style={{ padding: 0, border: 'none', background: 'none' }}
-                  >
-                    <Placeholder src={url} ratio="1x1" alt={`${product.name} 圖 ${i + 1}`} />
-                  </button>
-                ))
-              ) : (
-                [1, 2, 3, 4].map((n) => (
-                  <Placeholder key={n} ratio="1x1" hint={`圖 ${n}`} alt="待補上照片" />
-                ))
-              )}
-            </div>
+            {/* 沒有其他照片時，對客人整排隱藏 —— 四個空框看起來像壞掉 */}
+            {(gallery.length > 1 || isStaff) && (
+              <div className="pd__thumbs">
+                {gallery.length ? (
+                  gallery.map((url, i) => (
+                    <button
+                      key={url + i}
+                      type="button"
+                      onClick={() => setMainImage(url)}
+                      style={{ padding: 0, border: 'none', background: 'none' }}
+                    >
+                      <Placeholder src={url} ratio="1x1" alt={`${product.name} 圖 ${i + 1}`} />
+                    </button>
+                  ))
+                ) : (
+                  [1, 2, 3, 4].map((n) => (
+                    <Placeholder key={n} ratio="1x1" hint={`圖 ${n}`} alt="待補上照片" />
+                  ))
+                )}
+              </div>
+            )}
           </div>
 
           <div>
@@ -181,15 +188,20 @@ export default function ProductDetail() {
         {product.description && (
           <div style={{ marginTop: 72, maxWidth: 760 }}>
             <h2 className="section-head__title" style={{ fontSize: 22, marginBottom: 18 }}>商品介紹</h2>
-            <p style={{ whiteSpace: 'pre-line', color: 'var(--ink-soft)' }}>{product.description}</p>
-            <div style={{ marginTop: 28 }}>
-              <Placeholder
-                src={product.images?.[1]?.image_url}
-                fit="auto"
-                hint={`商品情境照\nproduct-${product.id}-detail.jpg`}
-                alt="商品情境照"
-              />
-            </div>
+            <p style={{ whiteSpace: 'pre-line', color: 'var(--ink-soft)' }}>
+              {stripEditorNotes(product.description)}
+            </p>
+            {/* 情境照沒上傳時整塊不顯示，不要留一個空框給客人看 */}
+            {(product.images?.[1]?.image_url || isStaff) && (
+              <div style={{ marginTop: 28 }}>
+                <Placeholder
+                  src={product.images?.[1]?.image_url}
+                  fit="auto"
+                  hint={`商品情境照\nproduct-${product.id}-detail.jpg`}
+                  alt="商品情境照"
+                />
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   LOGISTICS_STATUS_TEXT, ORDER_STATUS_TEXT, PAYMENT_STATUS_TEXT,
-  api, apiUrl, formatDate, formatPrice,
+  api, checkoutUrl, formatDate, formatPrice, orderUrl,
 } from '../api/client'
 import CouponCard from '../components/CouponCard'
 import PasswordField from '../components/PasswordField'
@@ -143,7 +143,7 @@ export default function Member() {
               {unpaid.map((o) => (
                 <div className="unpaid-row" key={o.id}>
                   <div>
-                    <Link to={`/order/${o.order_no}`} style={{ fontFamily: 'monospace' }}>
+                    <Link to={orderUrl(o)} style={{ fontFamily: 'monospace' }}>
                       {o.order_no}
                     </Link>
                     <div className="small muted">
@@ -156,7 +156,7 @@ export default function Member() {
                   </div>
                   <a
                     className="btn btn--primary btn--sm"
-                    href={apiUrl(`/api/payments/${o.order_no}/checkout`)}
+                    href={checkoutUrl(o)}
                   >
                     立即付款
                   </a>
@@ -291,7 +291,7 @@ export default function Member() {
                     {orders.map((o) => (
                       <tr key={o.id}>
                         <td style={{ fontFamily: 'monospace' }}>
-                          <Link to={`/order/${o.order_no}`}>{o.order_no}</Link>
+                          <Link to={orderUrl(o)}>{o.order_no}</Link>
                         </td>
                         <td>{formatDate(o.created_at)}</td>
                         <td>
@@ -312,7 +312,7 @@ export default function Member() {
                           {o.can_retry_payment && (
                             <div style={{ marginTop: 6 }}>
                               <a className="small" style={{ fontWeight: 500 }}
-                                 href={apiUrl(`/api/payments/${o.order_no}/checkout`)}>
+                                 href={checkoutUrl(o)}>
                                 前往付款
                               </a>
                             </div>

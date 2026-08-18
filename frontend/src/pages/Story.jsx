@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import Placeholder from '../components/Placeholder'
 import { editable } from '../context/EditModeContext'
+import { stripEditorNotes } from '../lib/text'
 
 export default function Story() {
   const [stories, setStories] = useState([])
@@ -50,7 +51,7 @@ export default function Story() {
                   </div>
                   <h2 className="story-row__title">{s.title}</h2>
                   {s.subtitle && <div className="story-row__sub">{s.subtitle}</div>}
-                  <p className="story-row__text">{s.content}</p>
+                  <p className="story-row__text">{stripEditorNotes(s.content)}</p>
                 </div>
               </div>
             ))

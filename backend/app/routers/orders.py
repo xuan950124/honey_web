@@ -1,7 +1,8 @@
 import random
+import secrets
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
 from ..config import settings
@@ -11,7 +12,7 @@ from ..ecpay import extract_zipcode
 from .. import membership
 from ..models import (
     PAYMENT_MAP, SHIPPING_MAP, LogisticsStatus, Order, OrderItem, OrderStatus,
-    PaymentMethod, PaymentStatus, Product, ShippingMethod, Temperature, User,
+    PaymentMethod, PaymentStatus, Product, ShippingMethod, Temperature, User, UserRole,
 )
 from ..schemas import (
     CheckoutOptions, OrderCreate, OrderCreated, OrderOut, OrderStatusUpdate,
@@ -31,6 +32,26 @@ RETRYABLE = {PaymentStatus.unpaid, PaymentStatus.pending, PaymentStatus.failed}
 
 def _generate_order_no() -> str:
     return datetime.now().strftime("%Y%m%d%H%M%S") + str(random.randint(100, 999))
+
+
+def new_access_token() -> str:
+    """訂單頁的存取碼。用 secrets 而不是 random —— random 是可預測的偽隨機。"""
+    return secrets.token_urlsafe(16)
+
+
+def can_view_order(order: Order, user: User | None, token: str | None) -> bool:
+    """這個人可以看這筆訂單嗎？
+
+    三種情況允許：工作人員、訂單本人、帶對存取碼。
+    訪客下單沒有帳號，只能靠存取碼 —— 那組碼會放在付款完成後導回的網址裡。
+    """
+    if user and user.role == UserRole.staff:
+        return True
+    if user and order.user_id and order.user_id == user.id:
+        return True
+    if order.access_token and token and secrets.compare_digest(order.access_token, token):
+        return True
+    return False
 
 
 def _decorate(order: Order, days: int | None = None) -> Order:
@@ -243,11 +264,19 @@ def create_order(
     for line in payload.items:
         wanted[line.product_id] = wanted.get(line.product_id, 0) + line.quantity
 
-    # 計算商品小計並鎖定當下價格
+    # 計算商品小計並鎖定當下價格。
+    #
+    # 這裡用 with_for_update() 把商品那幾列鎖住，直到這筆訂單 commit 為止。
+    # 沒有鎖的話兩個人同時搶最後一組會變成「都讀到還有 1 組」→ 兩人都成立訂單 → 超賣。
+    # 依 ID 排序再鎖是為了避免死鎖：兩筆訂單買同樣兩件商品但順序相反時，
+    # 沒排序的話會互相等對方放手。
     subtotal = 0.0
     lines: list[OrderItem] = []
-    for product_id, quantity in wanted.items():
-        product = db.get(Product, product_id)
+    locked: list[tuple[Product, int]] = []
+    for product_id, quantity in sorted(wanted.items()):
+        product = (
+            db.query(Product).filter(Product.id == product_id).with_for_update().first()
+        )
         if not product or not product.is_active:
             raise HTTPException(status_code=400, detail=f"商品不存在或已下架（ID {product_id}）")
         if product.stock is not None and product.stock < quantity:
@@ -260,6 +289,7 @@ def create_order(
             raise HTTPException(status_code=400, detail=detail)
         unit_price = float(product.price)
         subtotal += unit_price * quantity
+        locked.append((product, quantity))
         lines.append(OrderItem(
             product_id=product.id, product_name=product.name,
             unit_price=unit_price, quantity=quantity,
@@ -316,6 +346,7 @@ def create_order(
 
     order = Order(
         order_no=_generate_order_no(),
+        access_token=new_access_token(),
         user_id=user.id if user else None,
         receiver_name=payload.receiver_name,
         receiver_phone=payload.receiver_phone,
@@ -346,21 +377,27 @@ def create_order(
 
     for item in lines:
         order.items.append(item)
-        product = db.get(Product, item.product_id)
-        if product:
-            product.stock = max(0, (product.stock or 0) - item.quantity)
+
+    # 扣庫存。用上面 with_for_update 鎖住的那幾列，不要再 db.get 一次 ——
+    # 重新讀會拿到 identity map 裡的同一個物件沒錯，但寫得明確一點才不會有人
+    # 之後把鎖拿掉卻沒發現這裡也失去保護。
+    for product, quantity in locked:
+        product.stock = max(0, (product.stock or 0) - quantity)
 
     db.add(order)
     db.flush()
     membership.redeem(db, coupon, order.order_no)
 
-    # 貨到付款沒有線上付款流程，訂單成立即視為付款完成（取貨時付現）
+    # commit 之後鎖才釋放，所以「檢查庫存 → 扣庫存」是一個不可分割的動作
     db.commit()
     db.refresh(order)
 
     payment_url = None
     if not is_cod:
-        payment_url = f"{settings.BACKEND_BASE_URL.rstrip('/')}/api/payments/{order.order_no}/checkout"
+        base = settings.BACKEND_BASE_URL.rstrip('/')
+        payment_url = (
+            f"{base}/api/payments/{order.order_no}/checkout?t={order.access_token}"
+        )
 
     return OrderCreated(order=OrderOut.model_validate(_decorate(order)), payment_url=payment_url)
 
@@ -377,14 +414,25 @@ def my_orders(db: Session = Depends(get_db), user: User = Depends(get_current_us
 
 
 @router.get("/by-no/{order_no}", response_model=OrderOut)
-def get_order_by_no(order_no: str, db: Session = Depends(get_db)):
-    """依訂單編號查詢。付款完成後導回的訂單頁會用到（訪客下單也看得到）。"""
+def get_order_by_no(
+    order_no: str,
+    t: str | None = Query(default=None, description="訂單存取碼"),
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_optional_user),
+):
+    """依訂單編號查詢。付款完成後導回的訂單頁會用到（訪客下單也看得到）。
+
+    需要「本人登入」或「帶對存取碼」才看得到 ——
+    訂單裡有收件人姓名、電話、地址，不能只憑猜得到的訂單編號就撈出來。
+    """
     order = (
         db.query(Order).options(joinedload(Order.items))
         .filter(Order.order_no == order_no).first()
     )
-    if not order:
-        raise HTTPException(status_code=404, detail="找不到這筆訂單")
+    # 找不到、和沒權限一律回同一句。回「無權查看」等於告訴對方這個編號存在，
+    # 那就變成可以拿來探測有哪些訂單。
+    if not order or not can_view_order(order, user, t):
+        raise HTTPException(status_code=404, detail="找不到這筆訂單，或連結已失效")
     return _decorate(order, unpaid_expire_days(db))
 
 
@@ -398,13 +446,15 @@ def all_orders(db: Session = Depends(get_db), status: OrderStatus | None = None)
 
 # ------------------------------------------------------------------ 付款問題處理
 
-def _load_order(db: Session, order_no: str) -> Order:
+def _load_order(db: Session, order_no: str, user: User | None = None,
+                token: str | None = None) -> Order:
+    """讀取訂單並檢查權限。沒權限一律當成找不到，避免被拿來探測訂單是否存在。"""
     order = (
         db.query(Order).options(joinedload(Order.items))
         .filter(Order.order_no == order_no).first()
     )
-    if not order:
-        raise HTTPException(status_code=404, detail="找不到這筆訂單")
+    if not order or not can_view_order(order, user, token):
+        raise HTTPException(status_code=404, detail="找不到這筆訂單，或連結已失效")
     return order
 
 
@@ -412,6 +462,7 @@ def _load_order(db: Session, order_no: str) -> Order:
 def change_payment_method(
     order_no: str,
     payload: PaymentMethodUpdate,
+    t: str | None = Query(default=None, description="訂單存取碼"),
     db: Session = Depends(get_db),
     user: User | None = Depends(get_optional_user),
 ):
@@ -420,10 +471,8 @@ def change_payment_method(
     信用卡被拒絕、ATM 忘記轉帳、超商代碼過期都用這條路回來，
     不用重新下單（重下單會丟失折價券，也會讓庫存被扣兩次）。
     """
-    order = _load_order(db, order_no)
+    order = _load_order(db, order_no, user, t)
 
-    if order.user_id and (not user or user.id != order.user_id):
-        raise HTTPException(status_code=403, detail="這筆訂單不屬於這個帳號")
     if order.status == OrderStatus.cancelled:
         raise HTTPException(status_code=400, detail="訂單已取消，無法變更付款方式")
     if order.payment_status == PaymentStatus.paid:
@@ -475,7 +524,7 @@ def cancel_my_order(
     如果只憑編號就能取消，別人可以惡意刪掉你的訂單。
     訪客訂單請走客服。
     """
-    order = _load_order(db, order_no)
+    order = _load_order(db, order_no, user)
     if order.user_id != user.id:
         raise HTTPException(status_code=403, detail="這筆訂單不屬於這個帳號")
     if order.status == OrderStatus.cancelled:

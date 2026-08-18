@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { TEMPERATURE_TEXT, api, formatPrice } from '../api/client'
+import { TEMPERATURE_TEXT, api, formatPrice, orderUrl } from '../api/client'
 import CouponCard from '../components/CouponCard'
 import Placeholder from '../components/Placeholder'
 import StorePicker from '../components/StorePicker'
@@ -142,7 +142,8 @@ export default function Cart() {
         // 整頁導向綠界付款頁（綠界規定不可用 iframe）
         window.location.href = res.payment_url
       } else {
-        navigate(`/order/${res.order.order_no}`, { replace: true })
+        // 帶上存取碼，訪客之後才回得來看自己的訂單
+        navigate(orderUrl(res.order), { replace: true })
       }
     } catch (err) {
       setError(err.message)

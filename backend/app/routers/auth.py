@@ -4,16 +4,17 @@
   - 忘記密碼一律回同一句話，不透露這個 Email 有沒有註冊過（防帳號列舉）
   - 權杖只存雜湊，且一次性、有期限
   - 重設密碼後讓所有舊的重設連結失效
+  - 登入連續失敗會暫時鎖住，擋掉自動化猜密碼
 """
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..database import get_db
 from ..deps import get_current_user
-from .. import membership
+from .. import membership, throttle
 from ..mailer import render_email, send_email
 from ..models import TokenPurpose, User, UserRole
 from ..schemas import (
@@ -108,12 +109,42 @@ def register(payload: UserRegister, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=Token)
-def login(payload: UserLogin, db: Session = Depends(get_db)):
+def login(payload: UserLogin, request: Request, db: Session = Depends(get_db)):
+    """登入。連續失敗會暫時鎖住，擋掉自動化猜密碼。
+
+    計數同時看「帳號」和「來源 IP」：
+      - 只看帳號 → 攻擊者換帳號繼續猜，而且可以故意鎖死別人的帳號
+      - 只看 IP  → 同一個辦公室的人會互相影響
+    兩個都記，任一超標就擋，是比較平衡的做法。
+    """
+    email = (payload.email or "").strip().lower()
+    ip = request.client.host if request.client else "unknown"
+    keys = [f"user:{email}", f"ip:{ip}"]
+
+    locked = max(throttle.seconds_remaining(k) for k in keys)
+    if locked:
+        minutes = max(1, locked // 60)
+        raise HTTPException(
+            status_code=429,
+            detail=f"登入失敗次數過多，請在 {minutes} 分鐘後再試。"
+                   "如果忘記密碼，可以直接用「忘記密碼」重設。",
+        )
+
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not verify_password(payload.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Email 或密碼錯誤")
+        left = min(throttle.record_failure(k) for k in keys)
+        detail = "Email 或密碼錯誤"
+        if 0 < left <= 2:
+            detail += f"（還可以再試 {left} 次，之後會暫時鎖住）"
+        elif left == 0:
+            detail = "登入失敗次數過多，帳號已暫時鎖住 15 分鐘。可以改用「忘記密碼」重設。"
+        raise HTTPException(status_code=401 if left else 429, detail=detail)
+
     if not user.is_active:
         raise HTTPException(status_code=403, detail="此帳號已停用")
+
+    for k in keys:
+        throttle.record_success(k)
     return Token(access_token=create_access_token(user.id), user=UserOut.model_validate(user))
 
 

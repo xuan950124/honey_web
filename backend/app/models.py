@@ -220,6 +220,12 @@ class Order(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     order_no: Mapped[str] = mapped_column(String(30), unique=True, index=True, nullable=False)
+    # 訂單頁的存取碼。
+    #
+    # 訂單編號是「時間戳 + 三位隨機數」，看得出規律也猜得到 ——
+    # 只憑編號就能查訂單的話，別人可以撈到你客人的姓名、電話、地址。
+    # 所以查訂單要嘛是本人或工作人員登入，要嘛得帶這組隨機碼。
+    access_token: Mapped[str | None] = mapped_column(String(40))
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     receiver_name: Mapped[str] = mapped_column(String(100), nullable=False)
     receiver_phone: Mapped[str] = mapped_column(String(30), nullable=False)

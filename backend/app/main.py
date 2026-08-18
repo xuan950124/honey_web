@@ -126,6 +126,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    """幾個基本的安全標頭。
+
+    nosniff 特別重要：上傳的檔案是靜態提供的，
+    沒有這個標頭時瀏覽器會「猜」內容型別，一個內容是 HTML 的 .jpg
+    有機會被當成網頁執行，變成儲存型 XSS。
+    """
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    if request.url.path.startswith("/uploads"):
+        # 上傳的檔案一律不當網頁執行
+        response.headers["Content-Security-Policy"] = "default-src 'none'; sandbox"
+    return response
+
+
 if UPLOADS_OK:
     app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
@@ -179,11 +197,35 @@ INIT_RETRY_SECONDS = 15      # 資料庫還沒好時，每 15 秒再試一次
 INIT_MAX_ATTEMPTS_AT_BOOT = 6  # 啟動時最多等 6 次（約 90 秒）
 
 
+def _backfill_order_tokens() -> int:
+    """幫舊訂單補上存取碼。
+
+    加這個欄位之前建立的訂單沒有存取碼，會變成任何人都打不開（連本人也是，
+    如果是訪客下單的話）。啟動時補一次，之後就正常了。
+    """
+    from .models import Order
+    from .routers.orders import new_access_token
+
+    db = SessionLocal()
+    try:
+        pending = db.query(Order).filter(Order.access_token.is_(None)).all()
+        for order in pending:
+            order.access_token = new_access_token()
+        if pending:
+            db.commit()
+        return len(pending)
+    finally:
+        db.close()
+
+
 def _init_database_once() -> None:
     """建資料庫、建表、補欄位。三步各自防護，一步失敗不影響下一步。"""
     ensure_database()
     Base.metadata.create_all(bind=engine)
     sync_schema()
+    filled = _backfill_order_tokens()
+    if filled:
+        say(f"[啟動] 已為 {filled} 筆舊訂單補上存取碼")
 
 
 def _try_init_database() -> bool:

@@ -57,8 +57,10 @@ def fresh_db():
 
 
 def make_order(db, **kw) -> Order:
+    from app.routers.orders import new_access_token
     defaults = dict(
         order_no=datetime.now().strftime("%Y%m%d%H%M%S") + "001",
+        access_token=new_access_token(),
         receiver_name="測試收件人",
         receiver_phone="0912345678",
         receiver_address="基隆市七堵區測試路 1 號",
@@ -302,9 +304,12 @@ def test_change_payment_method():
     db.flush()
 
     def attempt(order, method, actor=None):
+        # 用關鍵字傳參 —— 這個函式有存取碼參數，位置對錯很容易踩到
         try:
-            return change_payment_method(order.order_no, PaymentMethodUpdate(payment_method=method),
-                                         db, actor), None
+            return change_payment_method(
+                order.order_no, PaymentMethodUpdate(payment_method=method),
+                t=order.access_token, db=db, user=actor,
+            ), None
         except HTTPException as exc:
             return None, exc.detail
 
@@ -345,22 +350,34 @@ def test_change_payment_method():
     _, err = attempt(shipping, PaymentMethod.atm, user)
     check("已建物流單的不能改", err is not None, str(err))
 
-    # 別人的訂單
+    # 別人的訂單。存取碼是這筆訂單的擁有者才知道的，
+    # 所以這裡刻意不帶碼，模擬「只知道訂單編號」的攻擊者。
+    def attempt_without_token(order, method, actor=None):
+        try:
+            return change_payment_method(
+                order.order_no, PaymentMethodUpdate(payment_method=method),
+                t=None, db=db, user=actor,
+            ), None
+        except HTTPException as exc:
+            return None, exc.detail
+
     other = User(email="b@example.com", hashed_password="x", name="別人", role=UserRole.member)
     db.add(other)
     db.flush()
     mine = make_order(db, order_no="OWNER0000000000001", user_id=user.id)
     db.commit()
-    _, err = attempt(mine, PaymentMethod.atm, other)
+    _, err = attempt_without_token(mine, PaymentMethod.atm, other)
     check("別人不能改我的訂單", err is not None, str(err))
-    _, err = attempt(mine, PaymentMethod.atm, None)
-    check("沒登入不能改會員訂單", err is not None, str(err))
+    _, err = attempt_without_token(mine, PaymentMethod.atm, None)
+    check("沒登入又沒存取碼不能改", err is not None, str(err))
 
-    # 訪客訂單（沒有 user_id）任何人憑訂單編號都能改 —— 這是刻意的，訪客沒有帳號
+    # 訪客訂單沒有帳號可綁，只能靠存取碼
     guest = make_order(db, order_no="GUEST0000000000001", user_id=None)
     db.commit()
     _, err = attempt(guest, PaymentMethod.atm, None)
-    check("訪客訂單可以改", err is None, str(err))
+    check("訪客帶對存取碼可以改", err is None, str(err))
+    _, err = attempt_without_token(guest, PaymentMethod.atm, None)
+    check("訪客訂單沒帶碼也不能改", err is not None, str(err))
 
     # 郵局不支援貨到付款
     post = make_order(db, order_no="POSTSW000000000001", user_id=user.id,
@@ -384,18 +401,20 @@ def test_cod_fee_recalculation():
                        subtotal=1000, shipping_fee=70, total_amount=1070)
     db.commit()
 
-    updated = change_payment_method(order.order_no,
-                                    PaymentMethodUpdate(payment_method=PaymentMethod.cod),
-                                    db, None)
+    updated = change_payment_method(
+        order.order_no, PaymentMethodUpdate(payment_method=PaymentMethod.cod),
+        t=order.access_token, db=db, user=None,
+    )
     check("換成貨到付款要加手續費",
           float(updated.total_amount) == 1100, f"算出 {updated.total_amount}")
     check("手續費併進運費欄位",
           float(updated.shipping_fee) == 100, f"算出 {updated.shipping_fee}")
     check("標記為代收貨款", updated.is_collection is True)
 
-    back = change_payment_method(order.order_no,
-                                 PaymentMethodUpdate(payment_method=PaymentMethod.credit),
-                                 db, None)
+    back = change_payment_method(
+        order.order_no, PaymentMethodUpdate(payment_method=PaymentMethod.credit),
+        t=order.access_token, db=db, user=None,
+    )
     check("換回信用卡要扣掉手續費",
           float(back.total_amount) == 1070, f"算出 {back.total_amount}")
     check("運費也還原", float(back.shipping_fee) == 70, f"算出 {back.shipping_fee}")

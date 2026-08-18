@@ -1,7 +1,12 @@
 import Placeholder from '../components/Placeholder'
+import { useAuth } from '../context/AuthContext'
 import { editable } from '../context/EditModeContext'
 import { useSettings } from '../context/SettingsContext'
 
+/**
+ * 「（待補上）」是給工作人員的提醒，客人看到只會覺得這家店沒做完。
+ * 所以沒填的欄位對客人是整列隱藏，只有工作人員才看得到提醒。
+ */
 const Empty = ({ text = '（待補上）' }) => <span className="empty">{text}</span>
 const SETTINGS = '/admin/settings'
 
@@ -81,13 +86,16 @@ export function buildMapSrc(settings = {}) {
 
 export default function Contact() {
   const { settings } = useSettings()
+  const { isStaff } = useAuth()
   const mapSrc = buildMapSrc(settings)
 
   // field 是後台對應的設定欄位，編輯模式點下去會直接捲到那一格
+  // filled 是「這一列有沒有內容」，沒有的話對客人整列隱藏
   const rows = [
     {
       label: '訂購專線',
       field: 'contact_phone',
+      filled: Boolean(settings.contact_phone),
       value: settings.contact_phone ? (
         <>
           <a href={`tel:${settings.contact_phone}`}>{settings.contact_phone}</a>
@@ -105,6 +113,7 @@ export default function Contact() {
     {
       label: 'LINE',
       field: 'line_id',
+      filled: Boolean(settings.line_id),
       value: settings.line_id ? (
         <>
           {settings.line_id}
@@ -123,6 +132,7 @@ export default function Contact() {
       label: '地址',
       field: 'contact_address',
       hint: '地圖上的位置是 Google 依這個地址推算的。想讓點完全精準，請填「Google 地圖位置（座標）」。',
+      filled: Boolean(settings.contact_address),
       value: settings.contact_address ? (
         <a
           href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(settings.contact_address)}`}
@@ -138,16 +148,23 @@ export default function Contact() {
     {
       label: 'Email',
       field: 'contact_email',
+      filled: Boolean(settings.contact_email),
       value: settings.contact_email ? (
         <a href={`mailto:${settings.contact_email}`}>{settings.contact_email}</a>
       ) : (
         <Empty />
       ),
     },
-    { label: '營業時間', field: 'business_hours', value: settings.business_hours || <Empty /> },
+    {
+      label: '營業時間',
+      field: 'business_hours',
+      filled: Boolean(settings.business_hours),
+      value: settings.business_hours || <Empty />,
+    },
     {
       label: '溯源編號',
       field: 'traceability_code',
+      filled: Boolean(settings.traceability_code),
       value: settings.traceability_code ? (
         <>
           <a
@@ -169,6 +186,7 @@ export default function Contact() {
     {
       label: '社群',
       field: 'facebook_url',
+      filled: Boolean(settings.facebook_url || settings.instagram_url),
       value:
         settings.facebook_url || settings.instagram_url ? (
           <>
@@ -201,7 +219,8 @@ export default function Contact() {
             <div>
               <h2 className="story-row__title" style={{ fontSize: 24, marginBottom: 20 }}>聯絡資訊</h2>
               <div className="contact-list">
-                {rows.map((r) => (
+                {/* 沒填的欄位對客人整列隱藏，工作人員才看得到「（待補上）」的提醒 */}
+                {rows.filter((r) => r.filled || isStaff).map((r) => (
                   <div className="contact-row" key={r.label}
                        {...editable(r.label, SETTINGS, r.field, r.hint)}>
                     <div className="contact-row__label">{r.label}</div>
@@ -210,9 +229,14 @@ export default function Contact() {
                 ))}
               </div>
 
-              <p className="small muted" style={{ marginTop: 22 }}>
-                以上聯絡資訊由工作人員於後台「網站設定」維護，更新後前台會立即同步。
-              </p>
+              {/* 這是給自己人看的操作提示，客人不需要知道網站是怎麼維護的 */}
+              {isStaff && (
+                <p className="small muted" style={{ marginTop: 22 }}>
+                  以上聯絡資訊由工作人員於後台「網站設定」維護，更新後前台會立即同步。
+                  <br />
+                  （這一行與「（待補上）」只有工作人員看得到，客人不會看到。）
+                </p>
+              )}
             </div>
 
             <div>
