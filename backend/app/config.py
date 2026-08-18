@@ -25,6 +25,13 @@ class Settings(BaseSettings):
 
 
 
+    # 背景工作（啟動時建表／補欄位、每小時清逾期未付款訂單）。
+    #
+    # 平常保持 True。兩種情況會想關掉：
+    #   1. 跑多個副本時，只要讓其中一個做清理就好，其他關掉避免重複處理
+    #   2. 自動化測試 —— 背景執行緒會跟測試自己的資料庫連線互相干擾
+    ENABLE_BACKGROUND_JOBS: bool = True
+
     # ---------------- 應用環境 ----------------
     # development = 開發（未設定 SMTP 時會把信件存到 backend/outbox/，API 也會回傳連結方便測試）
     # production  = 正式（絕不回傳驗證連結）

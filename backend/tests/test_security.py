@@ -17,6 +17,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 os.environ.setdefault("DB_URL", "sqlite://")
 os.environ.setdefault("SECRET_KEY", "test-secret-key-not-used-in-production")
+# 背景工作會在另一個執行緒開資料庫連線，跟測試自己的連線互相干擾
+# （SQLite 的 StaticPool 只有一條連線，交易會互相蓋掉）。測試一律關掉。
+os.environ["ENABLE_BACKGROUND_JOBS"] = "false"
 os.environ.setdefault("CORS_ORIGINS", "https://huanglong-honey.com")
 
 from fastapi import HTTPException  # noqa: E402
@@ -119,7 +122,6 @@ def test_order_endpoint_blocks_guessing():
     original_session = database.SessionLocal
     database.engine = db_engine
     database.SessionLocal = Session
-    main.engine = db_engine
 
     db = Session()
     token = new_access_token()
@@ -156,7 +158,6 @@ def test_order_endpoint_blocks_guessing():
     finally:
         database.engine = original_engine
         database.SessionLocal = original_session
-        main.engine = original_engine
         main.DB_STATE.update({"ready": False, "error": None, "attempts": 0})
 
 
@@ -203,7 +204,6 @@ def test_login_endpoint_throttle():
     original_session = database.SessionLocal
     database.engine = db_engine
     database.SessionLocal = Session
-    main.engine = db_engine
 
     db = Session()
     db.add(User(email="victim@x.com", hashed_password=hash_password("correct-horse"),
@@ -238,7 +238,6 @@ def test_login_endpoint_throttle():
         throttle.reset()
         database.engine = original_engine
         database.SessionLocal = original_session
-        main.engine = original_engine
         main.DB_STATE.update({"ready": False, "error": None, "attempts": 0})
 
 
@@ -301,7 +300,6 @@ def test_upload_endpoint():
     original_session = database.SessionLocal
     database.engine = db_engine
     database.SessionLocal = Session
-    main.engine = db_engine
 
     db = Session()
     staff = User(email="staff@x.com", hashed_password="x", name="員工", role=UserRole.staff)
@@ -357,7 +355,6 @@ def test_upload_endpoint():
     finally:
         database.engine = original_engine
         database.SessionLocal = original_session
-        main.engine = original_engine
         main.DB_STATE.update({"ready": False, "error": None, "attempts": 0})
 
 

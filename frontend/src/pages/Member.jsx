@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  LOGISTICS_STATUS_TEXT, ORDER_STATUS_TEXT, PAYMENT_STATUS_TEXT,
+  LOGISTICS_STATUS_TEXT, ORDER_STATUS_TEXT,
   api, checkoutUrl, formatDate, formatPrice, orderUrl,
+  paymentTextFor, paymentToneFor,
 } from '../api/client'
 import CouponCard from '../components/CouponCard'
 import PasswordField from '../components/PasswordField'
@@ -15,6 +16,13 @@ export default function Member() {
   const [form, setForm] = useState({ name: '', phone: '', address: '' })
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
+  // 取消訂單：先問一次再做，誤點的代價太大。
+  // 訊息用自己的狀態，不跟下面「個人資料」表單共用，
+  // 不然取消訂單成功的提示會出現在個人資料那一區。
+  const [cancelId, setCancelId] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [orderMsg, setOrderMsg] = useState('')
+  const [orderErr, setOrderErr] = useState('')
 
   // 會員等級與折價券
   const [membership, setMembership] = useState(null)
@@ -76,7 +84,24 @@ export default function Member() {
 
   // 還沒付款的訂單。放在最上面 —— 這是進會員中心第一眼就該看到的事，
   // 埋在訂單表格裡買家很容易以為自己已經買到了。
+  //
+  // can_retry_payment 由後端算，前端不要自己拼條件 ——
+  // 之前就是因為前端只看付款狀態，導致「已完成」的訂單還在叫人付款。
   const unpaid = orders.filter((o) => o.can_retry_payment)
+
+  const cancelOrder = async (order) => {
+    setOrderErr(''); setOrderMsg(''); setBusy(true)
+    try {
+      const updated = await api.cancelOrder(order.order_no)
+      setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)))
+      setCancelId(null)
+      setOrderMsg(`訂單 ${order.order_no} 已取消，商品已放回庫存，沒有向你收取任何費用。`)
+    } catch (e) {
+      setOrderErr(e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const save = async (e) => {
     e.preventDefault()
@@ -276,6 +301,8 @@ export default function Member() {
 
           <div className="panel">
             <h2 className="panel__title">我的訂單</h2>
+            {orderErr && <div className="alert alert--error">{orderErr}</div>}
+            {orderMsg && <div className="alert alert--success">{orderMsg}</div>}
             {loading ? (
               <div className="loading">載入中…</div>
             ) : orders.length ? (
@@ -303,11 +330,8 @@ export default function Member() {
                         </td>
                         <td>NT${formatPrice(o.total_amount)}</td>
                         <td>
-                          <span className={`tag tag--${
-                            o.payment_status === 'paid' ? 'shipped'
-                              : o.payment_status === 'failed' ? 'cancelled' : 'pending'
-                          }`}>
-                            {o.payment_method === 'cod' ? '貨到付款' : PAYMENT_STATUS_TEXT[o.payment_status]}
+                          <span className={`tag tag--${paymentToneFor(o)}`}>
+                            {paymentTextFor(o)}
                           </span>
                           {o.can_retry_payment && (
                             <div style={{ marginTop: 6 }}>
@@ -324,7 +348,29 @@ export default function Member() {
                             <div className="muted">{LOGISTICS_STATUS_TEXT[o.logistics_status]}</div>
                           )}
                         </td>
-                        <td><span className={`tag tag--${o.status}`}>{ORDER_STATUS_TEXT[o.status]}</span></td>
+                        <td>
+                          <span className={`tag tag--${o.status}`}>{ORDER_STATUS_TEXT[o.status]}</span>
+                          {o.can_cancel && (
+                            <div style={{ marginTop: 6 }}>
+                              {cancelId === o.id ? (
+                                <div className="small">
+                                  確定取消？
+                                  <button type="button" className="linkish linkish--danger"
+                                          disabled={busy} onClick={() => cancelOrder(o)}>
+                                    {busy ? '處理中…' : '是'}
+                                  </button>
+                                  <button type="button" className="linkish"
+                                          onClick={() => setCancelId(null)}>否</button>
+                                </div>
+                              ) : (
+                                <button type="button" className="linkish small"
+                                        onClick={() => { setCancelId(o.id); setOrderErr('') }}>
+                                  取消訂單
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

@@ -10,6 +10,7 @@ const FILTERS = [
   { key: 'need-ship', label: '待出貨' },
   { key: 'unpaid', label: '待付款' },
   { key: 'overdue', label: '逾期未付款' },
+  { key: 'mismatch', label: '帳沒對上' },
   { key: 'shipped', label: '已出貨' },
 ]
 
@@ -21,6 +22,18 @@ const isUnpaid = (o) =>
 const isOverdue = (o) =>
   isUnpaid(o) && o.payment_deadline && new Date(o.payment_deadline).getTime() < Date.now()
 
+/**
+ * 帳沒對上：訂單已經出貨或完成，付款狀態卻還是未付款。
+ *
+ * 通常是改狀態時沒有勾「同時註記已收款」。
+ * 這種訂單客人看了會困惑（東西收到了，網站卻說沒付錢），
+ * 你的業績統計也會少算，所以要能一眼找出來。
+ */
+const isMismatch = (o) =>
+  ['shipped', 'completed'].includes(o.status)
+  && o.payment_status !== 'paid'
+  && o.payment_status !== 'refunded'
+
 export default function AdminOrders() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
@@ -29,6 +42,8 @@ export default function AdminOrders() {
   const [openId, setOpenId] = useState(null)
   const [busyId, setBusyId] = useState(null)
   const [sweeping, setSweeping] = useState(false)
+  // 把未收款的訂單標成出貨／完成時，先跳出來確認的那一筆
+  const [pendingStatus, setPendingStatus] = useState(null)
   const [filter, setFilter] = useState('')
   const [senderIssues, setSenderIssues] = useState([])
 
@@ -55,9 +70,27 @@ export default function AdminOrders() {
   const patch = (updated) =>
     setOrders((prev) => prev.map((o) => (o.id === updated.id ? { ...o, ...updated } : o)))
 
-  const changeStatus = async (order, status) => {
-    setErr('')
-    try { patch(await api.updateOrderStatus(order.id, status)) } catch (e) { setErr(e.message) }
+  const changeStatus = async (order, status, markPaid = false) => {
+    setErr(''); setMsg('')
+    try {
+      patch(await api.updateOrderStatus(order.id, status, markPaid))
+      if (markPaid) setMsg(`訂單 ${order.order_no} 已標示為已收款並計入會員累積消費。`)
+    } catch (e) {
+      setErr(e.message)
+    }
+  }
+
+  /**
+   * 改狀態。把「還沒收到錢」的訂單標成已出貨或已完成時先問一次 ——
+   * 之前就是這樣搞出「已完成」卻同時顯示「未付款．前往付款」的矛盾畫面。
+   */
+  const requestStatus = (order, status) => {
+    const unpaidOnline = order.payment_method !== 'cod' && order.payment_status !== 'paid'
+    if ((status === 'completed' || status === 'shipped') && unpaidOnline) {
+      setPendingStatus({ order, status })
+      return
+    }
+    changeStatus(order, status)
   }
 
   const createLogistics = async (order) => {
@@ -123,6 +156,7 @@ export default function AdminOrders() {
 
   const unpaidList = orders.filter(isUnpaid)
   const overdueList = orders.filter(isOverdue)
+  const mismatchList = orders.filter(isMismatch)
   const needShip = orders.filter(
     (o) => o.logistics_status === 'none' && o.status !== 'cancelled'
       && (o.payment_status === 'paid' || o.payment_method === 'cod'),
@@ -136,6 +170,7 @@ export default function AdminOrders() {
     }
     if (filter === 'unpaid') return isUnpaid(o)
     if (filter === 'overdue') return isOverdue(o)
+    if (filter === 'mismatch') return isMismatch(o)
     if (filter === 'shipped') return ['shipped', 'arrived', 'picked'].includes(o.logistics_status)
     return true
   })
@@ -149,6 +184,48 @@ export default function AdminOrders() {
 
       {err && <div className="alert alert--error">{err}</div>}
       {msg && <div className="alert alert--success">{msg}</div>}
+
+      {pendingStatus && (
+        <>
+          <button type="button" className="edit-pop__backdrop" aria-label="關閉"
+                  onClick={() => setPendingStatus(null)} />
+          <div className="edit-pop" role="dialog" aria-label="確認訂單狀態">
+            <div className="edit-pop__label">這筆訂單還沒收到款項</div>
+            <div className="edit-pop__title">
+              {pendingStatus.order.order_no}
+            </div>
+            <p className="edit-pop__hint">
+              付款方式是「{pendingStatus.order.payment_method_label}」，
+              目前狀態是「{PAYMENT_STATUS_TEXT[pendingStatus.order.payment_status]}」。
+              <br /><br />
+              如果你已經用別的方式收到錢（匯款、面交），請選「同時註記已收款」——
+              系統會計入會員累積消費，客人那邊也不會再看到「前往付款」。
+              <br /><br />
+              如果錢還沒收到但要先出貨，選「只改狀態」，這筆會繼續留在待付款清單裡。
+            </p>
+            <div className="edit-pop__actions" style={{ flexDirection: 'column' }}>
+              <button type="button" className="btn btn--primary btn--block"
+                      onClick={() => {
+                        changeStatus(pendingStatus.order, pendingStatus.status, true)
+                        setPendingStatus(null)
+                      }}>
+                同時註記已收款
+              </button>
+              <button type="button" className="btn btn--outline btn--block"
+                      onClick={() => {
+                        changeStatus(pendingStatus.order, pendingStatus.status, false)
+                        setPendingStatus(null)
+                      }}>
+                只改狀態，錢還沒收到
+              </button>
+              <button type="button" className="btn btn--ghost btn--block"
+                      onClick={() => setPendingStatus(null)}>
+                取消
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* 每天最該看的三個數字。待付款金額是「還沒進帳但庫存已經被扣住」的錢。 */}
       <div className="order-stats">
@@ -168,7 +245,32 @@ export default function AdminOrders() {
           <div className="order-stat__num">{overdueList.length}</div>
           <div className="order-stat__label">逾期未付款</div>
         </button>
+        <button type="button"
+                className={`order-stat${mismatchList.length ? ' order-stat--warn' : ''}${filter === 'mismatch' ? ' is-active' : ''}`}
+                onClick={() => setFilter('mismatch')}>
+          <div className="order-stat__num">{mismatchList.length}</div>
+          <div className="order-stat__label">帳沒對上</div>
+        </button>
       </div>
+
+      {mismatchList.length > 0 && (
+        <div className="alert alert--error">
+          <strong>有 {mismatchList.length} 筆訂單已出貨或已完成，付款狀態卻還是「未付款」</strong>
+          <p className="small" style={{ margin: '6px 0 10px' }}>
+            通常是改狀態時沒有勾「同時註記已收款」。
+            這種訂單<strong>客人會看到東西收到了、網站卻說沒付錢</strong>，
+            而且不會計入會員的累積消費。錢真的收到了就按下面的按鈕補上。
+          </p>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {mismatchList.slice(0, 10).map((o) => (
+              <button key={o.id} type="button" className="btn btn--outline btn--sm"
+                      disabled={busyId === o.id} onClick={() => markPaid(o)}>
+                {o.order_no} 已收款
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {overdueList.length > 0 && (
         <div className="alert alert--error">
@@ -255,7 +357,7 @@ export default function AdminOrders() {
                         </td>
                         <td>
                           <select className="select" style={{ padding: '5px 8px', fontSize: 13, minWidth: 96 }}
-                                  value={o.status} onChange={(e) => changeStatus(o, e.target.value)}>
+                                  value={o.status} onChange={(e) => requestStatus(o, e.target.value)}>
                             {Object.entries(ORDER_STATUS_TEXT).map(([k, v]) => (
                               <option key={k} value={k}>{v}</option>
                             ))}

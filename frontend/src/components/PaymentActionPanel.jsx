@@ -54,7 +54,9 @@ export default function PaymentActionPanel({ order, onUpdated }) {
   const waiting = order.payment_status === 'pending'   // ATM／超商代碼已取號
   const left = cancelled ? null : remainingText(order.payment_deadline)
   const expired = left?.expired
-  const isOwner = Boolean(user && order.can_retry_payment)
+  // can_cancel 由後端算（未付款 + 未建物流單 + 狀態仍在待處理）。
+  // 前端自己拼條件的話，會出現「顯示可以取消但按了被拒絕」這種更糟的體驗。
+  const canCancel = Boolean(user && order.can_cancel)
 
   const pay = () => {
     window.location.href = checkoutUrl(order)
@@ -173,7 +175,7 @@ export default function PaymentActionPanel({ order, onUpdated }) {
         </>
       )}
 
-      {isOwner && (
+      {canCancel && (
         <div className="pay-panel__foot">
           {confirmCancel ? (
             <>

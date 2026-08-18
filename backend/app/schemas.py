@@ -283,9 +283,11 @@ class OrderOut(ORMModel):
     payment_message: str | None = None
     payment_attempts: int = 0
     cancel_reason: str | None = None
-    # 由後端算出來的（不是資料庫欄位），見 orders._decorate
+    # 由後端算出來的（不是資料庫欄位），見 orders._decorate。
+    # 前端不要自己拼這些條件，兩邊會不一致。
     payment_deadline: datetime | None = None
     can_retry_payment: bool = False
+    can_cancel: bool = False
 
     # 物流
     logistics_status: LogisticsStatus
@@ -443,6 +445,9 @@ class MemberSummaryOut(ORMModel):
 
 class OrderStatusUpdate(BaseModel):
     status: OrderStatus
+    # 改成「已出貨／已完成」時，要不要同時把付款狀態標成已收款。
+    # 預設 False —— 出貨與收款是兩件事，系統不該替工作人員決定錢收到了沒。
+    mark_paid: bool = False
 
 
 class PaymentMethodUpdate(BaseModel):

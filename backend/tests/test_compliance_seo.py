@@ -19,6 +19,9 @@ from xml.etree import ElementTree
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 os.environ.setdefault("DB_URL", "sqlite://")
 os.environ.setdefault("SECRET_KEY", "test-secret-key-not-used-in-production")
+# 背景工作會在另一個執行緒開資料庫連線，跟測試自己的連線互相干擾
+# （SQLite 的 StaticPool 只有一條連線，交易會互相蓋掉）。測試一律關掉。
+os.environ["ENABLE_BACKGROUND_JOBS"] = "false"
 os.environ.setdefault("CORS_ORIGINS", "https://huanglong-honey.com")
 os.environ.setdefault("FRONTEND_BASE_URL", "https://huanglong-honey.com")
 os.environ.setdefault("BACKEND_BASE_URL", "https://api.huanglong-honey.com")
@@ -55,7 +58,6 @@ def make_client(seed=True):
     Session = sessionmaker(bind=engine)
     database.engine = engine
     database.SessionLocal = Session
-    main.engine = engine
 
     if seed:
         db = Session()
@@ -249,7 +251,6 @@ def test_sitemap_survives_broken_db():
     engine = create_engine("mysql+pymysql://nobody:nothing@127.0.0.1:1/nope",
                            pool_pre_ping=False)
     database.engine = engine
-    main.engine = engine
     from fastapi.testclient import TestClient
     original_retry, original_attempts = main.INIT_RETRY_SECONDS, main.INIT_MAX_ATTEMPTS_AT_BOOT
     main.INIT_RETRY_SECONDS = 0

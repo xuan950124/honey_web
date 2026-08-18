@@ -174,8 +174,12 @@ export const api = {
   // token 是訂單的存取碼。訂單編號是時間戳猜得到，所以訪客要憑這組碼才看得到自己的訂單。
   getOrderByNo: (orderNo, token) =>
     request(`/api/orders/by-no/${orderNo}${token ? `?t=${encodeURIComponent(token)}` : ''}`),
-  updateOrderStatus: (id, status) =>
-    request(`/api/orders/${id}/status`, { method: 'PATCH', body: { status } }),
+  // markPaid：改成已出貨／已完成時，要不要同時把付款狀態標成已收款
+  updateOrderStatus: (id, status, markPaid = false) =>
+    request(`/api/orders/${id}/status`, {
+      method: 'PATCH',
+      body: { status, mark_paid: markPaid },
+    }),
 
   // 未付款／付款失敗的處理
   changePaymentMethod: (orderNo, paymentMethod, token) =>
@@ -220,6 +224,12 @@ export const api = {
   getSettings: () => request('/api/settings'),
   updateSettings: (values) => request('/api/settings', { method: 'PUT', body: { values } }),
 
+  // 購物車（登入後跟著帳號走）
+  getCart: () => request('/api/cart'),
+  saveCart: (items) => request('/api/cart', { method: 'PUT', body: { items } }),
+  mergeCart: (items) => request('/api/cart/merge', { method: 'POST', body: { items } }),
+  clearCart: () => request('/api/cart', { method: 'DELETE' }),
+
   // 政策條款（分開的端點：這幾份文字很長，不該讓每一頁都載）
   policies: () => request('/api/policies'),
   structuredData: () => request('/api/seo/structured-data'),
@@ -247,6 +257,36 @@ export const PAYMENT_STATUS_TEXT = {
   paid: '已付款',
   failed: '付款失敗',
   refunded: '已退款',
+}
+
+/**
+ * 客人在訂單上該看到的付款字樣。
+ *
+ * 為什麼不直接用 PAYMENT_STATUS_TEXT：訂單已經出貨或完成之後，
+ * 如果工作人員忘了註記收款，客人就會看到「東西收到了，網站卻說我沒付錢」——
+ * 那會讓人以為自己欠款，甚至跑去重付一次。
+ *
+ * 訂單走到那個階段時，付款與否已經是內部對帳的事，
+ * 對客人顯示付款方式（信用卡／貨到付款）比顯示內部狀態誠實也有用得多。
+ * 後台的「帳沒對上」統計會把這些訂單挑出來讓店家補。
+ */
+export const paymentTextFor = (order) => {
+  if (!order) return ''
+  if (order.payment_method === 'cod') return '貨到付款'
+  const closed = ['shipped', 'completed'].includes(order.status)
+  if (closed && order.payment_status !== 'refunded') {
+    return order.payment_method_label || PAYMENT_STATUS_TEXT[order.payment_status]
+  }
+  return PAYMENT_STATUS_TEXT[order.payment_status]
+}
+
+/** 訂單的付款字樣要用哪一種顏色。 */
+export const paymentToneFor = (order) => {
+  if (!order) return 'pending'
+  if (order.payment_status === 'paid') return 'shipped'
+  if (['shipped', 'completed'].includes(order.status)) return 'shipped'
+  if (order.payment_status === 'failed') return 'cancelled'
+  return 'pending'
 }
 
 export const LOGISTICS_STATUS_TEXT = {

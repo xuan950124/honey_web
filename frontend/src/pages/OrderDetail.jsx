@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import {
-  LOGISTICS_STATUS_TEXT, ORDER_STATUS_TEXT, PAYMENT_STATUS_TEXT, TEMPERATURE_TEXT,
-  api, formatDate, formatPrice,
+  LOGISTICS_STATUS_TEXT, ORDER_STATUS_TEXT, TEMPERATURE_TEXT,
+  api, formatDate, formatPrice, paymentTextFor, paymentToneFor,
 } from '../api/client'
 import PaymentActionPanel from '../components/PaymentActionPanel'
 import { useSettings } from '../context/SettingsContext'
@@ -40,17 +40,24 @@ export default function OrderDetail() {
   const isCod = order.payment_method === 'cod'
   const cancelled = order.status === 'cancelled'
 
+  // 標題要先看訂單走到哪，再看付款狀態。
+  // 反過來的話，一筆已完成但沒註記收款的訂單會顯示「等待付款」，
+  // 客人東西都收到了還被叫去付錢。
   const heading = cancelled
     ? '訂單已取消'
-    : paid
-      ? '付款完成，感謝您的訂購'
-      : isCod
-        ? '訂單已成立'
-        : failed
-          ? '訂單已成立，但付款沒有完成'
-          : waiting
-            ? '訂單已成立，等待繳費'
-            : '訂單已成立，等待付款'
+    : order.status === 'completed'
+      ? '訂單已完成，謝謝你的支持'
+      : order.status === 'shipped'
+        ? '商品已出貨'
+        : paid
+          ? '付款完成，感謝您的訂購'
+          : isCod
+            ? '訂單已成立'
+            : failed
+              ? '訂單已成立，但付款沒有完成'
+              : waiting
+                ? '訂單已成立，等待繳費'
+                : '訂單已成立，等待付款'
 
   return (
     <section className="section">
@@ -64,8 +71,8 @@ export default function OrderDetail() {
           </p>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginTop: 12 }}>
             <span className={`tag tag--${order.status}`}>{ORDER_STATUS_TEXT[order.status]}</span>
-            <span className={`tag tag--${paid ? 'shipped' : waiting ? 'pending' : 'cancelled'}`}>
-              {isCod ? '貨到付款' : PAYMENT_STATUS_TEXT[order.payment_status]}
+            <span className={`tag tag--${paymentToneFor(order)}`}>
+              {paymentTextFor(order)}
             </span>
             {order.logistics_status !== 'none' && (
               <span className="tag tag--paid">{LOGISTICS_STATUS_TEXT[order.logistics_status]}</span>

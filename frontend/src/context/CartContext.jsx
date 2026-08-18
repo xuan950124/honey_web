@@ -1,7 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { api, getToken } from '../api/client'
+import { useAuth } from './AuthContext'
 
 const CartContext = createContext(null)
 const CART_KEY = 'honey_cart'
+// 變動後隔多久才送到伺服器。連按加號時不要每一下都打一次 API
+const SYNC_DELAY = 800
 
 /**
  * 購物車。數量一律受庫存上限限制。
@@ -16,6 +20,7 @@ const CART_KEY = 'honey_cart'
 const limitOf = (item) => (item?.stock === null || item?.stock === undefined ? Infinity : Math.max(0, Number(item.stock)))
 
 export function CartProvider({ children }) {
+  const { user } = useAuth()
   const [items, setItems] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(CART_KEY) || '[]')
@@ -26,9 +31,79 @@ export function CartProvider({ children }) {
   })
   const [toast, setToast] = useState('')
 
+  // 剛從伺服器拉下來的那一次不要再推回去（會變成無意義的來回）
+  const skipNextPush = useRef(false)
+  const syncTimer = useRef(null)
+  const lastUserId = useRef(null)
+
   useEffect(() => {
     localStorage.setItem(CART_KEY, JSON.stringify(items))
   }, [items])
+
+  /** 把伺服器回傳的購物車轉成前端用的格式。 */
+  const fromServer = useCallback((rows) => (rows || []).map((r) => ({
+    id: r.id,
+    name: r.name,
+    price: Number(r.price),
+    spec: r.spec || '',
+    image_url: r.image_url || null,
+    stock: r.stock,
+    quantity: r.quantity,
+  })), [])
+
+  /**
+   * 登入時把本機的購物車併進伺服器那一份。
+   *
+   * 用合併而不是二選一：兩邊都可能有東西（家裡加了兩罐、公司加了一罐），
+   * 不管覆蓋哪一邊都會弄丟客人加的東西。
+   */
+  useEffect(() => {
+    const uid = user?.id ?? null
+    if (uid === lastUserId.current) return
+    const previous = lastUserId.current
+    lastUserId.current = uid
+
+    if (!uid) {
+      // 登出：伺服器那份留著（下次登入還在），本機這份清空，
+      // 不然下一個在同一台電腦登入的人會看到別人的購物車
+      if (previous !== null) {
+        skipNextPush.current = true
+        setItems([])
+      }
+      return
+    }
+
+    if (!getToken()) return
+    const local = items.map((i) => ({ product_id: i.id, quantity: i.quantity }))
+    api.mergeCart(local)
+      .then((rows) => {
+        skipNextPush.current = true
+        const merged = fromServer(rows)
+        setItems(merged)
+        const added = merged.length - items.length
+        if (added > 0 && items.length > 0) {
+          setToast(`已把你在其他裝置加入的 ${added} 項商品帶回購物車`)
+        }
+      })
+      .catch(() => {})   // 拿不到就沿用本機的，不要讓購物車消失
+    // items 刻意不放進相依：這裡只在「換人」的當下跑一次
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, fromServer])
+
+  /** 購物車有變動就（延遲）推到伺服器。 */
+  useEffect(() => {
+    if (!user?.id || !getToken()) return undefined
+    if (skipNextPush.current) {
+      skipNextPush.current = false
+      return undefined
+    }
+    clearTimeout(syncTimer.current)
+    syncTimer.current = setTimeout(() => {
+      api.saveCart(items.map((i) => ({ product_id: i.id, quantity: i.quantity })))
+        .catch(() => {})   // 同步失敗不影響本機操作，下次變動會再試
+    }, SYNC_DELAY)
+    return () => clearTimeout(syncTimer.current)
+  }, [items, user?.id])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -162,7 +237,13 @@ export function CartProvider({ children }) {
   }, [])
 
   const remove = useCallback((id) => setItems((prev) => prev.filter((i) => i.id !== id)), [])
-  const clear = useCallback(() => setItems([]), [])
+
+  /** 清空。訂單成立後會呼叫，伺服器那份也要一起清掉。 */
+  const clear = useCallback(() => {
+    skipNextPush.current = true
+    setItems([])
+    if (getToken()) api.clearCart().catch(() => {})
+  }, [])
 
   const count = useMemo(() => items.reduce((s, i) => s + i.quantity, 0), [items])
   const total = useMemo(() => items.reduce((s, i) => s + i.price * i.quantity, 0), [items])

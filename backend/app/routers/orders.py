@@ -54,28 +54,52 @@ def can_view_order(order: Order, user: User | None, token: str | None) -> bool:
     return False
 
 
+# 訂單還「在買家手上」的狀態。只有這個狀態下才談得上付款與取消 ——
+# 一旦出貨或完成，錢的事就該由工作人員在後台對帳處理，
+# 不然會出現「已完成」卻同時叫客人去付款這種前後矛盾的畫面。
+OPEN_STATUSES = {OrderStatus.pending}
+
+# 給錯誤訊息用的中文狀態名。訊息裡寫 "completed" 客人看不懂
+ORDER_STATUS_LABELS = {
+    OrderStatus.pending: "待處理",
+    OrderStatus.paid: "已付款",
+    OrderStatus.shipped: "已出貨",
+    OrderStatus.completed: "已完成",
+    OrderStatus.cancelled: "已取消",
+}
+
+
 def _decorate(order: Order, days: int | None = None) -> Order:
-    """補上給前端顯示用的中文標籤與繳費期限。
+    """補上給前端顯示用的中文標籤、繳費期限，以及這筆現在能做什麼。
 
     繳費期限是「下單時間 + 保留天數」算出來的，不存進資料庫；
     這樣後台調整保留天數時，所有訂單會一起跟著改，不會有新舊兩套規則。
+
+    can_retry_payment / can_cancel 一律由後端算好給前端用。
+    讓前端自己拼條件的話，兩邊遲早會不一致 ——
+    畫面顯示「可以取消」但按下去被拒絕，比一開始就不顯示還糟。
     """
     order.shipping_method_label = shipping_label(order.shipping_method)
     order.payment_method_label = payment_label(order.payment_method)
 
-    deadline = None
-    if (
-        days
-        and order.payment_method != PaymentMethod.cod
-        and order.payment_status in RETRYABLE
-        and order.status != OrderStatus.cancelled
-    ):
-        deadline = order.created_at + timedelta(days=days)
-    order.payment_deadline = deadline
-    order.can_retry_payment = bool(
+    still_open = order.status in OPEN_STATUSES
+    awaiting_payment = (
         order.payment_method != PaymentMethod.cod
         and order.payment_status in RETRYABLE
-        and order.status != OrderStatus.cancelled
+        and still_open
+    )
+
+    order.payment_deadline = (
+        order.created_at + timedelta(days=days) if days and awaiting_payment else None
+    )
+    order.can_retry_payment = bool(awaiting_payment)
+
+    # 可以取消的條件：還沒付款、還沒建物流單、狀態還在待處理。
+    # 貨到付款也算 —— 那種訂單本來就是取貨時才付錢。
+    order.can_cancel = bool(
+        still_open
+        and order.payment_status != PaymentStatus.paid
+        and order.logistics_status == LogisticsStatus.none
     )
     return order
 
@@ -529,6 +553,15 @@ def cancel_my_order(
         raise HTTPException(status_code=403, detail="這筆訂單不屬於這個帳號")
     if order.status == OrderStatus.cancelled:
         raise HTTPException(status_code=400, detail="訂單已經取消了")
+    # 已出貨或已完成的訂單不能自助取消。
+    # 這個檢查要跟 _decorate 算 can_cancel 的條件一致 ——
+    # 只擋畫面上的按鈕是不夠的，直接打 API 一樣要擋得住。
+    if order.status not in OPEN_STATUSES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"這筆訂單已經是「{ORDER_STATUS_LABELS.get(order.status, order.status.value)}」，"
+                   "無法自行取消。如果有問題請直接與我們聯絡，我們會協助處理。",
+        )
     if order.payment_status == PaymentStatus.paid:
         raise HTTPException(status_code=400, detail="已付款的訂單請聯絡我們協助處理")
     if order.logistics_status != LogisticsStatus.none:
@@ -577,7 +610,19 @@ def update_status(order_id: int, payload: OrderStatusUpdate, db: Session = Depen
         if order.payment_method == PaymentMethod.cod:
             order.payment_status = PaymentStatus.paid
             order.paid_at = order.paid_at or datetime.now()
+        elif payload.mark_paid and order.payment_status != PaymentStatus.paid:
+            # 工作人員明確勾了「同時註記已收款」才動付款狀態。
+            # 不自動標記是刻意的 —— 出貨與收款是兩件事，
+            # 系統偷偷幫你標成已付款，帳就對不出來了。
+            order.payment_status = PaymentStatus.paid
+            order.paid_at = order.paid_at or datetime.now()
+            order.payment_message = None
         membership.record_spending(db, order)
+    elif payload.status == OrderStatus.shipped and payload.mark_paid:
+        if order.payment_status != PaymentStatus.paid:
+            order.payment_status = PaymentStatus.paid
+            order.paid_at = order.paid_at or datetime.now()
+            order.payment_message = None
     elif payload.status == OrderStatus.cancelled:
         # 取消訂單就把業績扣回來（已經發出去的券不收回，避免爭議），庫存也要還原
         membership.revoke_spending(db, order)

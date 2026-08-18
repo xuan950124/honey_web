@@ -9,10 +9,28 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
 
+from . import database
 from .config import settings
-from .database import Base, SessionLocal, engine, ensure_database, sync_schema
+from .database import Base, ensure_database, sync_schema
+
+
+def _session():
+    """開一個資料庫連線。
+
+    刻意每次都從 database 模組現查 SessionLocal，而不是在檔案最上面
+    `from .database import SessionLocal` 綁死。
+    綁死的話，之後有任何地方重新設定連線（測試、或未來要換資料庫），
+    背景工作還是會抓著舊的那一個，症狀是「明明設定改了它還連舊的」，
+    非常難查。
+    """
+    return database.SessionLocal()
+
+
+def _engine():
+    """同上，連線引擎也現查。"""
+    return database.engine
 from .routers import (
-    auth, content, logistics, membership, orders, payments, products, seo, uploads,
+    auth, cart, content, logistics, membership, orders, payments, products, seo, uploads,
 )
 
 # 讓我們自己的 log.info／log.warning 真的出現在平台的日誌裡。
@@ -156,6 +174,7 @@ app.include_router(logistics.router)
 app.include_router(payments.router)
 app.include_router(membership.router)
 app.include_router(seo.router)
+app.include_router(cart.router)
 
 
 EXPIRE_SWEEP_SECONDS = 3600  # 每小時清一次逾期未付款訂單
@@ -164,7 +183,7 @@ EXPIRE_SWEEP_SECONDS = 3600  # 每小時清一次逾期未付款訂單
 def _sweep_expired_once() -> int:
     """跑一次清理。整個資料庫連線的生命週期都在同一個執行緒裡，
     SQLAlchemy 的 Session 不是執行緒安全的，不要跨執行緒傳。"""
-    db = SessionLocal()
+    db = _session()
     try:
         return len(orders.expire_unpaid_orders(db))
     finally:
@@ -207,7 +226,7 @@ def _backfill_order_tokens() -> int:
     from .models import Order
     from .routers.orders import new_access_token
 
-    db = SessionLocal()
+    db = _session()
     try:
         pending = db.query(Order).filter(Order.access_token.is_(None)).all()
         for order in pending:
@@ -222,7 +241,7 @@ def _backfill_order_tokens() -> int:
 def _init_database_once() -> None:
     """建資料庫、建表、補欄位。三步各自防護，一步失敗不影響下一步。"""
     ensure_database()
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=_engine())
     sync_schema()
     filled = _backfill_order_tokens()
     if filled:
@@ -277,6 +296,11 @@ async def _init_database_with_retry() -> None:
 async def on_startup() -> None:
     say(f"[啟動] 蜂蜜商城 API 啟動中．環境 ={settings.APP_ENV}"
         f"．允許的來源 ={settings.cors_list}")
+
+    if not settings.ENABLE_BACKGROUND_JOBS:
+        say("[啟動] ENABLE_BACKGROUND_JOBS=false，略過資料表初始化與逾期訂單清理")
+        return
+
     # 刻意不 await —— 資料庫慢的話不要卡住整個啟動，
     # 這樣 /api/health 立刻就能回應，平台的健康檢查才不會判定失敗把容器殺掉。
     asyncio.create_task(_init_database_with_retry())
@@ -297,7 +321,7 @@ def health():
 def health_db():
     """資料庫連得上嗎。排查時先看這一支，就知道問題在哪一層。"""
     try:
-        with engine.connect() as conn:
+        with _engine().connect() as conn:
             conn.execute(text("SELECT 1"))
         DB_STATE["ready"] = True
         DB_STATE["error"] = None

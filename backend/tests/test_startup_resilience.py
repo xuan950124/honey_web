@@ -21,6 +21,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 os.environ.setdefault("DB_URL", "sqlite://")
 os.environ.setdefault("SECRET_KEY", "test-secret-key-not-used-in-production")
+# 背景工作會在另一個執行緒開資料庫連線，跟測試自己的連線互相干擾
+# （SQLite 的 StaticPool 只有一條連線，交易會互相蓋掉）。測試一律關掉。
+os.environ["ENABLE_BACKGROUND_JOBS"] = "false"
 os.environ.setdefault("CORS_ORIGINS", "https://huanglong-honey.com")
 
 from sqlalchemy import String, Text, create_engine, text  # noqa: E402
@@ -177,12 +180,10 @@ def test_app_starts_without_database():
     from fastapi.testclient import TestClient
 
     original_engine = database.engine
-    original_main_engine = main.engine
     broken = create_engine(
         "mysql+pymysql://nobody:nothing@127.0.0.1:1/nope", pool_pre_ping=False
     )
     database.engine = broken
-    main.engine = broken
 
     # 把重試間隔縮短，測試不要等 90 秒
     original_retry = main.INIT_RETRY_SECONDS
@@ -232,7 +233,6 @@ def test_app_starts_without_database():
                   repr(r.headers.get("access-control-allow-headers")))
     finally:
         database.engine = original_engine
-        main.engine = original_main_engine
         main.INIT_RETRY_SECONDS = original_retry
         main.INIT_MAX_ATTEMPTS_AT_BOOT = original_attempts
         main.DB_STATE.update({"ready": False, "error": None, "attempts": 0})
@@ -246,9 +246,7 @@ def test_app_works_with_database():
     good = create_engine("sqlite://", connect_args={"check_same_thread": False},
                          poolclass=StaticPool)
     original_engine = database.engine
-    original_main_engine = main.engine
     database.engine = good
-    main.engine = good
     original_session = database.SessionLocal
     from sqlalchemy.orm import sessionmaker
     database.SessionLocal = sessionmaker(bind=good)
@@ -268,9 +266,36 @@ def test_app_works_with_database():
             check("/api/settings 回得出設定", "shop_name" in r.json(), str(r.json())[:120])
     finally:
         database.engine = original_engine
-        main.engine = original_main_engine
         database.SessionLocal = original_session
         main.DB_STATE.update({"ready": False, "error": None, "attempts": 0})
+
+
+def test_background_jobs_flag():
+    print("\n[背景工作的開關]")
+    from app.config import settings
+
+    check("設定裡有這個開關", hasattr(settings, "ENABLE_BACKGROUND_JOBS"))
+    check("測試環境已關閉", settings.ENABLE_BACKGROUND_JOBS is False,
+          str(settings.ENABLE_BACKGROUND_JOBS))
+
+    src = (Path(__file__).resolve().parent.parent / "app/main.py").read_text("utf-8")
+    start = src.index("async def on_startup")
+    body = src[start:start + 900]
+    check("啟動時會檢查這個開關", "ENABLE_BACKGROUND_JOBS" in body, body[:200])
+    check("關閉時不會排程資料表初始化",
+          body.index("ENABLE_BACKGROUND_JOBS") < body.index("_init_database_with_retry"))
+    check("關閉時不會排程逾期清理",
+          body.index("ENABLE_BACKGROUND_JOBS") < body.index("_expire_unpaid_loop"))
+
+    # 預設必須是開的 —— 正式環境沒有背景工作就不會自動建表也不會清逾期訂單
+    from app.config import Settings
+    check("預設是開啟", Settings.model_fields["ENABLE_BACKGROUND_JOBS"].default is True)
+
+    # 背景工作要現查連線設定，不能在 import 時綁死
+    check("背景工作用現查的 SessionLocal", "database.SessionLocal()" in src,
+          "綁死的話重新設定連線後它還會抓舊的，很難查")
+    check("main 沒有直接 import SessionLocal",
+          "from .database import Base, ensure_database, sync_schema" in src)
 
 
 def test_retry_state():
@@ -307,6 +332,7 @@ if __name__ == "__main__":
         test_should_widen_respects_real_indexes,
         test_app_starts_without_database,
         test_app_works_with_database,
+        test_background_jobs_flag,
         test_retry_state,
     ):
         fn()

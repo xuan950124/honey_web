@@ -332,6 +332,31 @@ class OrderItem(Base):
     order: Mapped["Order"] = relationship(back_populates="items")
 
 
+class CartItem(Base):
+    """會員的購物車。
+
+    購物車原本只存在瀏覽器的 localStorage 裡，所以換一台電腦、
+    換一個瀏覽器、開無痕視窗，看到的都是空的購物車 ——
+    對客人來說那就是「我加的東西不見了」。
+
+    登入之後改存伺服器，購物車就跟著帳號走。
+    沒登入的訪客仍然只有本機的那一份（沒有帳號可以綁）。
+    """
+    __tablename__ = "cart_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    product_id: Mapped[int] = mapped_column(
+        ForeignKey("products.id", ondelete="CASCADE"), nullable=False
+    )
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.now, onupdate=datetime.now
+    )
+
+
 class SiteSetting(Base):
     """聯絡方式等站台設定，工作人員可於後台修改。"""
     __tablename__ = "site_settings"

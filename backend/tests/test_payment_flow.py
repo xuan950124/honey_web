@@ -16,6 +16,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 os.environ.setdefault("DB_URL", "sqlite://")
 os.environ.setdefault("SECRET_KEY", "test-secret-key-not-used-in-production")
+# 背景工作會在另一個執行緒開資料庫連線，跟測試自己的連線互相干擾
+# （SQLite 的 StaticPool 只有一條連線，交易會互相蓋掉）。測試一律關掉。
+os.environ["ENABLE_BACKGROUND_JOBS"] = "false"
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
