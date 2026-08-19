@@ -533,7 +533,7 @@ export default function Cart() {
                   <div className="field" style={{ marginBottom: 0 }}>
                     <label htmlFor="note">訂單備註</label>
                     <textarea id="note" className="textarea" name="note" value={form.note} onChange={change}
-                              placeholder="例如：需要開立三聯式發票（抬頭／統編）、指定到貨時段等" />
+                              placeholder="例如：需要農民收據並註明抬頭、指定到貨時段、送禮不附價格明細等" />
                   </div>
                 </div>
               </form>

@@ -210,6 +210,106 @@ def test_business_fields():
               repr(DEFAULT_SETTINGS[key]))
 
 
+# ------------------------------------------------- 自產自銷：不要開不出來的支票
+
+def test_no_statutory_invoice_promise():
+    """網站不能承諾「開立發票」。
+
+    自產自銷的農民依營業稅法第 8 條第 1 項第 19 款免辦營業登記、免徵營業稅，
+    **沒有統編就開不出統一發票**，只能開農民收據。
+
+    而公司行號團購最在意的就是報帳憑證 —— 網站上寫「可開立發票」，
+    等於下單前就埋了一張跳票的支票，出貨後才發現會直接變客訴。
+    這幾條斷言是防止哪天文案被改回去。
+    """
+    print("\n[不能承諾開立統一發票]")
+    src = ROOT / "frontend/src"
+
+    home = (src / "pages/Home.jsx").read_text("utf-8")
+    body = "\n".join(l for l in home.splitlines() if not l.strip().startswith("//"))
+    check("首頁沒有承諾開立發票", "開立發票" not in body, "首頁第 04 點以前寫「開立發票」")
+    check("首頁改講農民收據", "農民收據" in body)
+
+    group = (src / "pages/GroupBuy.jsx").read_text("utf-8")
+    gbody = "\n".join(l for l in group.splitlines() if not l.strip().startswith("//"))
+    check("團購頁沒有二聯三聯的說法",
+          "三聯" not in gbody and "二聯" not in gbody, "團購頁以前寫可開二聯或三聯式發票")
+    check("團購頁講農民收據", "農民收據" in gbody)
+    check("團購 FAQ 有解釋為什麼沒有統編",
+          "免辦營業登記" in gbody or "營業稅法" in gbody,
+          "只說『沒有發票』會像在推託，要講清楚是身分問題")
+    check("團購 FAQ 提醒先問公司會計", "會計" in gbody,
+          "各單位核銷規定不同，這句話能擋掉大部分爭議")
+
+    cart = (src / "pages/Cart.jsx").read_text("utf-8")
+    check("購物車備註提示不再叫人填統編",
+          "三聯式發票" not in cart, "備註欄的範例文字以前寫「需要開立三聯式發票（抬頭／統編）」")
+
+    contact = (src / "pages/Contact.jsx").read_text("utf-8")
+    check("聯絡頁的訂購須知有講購買憑證", "農民收據" in contact)
+
+    from app.policies import DEFAULTS
+    refund = DEFAULTS["policy_refund"]
+    check("退換貨政策不再說開立電子發票", "開立電子發票" not in refund)
+    check("退換貨政策說明開農民收據", "農民收據" in refund)
+    check("退換貨政策有寫法源", "營業稅法" in refund,
+          "被質疑時拿得出依據，比空口說『我們不開發票』有用")
+
+
+def test_tax_id_and_food_registration_are_optional():
+    """統編與食品業者登錄字號不能被當成必填。
+
+    強制登錄（非登不可）的對象是有商業／公司／工廠登記，或有稅籍登記的業者；
+    自產自銷的養蜂場兩者都不是。以前後台把這兩項列在「上線前必填」，
+    等於逼使用者去辦他根本不需要辦的東西，還會讓他不敢上線。
+    """
+    print("\n[統編與非登不可是選填]")
+    policies_page = (ROOT / "frontend/src/pages/admin/AdminPolicies.jsx").read_text("utf-8")
+
+    check("必填清單只剩商號名稱",
+          "const REQUIRED = ['business_name']" in policies_page,
+          "食品業者登錄字號不該出現在必填清單裡")
+    check("統編標成選填", "business_tax_id" in policies_page and "optional: true" in policies_page)
+    check("後台有解釋為什麼不需要統編",
+          "營業稅法" in policies_page and "免辦營業登記" in policies_page)
+    check("後台有解釋非登不可的強制對象",
+          "商業登記" in policies_page or "稅籍登記" in policies_page)
+    check("後台有畫出界線（收購別人的蜜就要辦）",
+          "收購" in policies_page, "只說『你不用辦』而不講界線，等他擴大營業就踩線了")
+    check("後台仍強調食安法標示不會免除",
+          "食安法" in policies_page and "GHP" in policies_page)
+    check("欄位標籤有「選填」字樣", "選填" in policies_page)
+
+    # 頁尾仍要能顯示（有填就顯示，沒填就不顯示），不是把欄位刪掉
+    footer = (ROOT / "frontend/src/components/Footer.jsx").read_text("utf-8")
+    check("頁尾仍保留這兩個欄位的位置",
+          "food_registration_no" in footer and "business_tax_id" in footer,
+          "自願登錄的話字號要顯示得出來")
+
+    checklist = (ROOT / "docs/上線前必辦清單.md").read_text("utf-8")
+    check("必辦清單不再把非登不可列成非做不可",
+          "### ☐ 2. 申請食品業者登錄字號" not in checklist)
+    check("必辦清單有「你不需要辦的事」章節", "你不需要辦的事" in checklist)
+    check("必辦清單有講界線", "收購" in checklist)
+    check("必辦清單有留國稅局電話", "0800-000-321" in checklist)
+
+
+def test_no_ecpay_invoice_params():
+    """綠界電子發票只有公司戶申請得到，個人賣家帳號拿不到。
+
+    所以串接裡不能帶任何發票參數 —— 帶了不會有效果，只會在對帳時造成混淆。
+    """
+    print("\n[綠界串接沒有發票參數]")
+    ecpay = (ROOT / "backend/app/ecpay.py").read_text("utf-8")
+    for param in ("InvoiceMark", "InvoiceItemName", "CustomerIdentifier", "InvType"):
+        check(f"沒有帶 {param}", param not in ecpay)
+
+    cart = (ROOT / "frontend/src/pages/Cart.jsx").read_text("utf-8")
+    check("結帳表單沒有發票欄位",
+          "invoice" not in cart.lower(),
+          "個人賣家開不出統一發票，放了欄位只會讓客人以為填了就有")
+
+
 # ---------------------------------------------------------------- SEO
 
 def test_sitemap():
@@ -373,6 +473,8 @@ if __name__ == "__main__":
     for fn in (
         test_policy_content, test_policy_placeholders_replaced, test_policy_editable,
         test_food_label_fields, test_business_fields,
+        test_no_statutory_invoice_promise, test_tax_id_and_food_registration_are_optional,
+        test_no_ecpay_invoice_params,
         test_sitemap, test_sitemap_survives_broken_db, test_robots, test_structured_data,
         test_frontend_wiring,
     ):

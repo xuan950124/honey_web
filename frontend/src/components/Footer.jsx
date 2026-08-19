@@ -95,13 +95,15 @@ export default function Footer() {
         </div>
 
         {/*
-          業者資訊。賣包裝食品要揭露商號、統編與食品業者登錄字號，
-          沒填的欄位不顯示（不要對客人露出空欄位）。
+          業者資訊。食安法要求的是「廠商名稱、地址、電話」——
+          統編與食品業者登錄字號則是有才顯示：自產自銷的農民免辦營業登記，
+          本來就沒有統編，也不在「非登不可」的強制對象內。
+          沒填的欄位一律不顯示，不要對客人露出空欄位。
         */}
         {business.length > 0 && (
           <div className="footer__legal"
                {...editable('業者資訊', '/admin/policies', 'business_name',
-                 '商號名稱、統一編號、食品業者登錄字號都在「政策條款 → 業者資訊」。')}>
+                 '商號名稱、負責人、地址、電話都在「政策條款 → 業者資訊」。')}>
             {business.map(([label, value]) => (
               <span key={label}>
                 <span className="footer__legal-label">{label}</span>

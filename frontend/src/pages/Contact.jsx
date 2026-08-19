@@ -264,11 +264,15 @@ export default function Contact() {
             <div className="section-head__eyebrow">Notice</div>
             <h2 className="section-head__title">訂購須知</h2>
           </div>
-          <div className="grid grid--3" style={{ maxWidth: 960, margin: '0 auto' }}>
+          <div className="grid grid--2" style={{ maxWidth: 960, margin: '0 auto' }}>
             {[
               ['出貨時間', '訂單確認後約 3-5 個工作天出貨，連假與年節期間會另行公告。'],
               ['運費說明', '單筆訂單滿額免運，未達門檻酌收物流費用，實際金額以訂單確認為準。'],
               ['保存方式', '常溫陰涼處保存，避免日照。低溫結晶屬天然現象，隔水溫熱即可恢復。'],
+              // 公司行號團購最在意報帳憑證，講在前面比出貨後才解釋好得多
+              ['購買憑證', '本場為自產自銷養蜂場，依營業稅法免辦營業登記，開立「農民收據」'
+                + '而非統一發票。需要指定抬頭請於訂單備註寫明；公司行號核銷規定不一，'
+                + '建議先與貴單位會計確認。'],
             ].map(([t, d]) => (
               <div className="panel" key={t}>
                 <h3 style={{ fontSize: 16, color: 'var(--honey-800)', marginBottom: 10 }}>{t}</h3>

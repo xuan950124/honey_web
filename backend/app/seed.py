@@ -82,7 +82,7 @@ PRODUCTS = [
         "is_group_buy": True, "group_buy_min_qty": 1,
         "group_buy_note": "滿 12 瓶免運，可指定多個收件地址（請於備註欄說明）。",
         "category": "group-buy", "sort_order": 8,
-        "description": "適合公司福委、幼兒園、社團大量訂購。需要客製標籤或開立三聯式發票請先聯絡我們。",
+        "description": "適合公司福委、幼兒園、社團大量訂購。需要客製標籤或指定收據抬頭請先聯絡我們。",
     },
     {
         "name": "【團購】蜂蜜隨手包 30 入", "subtitle": "20g 隨身包，辦公室、外出方便",
