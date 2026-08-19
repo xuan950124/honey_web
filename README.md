@@ -509,10 +509,11 @@ cd backend  && python tests/test_ecpay_env.py                 (61 項)
 cd backend  && python tests/test_startup_resilience.py        (43 項)
 cd frontend && node tests/cart-stock-and-map.test.mjs         (75 項)
 cd frontend && node tests/edit-mode.test.mjs                  (90 項)
+cd frontend && node tests/layout-css.test.mjs                 (13 項)
 ```
 
-十份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
-共 957 項。
+十一份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
+共 970 項。
 
 ---
 

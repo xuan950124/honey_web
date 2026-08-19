@@ -263,6 +263,13 @@ ul { margin: 0; padding: 0; list-style: none; }
   padding: 26px 0; border-bottom: 1px solid var(--line); align-items: start;
 }
 .news-item:first-child { padding-top: 0; }
+/*
+  首頁的「最新消息與報導」是兩欄（.grid--news），
+  這時「第一則」不等於「第一列」—— 只有左邊那則是 :first-child，
+  右邊那則還留著 26px 的上內距，同一列的兩則就差了一截。
+  兩欄時要讓第一列的**兩則**都去掉上內距。
+*/
+.grid--news .news-item:nth-child(-n + 2) { padding-top: 0; }
 .news-tag {
   display: inline-block; padding: 3px 11px; font-size: 11.5px; letter-spacing: 0.08em;
   border: 1px solid var(--honey-300); color: var(--honey-700); border-radius: 2px; background: var(--honey-50);
@@ -944,6 +951,9 @@ body.edit-mode { padding-bottom: 46px; }
 .grid--news { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 48px; }
 @media (max-width: 820px) {
   .grid--news { grid-template-columns: 1fr; }
+  /* 收成一欄之後「第一列」就只剩第一則了，第二則要把上內距還回來，
+     不然它會跟第一則黏在一起 */
+  .grid--news .news-item:nth-child(2) { padding-top: 26px; }
 }
 
 /* ============ 溯源徽章 ============ */
