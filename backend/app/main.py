@@ -32,7 +32,8 @@ def _engine():
     """同上，連線引擎也現查。"""
     return database.engine
 from .routers import (
-    auth, cart, content, logistics, membership, orders, payments, products, seo, uploads,
+    auth, cart, content, logistics, membership, orders, payments, products,
+    seo, uploads,
 )
 
 # 讓我們自己的 log.info／log.warning 真的出現在平台的日誌裡。

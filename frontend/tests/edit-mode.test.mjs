@@ -137,11 +137,8 @@ function testSourceMarkup() {
   const files = {
     'components/Header.jsx': ['shop_name', 'shop_slogan'],
     'components/Footer.jsx': ['hero_desc', 'data-edit-skip'],
-    'pages/Home.jsx': ['hero_title', 'hero_image_url'],
-    'pages/Contact.jsx': ['map_embed_url', 'line_qr_url'],
-    'pages/NewsDetail.jsx': ['editable'],
-    'pages/Story.jsx': ['editable'],
     'components/ProductCard.jsx': ['editable'],
+    'pages/NewsDetail.jsx': ['editable'],
   }
   for (const [file, needles] of Object.entries(files)) {
     const src = fs.readFileSync(new URL(`../src/${file}`, import.meta.url), 'utf8')
@@ -149,6 +146,33 @@ function testSourceMarkup() {
       check(`${file} 有標上 ${needle}`, src.includes(needle))
     }
   }
+
+  // 頁面的內容會被拆進 components/sections/，所以這幾項不綁檔名 ——
+  // 綁了的話每次重構都要跟著改測試，而真正要確認的是
+  // 「網站上還找得到這個可編輯標記」，不是「它住在哪個檔案」。
+  const tree = readAll(new URL('../src/', import.meta.url))
+  const anywhere = Object.values(tree).join('\n')
+  for (const needle of ['hero_title', 'hero_image_url', 'map_embed_url', 'line_qr_url']) {
+    check(`全站有標上 ${needle}`, anywhere.includes(needle))
+  }
+  for (const [label, kw] of [['品牌故事', '故事：'], ['新聞列表', '報導：']]) {
+    check(`${label} 有標上 editable`,
+          Object.values(tree).some((s) => s.includes(kw) && s.includes('editable')),
+          '內容搬家了也要留著可編輯標記')
+  }
+}
+
+/** 遞迴讀 src 下所有 .jsx / .js，回傳 { 相對路徑: 內容 }。 */
+function readAll(dir, base = dir, out = {}) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const url = new URL(entry.name + (entry.isDirectory() ? '/' : ''), dir)
+    if (entry.isDirectory()) readAll(url, base, out)
+    else if (/\.jsx?$/.test(entry.name)) {
+      out[decodeURIComponent(url.pathname.slice(base.pathname.length))] =
+        fs.readFileSync(url, 'utf8')
+    }
+  }
+  return out
 }
 
 console.log('='.repeat(60))

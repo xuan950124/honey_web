@@ -499,20 +499,20 @@ honey_web/
 ### 跑測試
 
 ```
-cd backend  && python tests/test_compliance_seo.py           (158 項)
+cd backend  && python tests/test_compliance_seo.py           (187 項)
 cd backend  && python tests/test_payment_flow.py             (139 項)
-cd backend  && python tests/test_security.py                  (95 項)
+cd backend  && python tests/test_security.py                  (96 項)
 cd backend  && python tests/test_long_urls.py                 (84 項)
 cd backend  && python tests/test_cart_and_order_state.py      (81 項)
 cd backend  && python tests/test_checkout_stability.py       (101 項)
 cd backend  && python tests/test_ecpay_env.py                 (61 項)
 cd backend  && python tests/test_startup_resilience.py        (43 項)
 cd frontend && node tests/cart-stock-and-map.test.mjs         (75 項)
-cd frontend && node tests/edit-mode.test.mjs                  (89 項)
+cd frontend && node tests/edit-mode.test.mjs                  (90 項)
 ```
 
 十份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
-共 927 項。
+共 957 項。
 
 ---
 

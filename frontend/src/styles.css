@@ -358,6 +358,17 @@ ul { margin: 0; padding: 0; list-style: none; }
 .admin-head__title { font-size: 23px; color: var(--honey-900); }
 .panel { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); padding: 28px; }
 .panel + .panel { margin-top: 22px; }
+/*
+  但格線裡不算「上下堆疊」。
+  `.panel + .panel` 是給後台那種一塊接一塊往下排的版面用的，
+  放進 .grid 之後第 2、3、4 塊也會吃到 margin-top，
+  於是同一列的卡片被往下推、高度就對不齊了（訂購須知那四格就是這樣歪的）。
+  格線本身有 gap，不需要 margin。
+*/
+.grid > .panel + .panel { margin-top: 0; }
+/* 但在格線裡不能加 —— 格線自己有 gap，多的 margin 只會把第 2、4 張卡往下推，
+   撐到同一個底線就變成每一格高度不一樣（訂購須知那四格就是這樣歪掉的）。 */
+.grid > .panel + .panel { margin-top: 0; }
 .panel__title { font-size: 17px; color: var(--honey-800); margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 
 .uploader { border: 1px dashed var(--line); border-radius: var(--radius); padding: 20px; background: var(--cream-2); text-align: center; }

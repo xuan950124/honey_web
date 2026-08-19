@@ -225,28 +225,41 @@ def test_no_statutory_invoice_promise():
     print("\n[不能承諾開立統一發票]")
     src = ROOT / "frontend/src"
 
-    home = (src / "pages/Home.jsx").read_text("utf-8")
-    body = "\n".join(l for l in home.splitlines() if not l.strip().startswith("//"))
-    check("首頁沒有承諾開立發票", "開立發票" not in body, "首頁第 04 點以前寫「開立發票」")
-    check("首頁改講農民收據", "農民收據" in body)
+    # 掃整個 src 而不是指定檔案：頁面被拆成 sections/ 之後，
+    # 文案會搬家（首頁的四大特色現在在 components/sections/HomeSections.jsx）。
+    # 綁死檔名的測試會在重構時假性失敗，掃全樹才是真的在測「網站上有沒有這句話」。
+    files = {p: p.read_text("utf-8") for p in src.rglob("*.jsx")}
+    # 註解裡會出現「開立發票」四個字（就是在說明不能寫），要排除掉
+    code = {
+        p: "\n".join(l for l in t.splitlines() if not l.strip().startswith("//"))
+        for p, t in files.items()
+    }
+    everywhere = "\n".join(code.values())
+    where = lambda kw: str([p.name for p, t in code.items() if kw in t])  # noqa: E731
 
-    group = (src / "pages/GroupBuy.jsx").read_text("utf-8")
-    gbody = "\n".join(l for l in group.splitlines() if not l.strip().startswith("//"))
-    check("團購頁沒有二聯三聯的說法",
-          "三聯" not in gbody and "二聯" not in gbody, "團購頁以前寫可開二聯或三聯式發票")
-    check("團購頁講農民收據", "農民收據" in gbody)
+    check("全站沒有承諾開立發票", "開立發票" not in everywhere, where("開立發票"))
+    check("全站沒有二聯三聯的說法",
+          "三聯" not in everywhere and "二聯" not in everywhere, where("三聯"))
+    check("首頁四大特色改講農民收據",
+          any("團購可客製" in t and "農民收據" in t for t in code.values()),
+          where("團購可客製"))
+
+    # 團購的 FAQ 也已經搬到 sections/PageSections.jsx，同樣掃全樹
+    faq = next((t for t in code.values() if "可以開立統一發票嗎" in t), "")
+    check("團購 FAQ 有回答發票這一題", bool(faq), where("團購最低數量"))
+    check("團購頁講農民收據", "農民收據" in faq)
     check("團購 FAQ 有解釋為什麼沒有統編",
-          "免辦營業登記" in gbody or "營業稅法" in gbody,
+          "免辦營業登記" in faq or "營業稅法" in faq,
           "只說『沒有發票』會像在推託，要講清楚是身分問題")
-    check("團購 FAQ 提醒先問公司會計", "會計" in gbody,
+    check("團購 FAQ 提醒先問公司會計", "會計" in faq,
           "各單位核銷規定不同，這句話能擋掉大部分爭議")
 
-    cart = (src / "pages/Cart.jsx").read_text("utf-8")
     check("購物車備註提示不再叫人填統編",
-          "三聯式發票" not in cart, "備註欄的範例文字以前寫「需要開立三聯式發票（抬頭／統編）」")
-
-    contact = (src / "pages/Contact.jsx").read_text("utf-8")
-    check("聯絡頁的訂購須知有講購買憑證", "農民收據" in contact)
+          "三聯式發票" not in everywhere,
+          "備註欄的範例文字以前寫「需要開立三聯式發票（抬頭／統編）」")
+    check("訂購須知有講購買憑證",
+          any("訂購須知" in t and "農民收據" in t for t in code.values()),
+          where("訂購須知"))
 
     from app.policies import DEFAULTS
     refund = DEFAULTS["policy_refund"]
