@@ -390,6 +390,11 @@ Google 對「89-6號」這種細分門牌常常會就近對到「89號」——
 
 > 皇龍養蜂場的這兩個值已經寫成**出廠預設**（`frontend/src/lib/maps.js`），
 > 部署完就是對的，不必先去後台貼一次。後台填了就以後台為準。
+>
+> **只填座標的舊資料也會被換成官方嵌入碼。** 這一欄以前叫
+> 「Google 地圖位置（座標）」，正式站存的就是一組座標 ——
+> 座標畫出來只有一根光禿禿的針，官方嵌入碼指的是同一個點但有店名與評分小卡，
+> 沒有理由選前者。想用自己的就把座標換成 `<iframe …>`。
 
 其他後備做法（都比不上上面兩欄，但沒有商家檔案時還是有用）：
 
@@ -544,13 +549,13 @@ cd backend  && python tests/test_cart_and_order_state.py      (81 項)
 cd backend  && python tests/test_checkout_stability.py       (101 項)
 cd backend  && python tests/test_ecpay_env.py                 (61 項)
 cd backend  && python tests/test_startup_resilience.py        (43 項)
-cd frontend && node tests/cart-stock-and-map.test.mjs         (89 項)
+cd frontend && node tests/cart-stock-and-map.test.mjs         (94 項)
 cd frontend && node tests/edit-mode.test.mjs                  (90 項)
-cd frontend && node tests/layout-css.test.mjs                 (13 項)
+cd frontend && node tests/layout-css.test.mjs                 (18 項)
 ```
 
 十一份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
-共 1002 項。
+共 1012 項。
 
 ---
 

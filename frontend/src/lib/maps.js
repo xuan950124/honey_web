@@ -45,11 +45,27 @@ export const DEFAULT_MAP_LINK = 'https://maps.app.goo.gl/wrzBQ8iPtgkoWdMs8'
  * 不該讓底下每個組網址的函式都得記得處理一次。
  */
 export function withMapDefaults(settings = {}) {
+  const embed = (settings.map_embed_url || '').trim()
   return {
     ...settings,
-    map_embed_url: (settings.map_embed_url || '').trim() || DEFAULT_MAP_EMBED,
+    map_embed_url: usesDefaultEmbed(embed) ? DEFAULT_MAP_EMBED : embed,
     map_link_url: (settings.map_link_url || '').trim() || DEFAULT_MAP_LINK,
   }
+}
+
+/**
+ * 這個 `map_embed_url` 的值要不要被官方嵌入碼取代？
+ *
+ * 空的當然要。**只填座標的也要** —— 這一欄以前叫「Google 地圖位置（座標）」，
+ * 舊資料裡存的就是一組座標。座標畫出來的地圖只有一根光禿禿的針，
+ * 官方嵌入碼才會顯示「皇龍養蜂場」的店名與評分小卡，指的又是同一個點，
+ * 沒有理由選前者。
+ *
+ * 座標本身不會被丟掉 —— 想改回去，把座標換成自己的 iframe 或留空即可。
+ */
+export function usesDefaultEmbed(value) {
+  const raw = (value || '').trim()
+  return !raw || COORD_ONLY.test(raw)
 }
 
 /** 純座標，例如「25.105821, 121.712378」。Google 地圖右鍵複製出來就是這個格式。 */

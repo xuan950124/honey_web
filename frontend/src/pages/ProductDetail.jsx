@@ -341,7 +341,9 @@ export default function ProductDetail() {
           )}
 
           {labelRows.length ? (
-            <table className="spec-table">
+            // --wide：這張表的欄位名長很多（「有效日期／保存期限」），
+            // 用規格表那個 100px 的標籤欄會折行，看起來像壞掉
+            <table className="spec-table spec-table--wide">
               <tbody>
                 {labelRows.map(([label, value]) => (
                   <tr key={label}>

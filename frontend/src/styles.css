@@ -297,6 +297,31 @@ ul { margin: 0; padding: 0; list-style: none; }
 .spec-table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .spec-table th, .spec-table td { padding: 11px 0; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
 .spec-table th { width: 100px; font-weight: 500; color: var(--ink-soft); }
+
+/*
+  欄位名比較長的表格（食品標示）。
+
+  100px 裝不下「有效日期／保存期限」「食品業者登錄字號」這種九個字的標籤，
+  結果是標籤折成兩行、數值卻還貼在第一行旁邊 ——
+  看起來像「有效日期／保存　製造日期起 2 年」後面再接一行孤零零的「期限」。
+  加寬並禁止折行就對齊了。
+*/
+.spec-table--wide th {
+  width: 168px; padding-right: 18px; white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  /* 手機並排放不下（168px 標籤 + 內容），改成上下堆疊 */
+  .spec-table--wide,
+  .spec-table--wide tbody,
+  .spec-table--wide tr,
+  .spec-table--wide th,
+  .spec-table--wide td { display: block; width: auto; }
+  .spec-table--wide tr { padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .spec-table--wide th,
+  .spec-table--wide td { padding: 0; border-bottom: 0; white-space: normal; }
+  .spec-table--wide th { margin-bottom: 3px; font-size: 12.5px; }
+}
 .qty { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--white); }
 .qty button { width: 38px; height: 42px; border: none; background: var(--white); color: var(--honey-700); font-size: 17px; }
 .qty button:hover:not(:disabled) { background: var(--honey-50); }

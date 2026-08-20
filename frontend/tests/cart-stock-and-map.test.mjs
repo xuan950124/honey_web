@@ -11,7 +11,7 @@
 
 import {
   DEFAULT_MAP_EMBED, DEFAULT_MAP_LINK, addressQuery, buildMapSrc, directionsUrl,
-  hasExactLocation, mapPoint, placeUrl, withMapDefaults,
+  hasExactLocation, mapPoint, placeUrl, usesDefaultEmbed, withMapDefaults,
 } from '../src/lib/maps.js'
 
 let passed = 0
@@ -341,6 +341,24 @@ function testPlaceLink() {
   check('後台填了就以後台為準', overridden.map_link_url === 'https://maps.app.goo.gl/OTHER')
   check('只填空白仍視為沒填',
         withMapDefaults({ map_link_url: '   ' }).map_link_url === DEFAULT_MAP_LINK)
+
+  /*
+    這一欄以前叫「Google 地圖位置（座標）」，正式站存的就是一組座標。
+    座標畫出來只有一根光禿禿的針；官方嵌入碼指的是同一個點，
+    但地圖上會有店名與評分小卡 —— 所以只填座標時也要換成官方嵌入碼。
+  */
+  const legacy = { ...base, map_embed_url: '25.095065008099798, 121.66613895306607' }
+  check('舊的座標值也換成官方嵌入碼',
+        withMapDefaults(legacy).map_embed_url === DEFAULT_MAP_EMBED,
+        '不然升級後地圖還是沒有店名小卡')
+  check('座標會被判定為「該用預設」', usesDefaultEmbed('25.1, 121.7') === true)
+  check('空字串也是', usesDefaultEmbed('') === true)
+  check('自己貼的 iframe 不會被換掉',
+        usesDefaultEmbed('<iframe src="https://www.google.com/maps/embed?pb=MINE"></iframe>') === false)
+  check('自己貼的 iframe 真的贏過預設',
+        buildMapSrc(withMapDefaults({
+          ...base, map_embed_url: '<iframe src="https://www.google.com/maps/embed?pb=MINE"></iframe>',
+        })) === 'https://www.google.com/maps/embed?pb=MINE')
 
   // maps.js 本身不能偷偷套預設 —— 套了的話下面那些後備分支永遠跑不到，
   // 等於一整段沒人測過的死路

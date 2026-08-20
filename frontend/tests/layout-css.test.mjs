@@ -118,6 +118,39 @@ function testNoNewOffenders() {
 
 // ---------------------------------------------------------------- 格線本身
 
+/**
+ * 表格的標籤欄要裝得下標籤。
+ *
+ * 規格表的標籤都很短（規格、原產地、庫存），100px 夠用。
+ * 食品標示那張不一樣 ——「有效日期／保存期限」「食品業者登錄字號」都是九個字，
+ * 硬塞進 100px 的結果是標籤折成兩行、數值卻還貼在第一行旁邊：
+ *
+ *     有效日期／保存   製造日期起 2 年
+ *     期限
+ *
+ * 不會壞掉，但看起來就是壞的。
+ */
+function testWideLabelTable() {
+  console.log('\n[長欄位名的表格]')
+
+  const wide = code.match(/\.spec-table--wide th\s*\{([^}]*)\}/)
+  const width = wide && Number((wide[1].match(/width:\s*(\d+)px/) || [])[1])
+  check('有加寬版的標籤欄且夠寬', width >= 150, `目前 ${width}px`,
+        '九個中文字在 14px 字級下約 126px，再加內距至少要 150px')
+  check('加寬版禁止標籤折行',
+        /\.spec-table--wide th\s*\{[^}]*white-space:\s*nowrap/.test(code))
+  check('加寬版在手機上改成上下堆疊',
+        /@media[^{]*\{[\s\S]*?\.spec-table--wide[\s\S]*?display:\s*block/.test(code),
+        '168px 的標籤欄在手機上跟內容並排會太擠')
+
+  const detail = fs.readFileSync(new URL('../src/pages/ProductDetail.jsx', import.meta.url), 'utf8')
+  check('食品標示用的是加寬版', /spec-table spec-table--wide/.test(detail))
+  // 上面那張規格表的標籤都很短，不需要加寬（加了反而擠掉數值的空間）
+  const firstTable = detail.indexOf('<table className="spec-table"')
+  check('規格表維持原本的窄標籤欄', firstTable !== -1 && firstTable < detail.indexOf('--wide'),
+        '兩張表的欄位名長度差很多，不該共用同一個寬度')
+}
+
 function testGridBasics() {
   console.log('\n[格線的基本設定]')
   check('.grid 有 gap（間距靠 gap 不靠 margin）',
@@ -136,6 +169,7 @@ console.log('版面間距測試')
 console.log('='.repeat(60))
 testKnownFixes()
 testNoNewOffenders()
+testWideLabelTable()
 testGridBasics()
 
 console.log('\n' + '='.repeat(60))
