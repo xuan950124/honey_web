@@ -269,6 +269,72 @@ def test_no_statutory_invoice_promise():
           "被質疑時拿得出依據，比空口說『我們不開發票』有用")
 
 
+def test_group_buy_shipping_promise():
+    """不能承諾「可以分別寄送到不同地址」。
+
+    網站的購物車**一筆訂單只收一次運費**，綠界也**只會產生一個寄件代碼**。
+    客人如果照著舊文案在備註寫「請幫我 2 瓶寄台北、5 瓶寄台中、5 瓶寄高雄」，
+    系統做不到 —— 而且是收完錢才發現，那時只有兩條路：
+    自己吸收多出來的兩次運費，或跟已付款的客人解釋。
+
+    分寄本身是做得到的，但要另外報價，所以要在下單前把人導去 LINE。
+    """
+    print("\n[團購不能承諾分開寄送]")
+    src = ROOT / "frontend/src"
+    code = {
+        p: "\n".join(l for l in p.read_text("utf-8").splitlines()
+                     if not l.strip().startswith(("//", "*", "/*")))
+        for p in src.rglob("*.jsx")
+    }
+    everywhere = "\n".join(code.values())
+
+    check("沒有叫客人在備註寫各收件人地址",
+          "各收件人的姓名" not in everywhere,
+          "舊 FAQ 寫「請在下單時於備註欄註明各收件人的姓名、電話與地址」")
+
+    faq = next((t for t in code.values() if "可以分開寄送到不同地址嗎" in t), "")
+    check("FAQ 有回答分寄這一題", bool(faq))
+    check("FAQ 說明網站不能直接下單分寄", "不能直接在網站下單" in faq, faq[:200])
+    check("FAQ 有解釋為什麼（運費只收一次）",
+          "一次運費" in faq or "只收一次" in faq,
+          "只說『不行』會像在推託，講清楚是系統限制才有說服力")
+    check("FAQ 有給出路（先聯絡報價）", "報價" in faq)
+
+    # 說明必須自動跟著「團購商品」跑，不能靠店家逐一貼進每個商品內文 ——
+    # 漏貼的那一個就是下一次客訴
+    notice = (src / "components/GroupBuyShippingNotice.jsx").read_text("utf-8")
+    check("有共用的團購運送說明元件", "DEFAULT_GROUP_BUY_NOTICE" in notice)
+    check("預設文字講明只寄一個地址", "只能寄到一個地址" in notice, notice[:400])
+    check("預設文字叫人先別下單", "不要直接下單" in notice)
+    check("說明可在後台改", "group_buy_shipping_notice" in notice)
+
+    users = [p.name for p, t in code.items() if "GroupBuyShippingNotice" in t]
+    for page in ("PageSections.jsx", "ProductDetail.jsx", "Cart.jsx"):
+        check(f"{page} 會顯示團購運送說明", page in users, str(users))
+
+    detail = (src / "pages/ProductDetail.jsx").read_text("utf-8")
+    check("商品頁靠 is_group_buy 自動顯示",
+          "product.is_group_buy && <GroupBuyShippingNotice" in detail,
+          "綁在勾選上才不會有商品漏掉")
+
+    cart = (src / "pages/Cart.jsx").read_text("utf-8")
+    check("購物車判斷車上有沒有團購商品", "hasGroupBuy" in cart)
+    check("提醒放在備註欄旁邊",
+          cart.index("hasGroupBuy && <GroupBuyShippingNotice") > cart.index('htmlFor="note"'),
+          "備註欄正是「請幫我分寄三個地址」最常被寫進來的地方")
+
+    from app.routers.content import DEFAULT_SETTINGS
+    check("設定裡有這個欄位", "group_buy_shipping_notice" in DEFAULT_SETTINGS)
+
+    from app.routers.cart import CartLineOut
+    check("購物車 API 有回傳團購旗標", "is_group_buy" in CartLineOut.model_fields,
+          "沒有的話購物車不知道該不該顯示提醒")
+
+    seed = (ROOT / "backend/app/seed.py").read_text("utf-8")
+    check("示範商品沒有承諾多地址寄送",
+          "多個收件地址" not in seed, "示範資料會被直接拿來當正式文案")
+
+
 def test_tax_id_and_food_registration_are_optional():
     """統編與食品業者登錄字號不能被當成必填。
 
@@ -486,7 +552,8 @@ if __name__ == "__main__":
     for fn in (
         test_policy_content, test_policy_placeholders_replaced, test_policy_editable,
         test_food_label_fields, test_business_fields,
-        test_no_statutory_invoice_promise, test_tax_id_and_food_registration_are_optional,
+        test_no_statutory_invoice_promise, test_group_buy_shipping_promise,
+        test_tax_id_and_food_registration_are_optional,
         test_no_ecpay_invoice_params,
         test_sitemap, test_sitemap_survives_broken_db, test_robots, test_structured_data,
         test_frontend_wiring,

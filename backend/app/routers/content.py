@@ -142,6 +142,12 @@ DEFAULT_SETTINGS = {
     # 各頁面的固定圖片（後台可直接上傳，不用改程式碼）
     "hero_image_url": "",
     "group_buy_image_url": "",
+    # 團購的運送說明。留空會用 GROUP_BUY_SHIPPING_NOTICE 那段預設文字。
+    #
+    # 為什麼要有這個欄位：網站的購物車一筆訂單只收**一次**運費，
+    # 綠界也只會產生**一個**寄件代碼。客人如果以為「備註寫一下就能分寄三個地址」，
+    # 你要嘛自己倒貼兩次運費，要嘛跟客人吵。把話講在下單前最省事。
+    "group_buy_shipping_notice": "",
     "line_qr_url": "",
     "favicon_url": "",
     "story_cover_url": "",

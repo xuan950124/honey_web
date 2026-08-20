@@ -80,7 +80,7 @@ PRODUCTS = [
         "spec": "700g x 12", "origin": "基隆 七堵",
         "price": 6000, "original_price": 7560, "stock": 15,
         "is_group_buy": True, "group_buy_min_qty": 1,
-        "group_buy_note": "滿 12 瓶免運，可指定多個收件地址（請於備註欄說明）。",
+        "group_buy_note": "滿 12 瓶免運，寄到一個地址由主購分發。需要分寄請先聯絡我們報價。",
         "category": "group-buy", "sort_order": 8,
         "description": "適合公司福委、幼兒園、社團大量訂購。需要客製標籤或指定收據抬頭請先聯絡我們。",
     },

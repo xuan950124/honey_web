@@ -110,6 +110,22 @@ const IMAGE_FIELDS = [
   },
 ]
 
+// 團購的運送說明。獨立一個欄位而不是叫店家去每個商品的內文各貼一次 ——
+// 漏貼的那個商品就是下一次客訴。
+const GROUP_BUY_FIELDS = [
+  {
+    key: 'group_buy_shipping_notice',
+    label: '團購運送說明',
+    textarea: true,
+    rows: 5,
+    hint: '會顯示在團購專區、每個團購商品的商品頁，以及購物車的備註欄旁邊。'
+      + '重點是講清楚「網站下單只寄一個地址」——'
+      + '購物車一筆訂單只收一次運費，物流也只會產生一個寄件代碼，'
+      + '客人若在備註要求分寄三個地址，多出來的運費要你自己吸收。'
+      + '留空會用預設文字。支援 **粗體** 與換行。',
+  },
+]
+
 const SENDER_FIELDS = [
   {
     key: 'sender_name',
@@ -167,7 +183,8 @@ export default function AdminSettings() {
     setErr(''); setMsg(''); setSaving(true)
     try {
       const payload = {}
-      ;[...FIELDS, ...HERO_FIELDS, ...IMAGE_FIELDS, ...SHIPPING_FIELDS, ...SENDER_FIELDS]
+      ;[...FIELDS, ...HERO_FIELDS, ...IMAGE_FIELDS, ...GROUP_BUY_FIELDS,
+        ...SHIPPING_FIELDS, ...SENDER_FIELDS]
         .forEach((f) => { payload[f.key] = values[f.key] || '' })
       await api.updateSettings(payload)
       reload()
@@ -244,6 +261,27 @@ export default function AdminSettings() {
             value={values[f.key] || null}
             onChange={(url) => setValues((v) => ({ ...v, [f.key]: url || '' }))}
           />
+        ))}
+      </form>
+
+      <form className="panel" onSubmit={submit}>
+        <h2 className="panel__title">團購運送說明</h2>
+        <div className="alert alert--warn">
+          <strong>網站下單的團購組合只能寄到一個地址。</strong>
+          <p className="small" style={{ margin: '6px 0 0' }}>
+            購物車一筆訂單只收一次運費，綠界也只會產生一個寄件代碼。
+            客人如果在備註寫「請幫我分寄三個地址」，系統做不到 ——
+            你要嘛自己吸收多出來的兩次運費，要嘛跟已經付完錢的客人解釋。
+            所以這段話會自動出現在下單前的每一個地方。
+          </p>
+        </div>
+        {GROUP_BUY_FIELDS.map((f) => (
+          <div className="field" key={f.key}>
+            <label htmlFor={f.key}>{f.label}</label>
+            <textarea id={f.key} className="textarea" rows={f.rows || 4} name={f.key}
+                      value={values[f.key] ?? ''} onChange={change} />
+            {f.hint && <div className="field__hint">{f.hint}</div>}
+          </div>
         ))}
       </form>
 

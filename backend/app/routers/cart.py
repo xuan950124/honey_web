@@ -44,6 +44,9 @@ class CartLineOut(BaseModel):
     image_url: str | None = None
     stock: int | None = None
     quantity: int
+    # 前端要靠這個決定「要不要顯示團購的運送說明」。
+    # 團購組合只寄一個地址，客人最常在備註欄要求分寄。
+    is_group_buy: bool = False
 
 
 def _load(db: Session, user: User) -> list[CartLineOut]:
@@ -78,6 +81,7 @@ def _load(db: Session, user: User) -> list[CartLineOut]:
             image_url=product.image_url,
             stock=product.stock,
             quantity=quantity,
+            is_group_buy=bool(product.is_group_buy),
         ))
 
     for item in stale:

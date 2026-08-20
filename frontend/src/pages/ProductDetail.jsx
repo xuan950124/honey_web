@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, formatPrice, mediaUrl } from '../api/client'
+import GroupBuyShippingNotice from '../components/GroupBuyShippingNotice'
 import Placeholder from '../components/Placeholder'
 import { setMetaTag, setStructuredData } from '../components/SiteMeta'
 import { useAuth } from '../context/AuthContext'
@@ -231,6 +232,14 @@ export default function ProductDetail() {
                 {product.group_buy_note}
               </div>
             )}
+
+            {/*
+              團購商品一定要看到運送說明。
+              購物車一筆訂單只收一次運費、只產生一個寄件代碼，
+              客人若以為備註一下就能分寄三個地址，發現時錢已經收了。
+              自動跟著「團購商品」這個勾選跑，不必每個商品的內文各貼一次。
+            */}
+            {product.is_group_buy && <GroupBuyShippingNotice compact />}
 
             <div className="pd__divider" />
 

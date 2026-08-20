@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { TEMPERATURE_TEXT, api, formatPrice, orderUrl } from '../api/client'
 import CouponCard from '../components/CouponCard'
+import GroupBuyShippingNotice from '../components/GroupBuyShippingNotice'
 import Placeholder from '../components/Placeholder'
 import StorePicker from '../components/StorePicker'
 import { useAuth } from '../context/AuthContext'
@@ -20,6 +21,10 @@ export default function Cart() {
   const navigate = useNavigate()
   const [stockNotices, setStockNotices] = useState([])
   const [notice, setNotice] = useState('')
+
+  // 車上有團購組合時，備註欄旁邊要提醒「只寄一個地址」。
+  // 那裡正是「請幫我分寄三個地址」最常被寫進來的地方。
+  const hasGroupBuy = useMemo(() => items.some((i) => i.is_group_buy), [items])
 
   const [options, setOptions] = useState(null)
   const [shippingMethod, setShippingMethod] = useState('cvs_unimart_c2c')
@@ -534,6 +539,13 @@ export default function Cart() {
                     <label htmlFor="note">訂單備註</label>
                     <textarea id="note" className="textarea" name="note" value={form.note} onChange={change}
                               placeholder="例如：需要農民收據並註明抬頭、指定到貨時段、送禮不附價格明細等" />
+                    {/*
+                      備註欄是「請幫我分寄三個地址」最常出現的地方。
+                      這筆訂單只收一次運費、只會產生一個寄件代碼，寫在備註也做不到 ——
+                      所以車上有團購商品時，把話講在這個欄位旁邊，
+                      而不是等出貨才回覆客人。
+                    */}
+                    {hasGroupBuy && <GroupBuyShippingNotice compact />}
                   </div>
                 </div>
               </form>

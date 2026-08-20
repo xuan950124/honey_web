@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, formatDate } from '../../api/client'
+import GroupBuyShippingNotice from '../GroupBuyShippingNotice'
 import Placeholder from '../Placeholder'
 import ProductCard from '../ProductCard'
 import { editable } from '../../context/EditModeContext'
@@ -37,6 +38,10 @@ const Empty = ({ title, children }) => (
   </div>
 )
 
+/** 把 **粗體** 轉成節點。文字只當文字用，不碰 innerHTML。 */
+const bold = (text) => text.split(/\*\*(.+?)\*\*/g)
+  .map((part, i) => (i % 2 ? <strong key={i}>{part}</strong> : part))
+
 // ---------------------------------------------------------------- 團購專區
 
 const STEPS = [
@@ -49,7 +54,12 @@ const STEPS = [
 // 公司團購最在意的就是憑證這一題，所以話要講在前面，不要等到出貨才說沒有發票。
 const GROUP_FAQ = [
   ['團購最低數量是多少？', '每個方案的成團數量不同，請參考各方案說明。若數量較大想再談價格，歡迎直接聯絡我們。'],
-  ['可以分開寄送到不同地址嗎？', '可以。請在下單時於備註欄註明各收件人的姓名、電話與地址，我們會與您再次確認。'],
+  ['可以分開寄送到不同地址嗎？',
+    '可以，但**不能直接在網站下單**。網站的購物車一筆訂單只收一次運費，'
+    + '物流系統也只會產生一個包裹的寄件代碼，所以線上下單的團購組合只寄一個地址，'
+    + '由主購收到後自行分發。'
+    + '需要分開寄的話請先用 LINE 或電話跟我們說收件人數與地址，'
+    + '我們會依件數報價（多一個地址就多一筆運費），談好再幫您建立訂單。'],
   ['可以開立統一發票嗎？',
     '我們是自產自銷的養蜂場，依營業稅法免辦營業登記、免徵營業稅，因此沒有統一編號，'
     + '不開立統一發票，改開「農民收據」。收據上會載明品名、數量、金額與本場名稱、'
@@ -69,10 +79,17 @@ export function GroupIntro() {
       <div>
         <div className="section-head__eyebrow" style={{ textAlign: 'left' }}>Group Buy</div>
         <h2 className="hero__title" style={{ fontSize: 30 }}>一起買，更划算</h2>
+        {/*
+          這裡不能寫「可分別寄送到不同地址」而不加條件。
+          網站的購物車一筆訂單只收一次運費、綠界也只產生一個寄件代碼，
+          客人直接下單是分不了寄的 —— 那句話會變成收完錢才發現做不到。
+          分寄確實做得到，但要另外報價，所以要引導他先聯絡。
+        */}
         <p className="hero__desc">
           我們是基隆七堵的小型蜂場，產量有限但每一批都自己顧。
-          團購可分開包裝、分別寄送到不同地址，也能依需求製作客製標籤與贈品卡，
-          並開立農民收據。需求不在下方方案內，歡迎直接聯絡討論。
+          下方的團購組合可以直接下單，寄到一個地址、由主購分發，並開立農民收據。
+          需要<strong>分開包裝、分別寄到不同地址</strong>，或客製標籤與贈品卡，
+          請先聯絡我們報價。
         </p>
         <div className="hero__actions">
           <Link to="/contact" className="btn btn--primary">洽詢客製方案</Link>
@@ -121,6 +138,8 @@ export function GroupPackages() {
   return (
     <>
       <SectionHead eyebrow="Packages" title="團購組合" />
+      {/* 運送方式講在商品上面，不是下面 —— 客人往下滑看到喜歡的就直接按了 */}
+      <GroupBuyShippingNotice />
       {loading ? (
         <div className="loading">載入中…</div>
       ) : products.length ? (
@@ -144,7 +163,7 @@ export function GroupFaq() {
         {GROUP_FAQ.map(([q, a]) => (
           <div key={q} style={{ padding: '20px 0', borderBottom: '1px solid var(--line)' }}>
             <h3 style={{ fontSize: 16, color: 'var(--honey-800)', marginBottom: 8 }}>Q．{q}</h3>
-            <p className="muted" style={{ margin: 0, fontSize: 14 }}>{a}</p>
+            <p className="muted" style={{ margin: 0, fontSize: 14 }}>{bold(a)}</p>
           </div>
         ))}
       </div>

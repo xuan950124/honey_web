@@ -49,6 +49,7 @@ export function CartProvider({ children }) {
     image_url: r.image_url || null,
     stock: r.stock,
     quantity: r.quantity,
+    is_group_buy: Boolean(r.is_group_buy),
   })), [])
 
   /**
@@ -144,6 +145,7 @@ export function CartProvider({ children }) {
           image_url: product.image_url || null,
           stock: product.stock,
           quantity: added,
+          is_group_buy: Boolean(product.is_group_buy),
         },
       ]
     })
@@ -236,6 +238,7 @@ export function CartProvider({ children }) {
           image_url: fresh.image_url || null,
           stock: fresh.stock,
           quantity,
+          is_group_buy: Boolean(fresh.is_group_buy),
         })
       }
       return next

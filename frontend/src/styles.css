@@ -324,6 +324,9 @@ ul { margin: 0; padding: 0; list-style: none; }
 .alert--error { background: #fdf0eb; border-color: #f0c6b6; color: var(--danger); }
 .alert--success { background: #eef6ef; border-color: #c3ddc8; color: var(--success); }
 .alert--info { background: var(--honey-50); border-color: var(--honey-200); color: var(--honey-800); }
+/* 提醒，不是錯誤。用在「下單前要先知道」這種話 ——
+   紅色會讓人以為出事了，資訊藍又太容易被當成裝飾滑過去。 */
+.alert--warn { background: #fdf6e6; border-color: #e8cf95; color: #7a5a12; }
 
 /* ============ 聯絡我們 ============ */
 .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; }
