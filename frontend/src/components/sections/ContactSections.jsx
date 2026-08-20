@@ -1,5 +1,5 @@
 import Placeholder from '../Placeholder'
-import { buildMapSrc, directionsUrl, mapPoint } from '../../lib/maps'
+import { buildMapSrc, directionsUrl, hasExactLocation, placeUrl } from '../../lib/maps'
 import { useAuth } from '../../context/AuthContext'
 import { editable } from '../../context/EditModeContext'
 import { useSettings } from '../../context/SettingsContext'
@@ -60,14 +60,13 @@ export function ContactChannels() {
     {
       label: '地址',
       field: 'contact_address',
-      hint: '地圖上的位置是 Google 依這個地址推算的。想讓點完全精準，請填「Google 地圖位置（座標）」。',
+      hint: '點下去會開 Google 地圖。開到哪一個點由「地圖連結」決定 ——'
+        + '沒填的話 Google 會依這串地址自己猜，89-6 號常常會被對到 89 號。',
       filled: Boolean(settings.contact_address),
+      // 連結一律走 placeUrl()：後台填了分享連結就用那一個，
+      // 直接把地址丟給 Google search 會讓它重新猜一次門牌
       value: settings.contact_address ? (
-        <a
-          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(settings.contact_address)}`}
-          target="_blank"
-          rel="noreferrer"
-        >
+        <a href={placeUrl(settings)} target="_blank" rel="noreferrer">
           {settings.contact_address}
         </a>
       ) : <Empty />,
@@ -176,8 +175,8 @@ export function ContactMap() {
   const { settings } = useSettings()
   const { isStaff } = useAuth()
   const mapSrc = buildMapSrc(settings)
-  // 有沒有填精確座標。有的話地圖與導航都不必靠 Google 猜地址
-  const hasPoint = Boolean(mapPoint(settings))
+  // 地圖與導航是不是都指到確定的點（分享連結或座標），不必靠 Google 猜地址
+  const hasPoint = hasExactLocation(settings)
 
   return (
     <>
@@ -226,8 +225,10 @@ export function ContactMap() {
           <p className="small" style={{ margin: '6px 0 0' }}>
             「89-6號」這種細分門牌它會就近對到「89號」，
             <strong>客人按規劃路線會被導到隔壁</strong>。
-            到「網站設定 → Google 地圖位置（座標）」填座標就兩個都準了：
-            打開 Google 地圖 → 對著自家門口按右鍵 → 點最上面那組數字（自動複製）→ 貼上。
+            最快的解法是到 Google 地圖搜尋自己的商家 → <strong>分享</strong> →
+            「傳送連結」複製那串 <code>maps.app.goo.gl/…</code>，
+            貼到「網站設定 → 地圖連結」。順便把「嵌入地圖」那段 HTML
+            複製到「地圖嵌入碼」，地圖上就會顯示店名與評分。
             （這段只有工作人員看得到。）
           </p>
         </div>

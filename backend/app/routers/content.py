@@ -133,7 +133,13 @@ DEFAULT_SETTINGS = {
     "business_hours": "",
     "facebook_url": "",
     "instagram_url": "",
+    # 地圖是兩個欄位：
+    #   map_embed_url —— 頁面上那張圖（Google「分享 → 嵌入地圖」的整段 HTML）
+    #   map_link_url  —— 地址文字與「規劃路線」要開的短網址（「分享 → 傳送連結」）
+    # 分開的原因：嵌入碼不能拿來當連結（它會被 X-Frame-Options 擋在瀏覽器外），
+    # 短網址也不能拿來嵌入（瀏覽器端展不開）。硬要共用一欄就會有一邊是壞的。
     "map_embed_url": "",
+    "map_link_url": "",
     # 首頁主視覺文案。跟 shop_slogan 分開是刻意的 ——
     # 頁首橫條那句要短，首頁大標下面那段需要完整說完一件事，兩者混用哪邊都不好看。
     "hero_title": "",

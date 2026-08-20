@@ -373,18 +373,31 @@ UPDATE users SET role = 'staff' WHERE email = '要升級的Email';
 
 ### 地圖要顯示正確門牌
 
-Google 對「89-6號」這種細分門牌常常會就近對到「89號」。系統已經做了兩件事：
+Google 對「89-6號」這種細分門牌常常會就近對到「89號」——
+地圖上的紅點插在隔壁，**客人按「規劃路線」也會被導到隔壁**。
 
-1. 查詢時自動把 `89-6號` 轉成 `89之6號`（Google 台灣的辨識率較高），並帶上店名
-2. 地圖下方一律顯示**你自己填的完整地址**，不依賴 Google 標的那張小卡
+解法是不要讓 Google 再猜一次，改成直接指向**你的 Google 商家檔案**。
+後台 → 網站設定有兩個欄位：
 
-**「規劃路線」也是同一個問題** —— 送地址過去，Google 一樣會把客人導到 89 號。
+| 欄位 | 從哪裡拿 | 用在哪 |
+|---|---|---|
+| **地圖連結** | Google 地圖 → 分享 →「傳送連結」的 `maps.app.goo.gl/…` | 地址文字、地圖角落的「規劃路線」|
+| **地圖嵌入碼** | Google 地圖 → 分享 →「嵌入地圖」→ 複製 HTML | 頁面上那張地圖 |
 
-到 **網站設定 → Google 地圖位置（座標）** 填座標，地圖的紅點與導航目的地就會**用同一組座標**，
-Google 沒有猜的空間：打開 Google 地圖 → 對著自家門口按滑鼠右鍵 →
-點最上面那組數字（會自動複製）→ 貼上。
+嵌入碼**整段 `<iframe …>` 直接貼**就好，不用自己挑出網址。
+系統會原封不動用它 —— 這樣地圖上才會有店名與評分那張小卡，
+換成 `?q=座標` 就只剩一根光禿禿的針。
 
-沒填的話，工作人員登入時會在地圖下方看到提醒（客人看不到）。
+> 皇龍養蜂場的這兩個值已經寫成**出廠預設**（`frontend/src/lib/maps.js`），
+> 部署完就是對的，不必先去後台貼一次。後台填了就以後台為準。
+
+其他後備做法（都比不上上面兩欄，但沒有商家檔案時還是有用）：
+
+- 填座標（`25.105821, 121.712378`）—— 地圖與導航會用同一組座標
+- 都沒填時，查詢會自動把 `89-6號` 轉成 `89之6號` 並帶上店名（Google 台灣辨識率較高）
+- 地圖下方一律顯示**你自己填的完整地址**，不依賴 Google 標的那張小卡
+
+兩個都沒填時，工作人員登入會在地圖下方看到提醒（客人看不到）。
 
 ---
 
@@ -531,13 +544,13 @@ cd backend  && python tests/test_cart_and_order_state.py      (81 項)
 cd backend  && python tests/test_checkout_stability.py       (101 項)
 cd backend  && python tests/test_ecpay_env.py                 (61 項)
 cd backend  && python tests/test_startup_resilience.py        (43 項)
-cd frontend && node tests/cart-stock-and-map.test.mjs         (75 項)
+cd frontend && node tests/cart-stock-and-map.test.mjs         (89 項)
 cd frontend && node tests/edit-mode.test.mjs                  (90 項)
 cd frontend && node tests/layout-css.test.mjs                 (13 項)
 ```
 
 十一份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
-共 988 項。
+共 1002 項。
 
 ---
 

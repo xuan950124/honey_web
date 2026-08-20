@@ -9,7 +9,10 @@
  * 而地圖網址的分支多到用眼睛看不完（座標／分享網址／iframe／純地址）。
  */
 
-import { addressQuery, buildMapSrc, directionsUrl, mapPoint } from '../src/lib/maps.js'
+import {
+  DEFAULT_MAP_EMBED, DEFAULT_MAP_LINK, addressQuery, buildMapSrc, directionsUrl,
+  hasExactLocation, mapPoint, placeUrl, withMapDefaults,
+} from '../src/lib/maps.js'
 
 let passed = 0
 const failures = []
@@ -290,6 +293,61 @@ function testDirections() {
   check('完全沒資料時回空字串', directionsUrl({}) === '', directionsUrl({}))
 }
 
+/**
+ * 分享短網址（maps.app.goo.gl）與出廠預設。
+ *
+ * 這是「89-6 號被導到 89 號」的終極解法：短網址直接指向商家檔案，
+ * Google 沒有重新猜地址的機會。而嵌入碼要**原封不動**用官方那一段，
+ * 拆成座標重組的話地圖上就只剩一根針，店名與評分那張小卡會不見。
+ */
+function testPlaceLink() {
+  console.log('\n[分享連結與出廠預設]')
+  const base = { shop_name: '皇龍蜂蜜', contact_address: '基隆市七堵區華新一路89-6號' }
+  const link = 'https://maps.app.goo.gl/wrzBQ8iPtgkoWdMs8'
+
+  const withLink = { ...base, map_link_url: link }
+  check('地址連結用分享短網址', placeUrl(withLink) === link, placeUrl(withLink))
+  check('規劃路線也用分享短網址', directionsUrl(withLink) === link, directionsUrl(withLink))
+  check('有分享連結就算精準定位', hasExactLocation(withLink) === true)
+  check('分享連結優先於座標',
+        directionsUrl({ ...withLink, map_embed_url: '25.1,121.7' }) === link,
+        '短網址指向商家檔案，比座標更不會被 Google 重新解讀')
+
+  // 官方嵌入碼要原封不動
+  const official = { ...base, map_embed_url: DEFAULT_MAP_EMBED }
+  check('官方嵌入碼原封不動', buildMapSrc(official) === DEFAULT_MAP_EMBED,
+        '拆成 ?q=座標 的話地圖上的店名與評分小卡會不見')
+  check('pb 嵌入碼抓得出座標',
+        mapPoint(official) === '25.09496753542184,121.66599349016094',
+        `${mapPoint(official)}（!2d 是經度、!3d 是緯度，順序相反很容易寫錯）`)
+
+  const pasted = {
+    ...base,
+    map_embed_url: `<iframe src="${DEFAULT_MAP_EMBED}" width="600" height="450"></iframe>`,
+  }
+  check('整段 iframe HTML 貼進來也認得', buildMapSrc(pasted) === DEFAULT_MAP_EMBED,
+        'Google 的「複製 HTML」給的就是一整段 iframe，不該要求使用者自己挑出網址')
+
+  // 出廠預設：網站一部署就該指到對的地方
+  console.log('\n[出廠預設]')
+  const filled = withMapDefaults(base)
+  check('沒填時補上預設嵌入碼', filled.map_embed_url === DEFAULT_MAP_EMBED)
+  check('沒填時補上預設分享連結', filled.map_link_url === DEFAULT_MAP_LINK)
+  check('預設連結是短網址', DEFAULT_MAP_LINK.startsWith('https://maps.app.goo.gl/'))
+  check('預設嵌入碼是可嵌入的形式', DEFAULT_MAP_EMBED.includes('/maps/embed'),
+        '一般的 /maps/place 網址會被 X-Frame-Options 擋掉')
+
+  const overridden = withMapDefaults({ ...base, map_link_url: 'https://maps.app.goo.gl/OTHER' })
+  check('後台填了就以後台為準', overridden.map_link_url === 'https://maps.app.goo.gl/OTHER')
+  check('只填空白仍視為沒填',
+        withMapDefaults({ map_link_url: '   ' }).map_link_url === DEFAULT_MAP_LINK)
+
+  // maps.js 本身不能偷偷套預設 —— 套了的話下面那些後備分支永遠跑不到，
+  // 等於一整段沒人測過的死路
+  check('maps.js 保持純函式', buildMapSrc({}) === '' && directionsUrl({}) === '',
+        '預設值只在 SettingsContext 套用')
+}
+
 console.log('='.repeat(60))
 console.log('購物車庫存與地圖網址測試')
 console.log('='.repeat(60))
@@ -299,6 +357,7 @@ testSyncStock()
 testCheckoutGuard()
 testMap()
 testDirections()
+testPlaceLink()
 
 console.log('\n' + '='.repeat(60))
 if (failures.length) {

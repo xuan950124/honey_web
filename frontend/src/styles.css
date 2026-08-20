@@ -328,6 +328,13 @@ ul { margin: 0; padding: 0; list-style: none; }
    紅色會讓人以為出事了，資訊藍又太容易被當成裝飾滑過去。 */
 .alert--warn { background: #fdf6e6; border-color: #e8cf95; color: #7a5a12; }
 
+/* 後台說明文字裡的短程式碼片段（網址範例、欄位名） */
+.hint-code {
+  padding: 1px 5px; border-radius: 3px; background: var(--cream-2);
+  border: 1px solid var(--line); font-size: 0.92em;
+  font-family: "SFMono-Regular", Consolas, monospace;
+}
+
 /* ============ 聯絡我們 ============ */
 .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; }
 .contact-list { border-top: 1px solid var(--line); }

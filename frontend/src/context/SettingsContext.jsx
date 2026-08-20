@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { api } from '../api/client'
+import { withMapDefaults } from '../lib/maps'
 
 const SettingsContext = createContext({ settings: {}, loaded: false, reload: () => {} })
 
@@ -47,8 +48,22 @@ export function SettingsProvider({ children }) {
       })
   }, [tick])
 
+  /*
+    地圖那兩欄補上出廠預設（見 lib/maps.js）。
+
+    「地圖指到隔壁」這件事已經來回修過好幾次，網站一部署就該是對的，
+    不該取決於有沒有人記得去後台貼一次分享連結。後台填了就以後台為準。
+
+    只補給前台用的這一份 —— 後台編輯頁走 api.getSettings()，
+    看到的仍是真正存在資料庫裡的值（空的就是空的），
+    不會讓人以為自己填過了。
+  */
   const value = useMemo(
-    () => ({ settings, loaded, reload: () => setTick((t) => t + 1) }),
+    () => ({
+      settings: withMapDefaults(settings),
+      loaded,
+      reload: () => setTick((t) => t + 1),
+    }),
     [settings, loaded],
   )
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>

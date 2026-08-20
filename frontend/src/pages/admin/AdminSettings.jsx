@@ -27,15 +27,29 @@ const FIELDS = [
   { key: 'facebook_url', label: 'Facebook 連結' },
   { key: 'instagram_url', label: 'Instagram 連結' },
   {
-    key: 'map_embed_url',
-    label: 'Google 地圖位置（座標）',
+    key: 'map_link_url',
+    label: '地圖連結（分享短網址）',
+    textarea: true,
+    rows: 2,
     hint:
-      '強烈建議填。留空的話地圖與「規劃路線」都是靠 Google 猜地址，'
-      + '而 Google 對「89-6號」這種細分門牌會就近對到「89號」—— '
-      + '結果是客人按下規劃路線被導到隔壁，白跑一趟。'
-      + '　填法：打開 Google 地圖 → 對著自家門口按滑鼠右鍵 → 點最上面那組數字（會自動複製）→ 貼到這裡，'
-      + '格式像 25.105821, 121.712378。填了之後地圖的紅點與導航目的地都會用這個座標，Google 沒有猜的空間。'
-      + '　也可以貼分享網址或整段 iframe，系統會自動抓出裡面的座標。',
+      '**最重要的一欄。** 地址文字與地圖角落的「規劃路線」都會開這個連結。'
+      + '　拿法：Google 地圖搜尋自己的商家 → 按「分享」→「傳送連結」→ 複製，'
+      + '像 https://maps.app.goo.gl/xxxxxxxx。'
+      + '　為什麼要填：留空的話系統只能把地址丟給 Google 讓它自己找，'
+      + '而 Google 對「89-6號」這種細分門牌會就近對到「89號」，'
+      + '客人按規劃路線就被導到隔壁、白跑一趟。分享連結直接指向你的商家檔案，沒有猜的空間。',
+  },
+  {
+    key: 'map_embed_url',
+    label: '地圖嵌入碼',
+    textarea: true,
+    rows: 4,
+    hint:
+      '頁面上那張地圖。Google 地圖 → 「分享」→「**嵌入地圖**」→「複製 HTML」，'
+      + '整段 `<iframe …>` 直接貼進來就好，不用自己挑出網址。'
+      + '　這樣地圖上會顯示你的店名與評分那張小卡；'
+      + '留空或只填地址的話只會有一根光禿禿的針。'
+      + '　也可以貼座標（像 25.105821, 121.712378），系統一樣認得。',
   },
 ]
 
@@ -158,6 +172,28 @@ const HERO_FIELDS = [
   },
 ]
 
+/**
+ * 說明文字裡的 **粗體** 與 `程式碼` 轉成節點，讓重點看得出來。
+ *
+ * 用 exec 逐段掃而不是 split()：split 的擷取群組會把兩種標記的結果混在一起，
+ * 分不出某一段原本是粗體還是程式碼。
+ */
+function richHint(text) {
+  const out = []
+  const re = /\*\*(.+?)\*\*|`(.+?)`/g
+  let last = 0
+  let m
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) out.push(text.slice(last, m.index))
+    out.push(m[1]
+      ? <strong key={m.index}>{m[1]}</strong>
+      : <code key={m.index} className="hint-code">{m[2]}</code>)
+    last = re.lastIndex
+  }
+  if (last < text.length) out.push(text.slice(last))
+  return out
+}
+
 export default function AdminSettings() {
   const [values, setValues] = useState({})
   const [msg, setMsg] = useState('')
@@ -219,8 +255,16 @@ export default function AdminSettings() {
         {FIELDS.map((f) => (
           <div className="field" key={f.key}>
             <label htmlFor={f.key}>{f.label}</label>
-            <input id={f.key} className="input" name={f.key} value={values[f.key] || ''} onChange={change} />
-            {f.hint && <div className="field__hint">{f.hint}</div>}
+            {/* 地圖那兩欄貼進來的是一整段 iframe 或長網址，單行輸入框看不到自己貼了什麼 */}
+            {f.textarea ? (
+              <textarea id={f.key} className="textarea" rows={f.rows || 3} name={f.key}
+                        value={values[f.key] || ''} onChange={change}
+                        style={{ fontFamily: 'var(--mono, monospace)', fontSize: 12.5 }} />
+            ) : (
+              <input id={f.key} className="input" name={f.key}
+                     value={values[f.key] || ''} onChange={change} />
+            )}
+            {f.hint && <div className="field__hint">{richHint(f.hint)}</div>}
           </div>
         ))}
 
