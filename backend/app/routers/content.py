@@ -148,6 +148,16 @@ DEFAULT_SETTINGS = {
     # 這一欄只能**再關掉**，不能打開綠界還沒開通的服務 ——
     # 那種開關會讓人以為自己開得起來，結果客人刷了收不到錢。
     "payment_methods_enabled": "",
+    # LINE 通知的收件人名單（逗號分隔的 LINE user ID）。
+    #
+    # 放在設定表而不是只用環境變數：改一次要重新部署太麻煩，
+    # 而「誰要收通知」是會變的事。環境變數那條路留著當備援，兩邊取聯集。
+    #
+    # token 與 secret **刻意不放這裡** —— 那是憑證，
+    # 進了設定表就會被後台表單讀出來顯示，等於多一個外洩點。
+    "line_admin_user_ids": "",
+    "line_pair_code": "",
+    "line_pair_expires": "",
     # 首頁主視覺文案。跟 shop_slogan 分開是刻意的 ——
     # 頁首橫條那句要短，首頁大標下面那段需要完整說完一件事，兩者混用哪邊都不好看。
     "hero_title": "",
@@ -198,11 +208,33 @@ DEFAULT_SETTINGS = {
 }
 
 
+# 這幾個設定**不能**出現在公開的 /settings 回應裡。
+#
+# /settings 是給前台用的（店名、電話、運費…），沒有登入也拿得到 ——
+# 而下面這些是內部資料：
+#
+#   line_pair_code    配對碼。外流的話任何人都能把自己加進通知名單，
+#                     而通知名單裡的人按得動「建立物流單」（會花你的運費）
+#   line_pair_expires 同上，一起藏
+#   line_admin_user_ids  誰在收通知，沒必要讓全世界知道
+#
+# 這是加設定時最容易漏掉的一步：DEFAULT_SETTINGS 加一行很快，
+# 但那一行預設就是公開的。
+PRIVATE_SETTINGS = {
+    "line_admin_user_ids",
+    "line_pair_code",
+    "line_pair_expires",
+}
+
+
 @router.get("/settings")
 def get_settings(db: Session = Depends(get_db)) -> dict[str, str]:
+    """前台用的網站設定。**公開端點**，所以內部資料一律濾掉。"""
     rows = db.query(SiteSetting).all()
-    result = dict(DEFAULT_SETTINGS)
+    result = {k: v for k, v in DEFAULT_SETTINGS.items() if k not in PRIVATE_SETTINGS}
     for row in rows:
+        if row.key in PRIVATE_SETTINGS:
+            continue
         result[row.key] = row.value or ""
     return result
 
@@ -225,7 +257,14 @@ def get_policies(db: Session = Depends(get_db)) -> dict[str, str]:
 
 @router.put("/settings", dependencies=[Depends(require_staff)])
 def update_settings(payload: SettingsIn, db: Session = Depends(get_db)) -> dict[str, str]:
+    """更新網站設定（需要工作人員）。
+
+    配對碼那幾個鍵不接受從這裡改 —— 它們由 /api/line/pair-code 產生，
+    讓表單能寫等於多開一條可以自己設定配對碼的路。
+    """
     for key, value in payload.values.items():
+        if key in ("line_pair_code", "line_pair_expires"):
+            continue
         row = db.get(SiteSetting, key)
         if row:
             row.value = value

@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 from urllib.parse import parse_qs
 
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session, joinedload
 
@@ -34,15 +34,62 @@ OK = PlainTextResponse("OK")
 
 
 @router.get("/status", dependencies=[Depends(require_staff)])
-def line_status():
+def line_status(db: Session = Depends(get_db)):
     """後台用來確認設定齊不齊。不回傳任何金鑰內容。"""
     return {
         "configured": line.is_configured(),
         "can_verify": line.can_verify(),
-        "admin_count": len(line.admin_ids()),
+        "admin_count": len(line.admin_ids(db)),
         "webhook_url": f"{settings.BACKEND_BASE_URL.rstrip('/')}/api/line/webhook",
-        "ready": line.is_configured() and line.can_verify() and bool(line.admin_ids()),
+        "ready": line.is_configured() and line.can_verify() and bool(line.admin_ids(db)),
     }
+
+
+@router.post("/pair-code", dependencies=[Depends(require_staff)])
+def make_pair_code(db: Session = Depends(get_db)):
+    """產生一組配對碼，讓人在 LINE 打字加入通知名單。
+
+    比「複製 33 個字元的 user ID 再貼進後台」可靠太多 ——
+    那串東西用手機複製、切到電腦貼上，少一個字就整個不會動，
+    而且**錯了完全沒有提示**，只會表現成「怎麼都收不到通知」。
+    """
+    return {"code": line.issue_pair_code(db), "minutes": line.PAIR_MINUTES}
+
+
+@router.get("/recipients", dependencies=[Depends(require_staff)])
+def list_recipients(db: Session = Depends(get_db)):
+    """目前會收到通知的人。
+
+    分開列出「後台設定的」與「環境變數來的」——
+    環境變數那些在後台刪不掉，不講清楚會變成「怎麼刪都刪不掉」。
+    """
+    from ..config import settings as cfg
+
+    from_env = line._split(cfg.LINE_ADMIN_USER_IDS)
+    from_db = line._split(line._setting(db, line.ADMIN_IDS_KEY))
+    return {
+        "from_settings": sorted(from_db),
+        "from_env": sorted(from_env),
+    }
+
+
+@router.delete("/recipients/{user_id}", dependencies=[Depends(require_staff)])
+def remove_recipient(user_id: str, db: Session = Depends(get_db)):
+    from ..config import settings as cfg
+
+    if user_id in line._split(cfg.LINE_ADMIN_USER_IDS):
+        raise HTTPException(
+            status_code=400,
+            detail="這個 ID 是環境變數 LINE_ADMIN_USER_IDS 設的，"
+                   "要移除請到 Zeabur 改環境變數。",
+        )
+    current = line._split(line._setting(db, line.ADMIN_IDS_KEY))
+    if user_id not in current:
+        raise HTTPException(status_code=404, detail="名單裡沒有這個 ID")
+    current.discard(user_id)
+    line._save_setting(db, line.ADMIN_IDS_KEY, ",".join(sorted(current)))
+    db.commit()
+    return {"ok": True, "message": "已從通知名單移除。"}
 
 
 @router.post("/test", dependencies=[Depends(require_staff)])
@@ -54,14 +101,14 @@ def send_test(db: Session = Depends(get_db)):
     """
     if not line.is_configured():
         return {"ok": False, "message": "還沒設定 LINE_CHANNEL_ACCESS_TOKEN。"}
-    if not line.admin_ids():
+    if not line.admin_ids(db):
         return {"ok": False, "message":
                 "還沒設定 LINE_ADMIN_USER_IDS。加官方帳號好友後傳「我的ID」就查得到。"}
 
     sent = line.push_to_admins([line.text(
         "測試訊息：LINE 通知設定成功。\n\n"
         "之後有訂單就會推播到這裡，訊息上會有「建立物流單」按鈕。"
-    )])
+    )], db)
     if sent:
         return {"ok": True, "message": f"已送出給 {sent} 個帳號，請看你的 LINE。"}
     return {"ok": False, "message":
@@ -108,9 +155,8 @@ def _handle(db: Session, event: dict) -> None:
     elif kind == "follow":
         line.reply(reply_token, [line.text(
             "已加入好友。\n\n"
-            "傳「我的ID」可以查到你的 LINE 使用者 ID，"
-            "把它填進後端的 LINE_ADMIN_USER_IDS 之後，"
-            "就會開始收到訂單通知，也能直接在這裡建立物流單。"
+            "要接收訂單通知的話，請店家到後台「網站設定 → LINE 通知機器人」"
+            "按「產生配對碼」，然後把那六位數字傳到這裡就完成了。"
         )])
 
 
@@ -126,14 +172,24 @@ def _handle_message(db: Session, event: dict, reply_token: str, user_id: str | N
     不開放的話會變成雞生蛋 —— 沒設白名單就查不到 ID，查不到 ID 就設不了白名單。
     回傳自己的 ID 給自己看沒有風險。
     """
+    # 六位數字 = 配對碼。放在權限判斷**之前** ——
+    # 還沒被加進名單的人才需要用配對碼，卡在權限後面就永遠用不到。
+    if content.isdigit() and len(content) == 6:
+        ok, message = line.redeem_pair_code(db, content, user_id or "")
+        line.reply(reply_token, [line.text(message)])
+        if ok:
+            log.info("LINE：%s 透過配對碼加入通知名單", (user_id or "")[:8])
+        return
+
     if content in ("我的ID", "我的id", "id", "ID"):
         line.reply(reply_token, [line.text(
             f"你的 LINE 使用者 ID：\n{user_id or '（拿不到，請從一對一聊天室傳）'}\n\n"
-            "把它填進後端環境變數 LINE_ADMIN_USER_IDS（多人用逗號分隔）。"
+            "一般不需要用到這個 —— 到後台「網站設定 → LINE 通知機器人」"
+            "按「產生配對碼」，把六位數字傳到這裡比較快，也不會打錯。"
         )])
         return
 
-    if not line.is_admin(user_id):
+    if not line.is_admin(user_id, db):
         line.reply(reply_token, [line.text(
             "你好，這是黃家基蜜的通知機器人。\n"
             "訂購問題請直接留言，我們會盡快回覆。"
@@ -147,6 +203,7 @@ def _handle_message(db: Session, event: dict, reply_token: str, user_id: str | N
     line.reply(reply_token, [line.text(
         "可以用的指令：\n"
         "・訂單 —— 列出待出貨的訂單\n"
+        "・六位數字 —— 用後台產生的配對碼加入通知名單\n"
         "・我的ID —— 查自己的 LINE ID"
     )])
 
@@ -186,7 +243,7 @@ def _handle_postback(db: Session, event: dict, reply_token: str,
     data = parse_qs((event.get("postback") or {}).get("data") or "")
     action = (data.get("act") or [""])[0]
 
-    if not line.is_admin(user_id):
+    if not line.is_admin(user_id, db):
         # 簽章只證明「來自 LINE」，不代表「是老闆按的」——
         # 任何人加好友都能送 postback 進來
         line.reply(reply_token, [line.text(

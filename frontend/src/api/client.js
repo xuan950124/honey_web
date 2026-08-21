@@ -258,6 +258,12 @@ export const api = {
   // 不能叫人直接在瀏覽器打開那個網址 —— 那是普通導航，不會帶 Authorization
   lineStatus: () => request('/api/line/status'),
   lineTest: () => request('/api/line/test', { method: 'POST' }),
+  // 配對碼：後台產生六位數字，那個人在 LINE 打那六個字就加進通知名單。
+  // 比複製 33 個字元的 user ID 可靠太多 —— 那種東西打錯完全沒有提示
+  linePairCode: () => request('/api/line/pair-code', { method: 'POST' }),
+  lineRecipients: () => request('/api/line/recipients'),
+  lineRemoveRecipient: (userId) =>
+    request(`/api/line/recipients/${encodeURIComponent(userId)}`, { method: 'DELETE' }),
 
   structuredData: () => request('/api/seo/structured-data'),
   // 常見問題。同一份資料同時用來畫頁面與產生 FAQPage 結構化資料 ——

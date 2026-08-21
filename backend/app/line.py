@@ -50,14 +50,72 @@ def can_verify() -> bool:
     return bool(settings.LINE_CHANNEL_SECRET.strip())
 
 
-def admin_ids() -> set[str]:
+# 收件人名單存在網站設定裡（後台可以改），環境變數當備援。
+#
+# 為什麼不是只用環境變數：改一次要重新部署，而「誰要收通知」是會變的事
+# （多請一個人幫忙出貨、換手機重加好友）。
+# 為什麼環境變數還留著：資料庫還沒起來或設定被清掉時，至少還有一條路能收通知。
+#
+# token 與 secret **不**搬進資料庫 —— 那是憑證，放進設定表就會被後台的表單
+# 讀出來顯示，等於多一個外洩點。收件人 ID 不是憑證，只是一份名單。
+ADMIN_IDS_KEY = "line_admin_user_ids"
+
+
+def _split(raw: str) -> set[str]:
+    """逗號或換行分隔都接受 —— 貼上來的東西什麼格式都有。"""
     return {
-        s.strip() for s in settings.LINE_ADMIN_USER_IDS.split(",") if s.strip()
+        part.strip()
+        for chunk in (raw or "").replace("\n", ",").split(",")
+        for part in [chunk]
+        if part.strip()
     }
 
 
-def is_admin(user_id: str | None) -> bool:
-    ids = admin_ids()
+def admin_ids(db=None) -> set[str]:
+    """誰會收到通知、誰按得動按鈕。
+
+    後台設定與環境變數**取聯集** —— 兩邊都算數。
+    這樣既可以在後台隨時加人，環境變數那條後路也還在。
+    """
+    ids = _split(settings.LINE_ADMIN_USER_IDS)
+    if db is not None:
+        ids |= _split(_setting(db, ADMIN_IDS_KEY))
+    return ids
+
+
+def _setting(db, key: str) -> str:
+    from .models import SiteSetting
+
+    try:
+        row = db.get(SiteSetting, key)
+    except Exception:  # noqa: BLE001 - 設定讀不到不該讓通知整個爆掉
+        return ""
+    return (row.value or "") if row else ""
+
+
+def _save_setting(db, key: str, value: str) -> None:
+    from .models import SiteSetting
+
+    row = db.get(SiteSetting, key)
+    if row:
+        row.value = value
+    else:
+        db.add(SiteSetting(key=key, value=value))
+
+
+def add_admin(db, user_id: str) -> bool:
+    """把一個人加進名單。已經在裡面就回 False。"""
+    current = _split(_setting(db, ADMIN_IDS_KEY))
+    if user_id in current or user_id in _split(settings.LINE_ADMIN_USER_IDS):
+        return False
+    current.add(user_id)
+    _save_setting(db, ADMIN_IDS_KEY, ",".join(sorted(current)))
+    db.commit()
+    return True
+
+
+def is_admin(user_id: str | None, db=None) -> bool:
+    ids = admin_ids(db)
     return bool(user_id and ids and user_id in ids)
 
 
@@ -108,14 +166,14 @@ def push(to: str, messages: list[dict]) -> tuple[bool, str]:
     return _post("/message/push", {"to": to, "messages": messages[:5]})
 
 
-def push_to_admins(messages: list[dict]) -> int:
+def push_to_admins(messages: list[dict], db=None) -> int:
     """推播給所有設定的管理者，回傳成功幾個。
 
     **絕對不能讓這裡的失敗影響下單流程** —— LINE 掛掉、token 過期、
     網路不通都不該讓客人結不了帳。所以全部包起來，只記錄不拋出。
     """
     sent = 0
-    for user_id in admin_ids():
+    for user_id in admin_ids(db):
         try:
             ok, message = push(user_id, messages)
         except Exception as exc:  # noqa: BLE001
@@ -257,14 +315,83 @@ def shipping_code_card(order: Order, result: dict[str, Any]) -> dict:
     }
 
 
-def notify_new_order(order: Order) -> None:
+def notify_new_order(order: Order, db=None) -> None:
     """訂單成立／收到款項時通知老闆。
 
     失敗只記錄不拋出 —— 通知送不出去是小事，讓客人結不了帳是大事。
     """
-    if not is_configured() or not admin_ids():
+    if not is_configured() or not admin_ids(db):
         return
     try:
-        push_to_admins([order_card(order, settings.FRONTEND_BASE_URL)])
+        push_to_admins([order_card(order, settings.FRONTEND_BASE_URL)], db)
     except Exception as exc:  # noqa: BLE001
         log.warning("LINE 訂單通知失敗：%s", exc)
+
+
+# ---------------------------------------------------------------- 配對碼
+
+PAIR_CODE_KEY = "line_pair_code"
+PAIR_EXPIRES_KEY = "line_pair_expires"
+PAIR_MINUTES = 10
+
+"""為什麼要有配對碼
+
+原本的做法是「在 LINE 傳『我的ID』→ 複製那串 33 個字元 → 貼進後台」。
+那串長得像 `U4af4980629...`，用手機複製再切到電腦貼上，
+少一個字、多一個空白就整個不會動，而且**錯了完全沒有提示** ——
+只會表現成「怎麼都收不到通知」。
+
+配對碼把方向反過來：後台產生六位數字，那個人在 LINE 打那六個字，
+系統自己把他的 userId 記起來。不用複製、不會打錯、看得到成功訊息。
+
+安全性：六位數字十分鐘內只能用一次，而且**產生配對碼要先登入後台**。
+猜中的機率是百萬分之一，還要在十分鐘內猜到。
+"""
+
+
+def issue_pair_code(db) -> str:
+    """產生一組配對碼。同時只會有一組有效 —— 舊的直接被蓋掉。"""
+    import secrets as _secrets
+    from datetime import datetime, timedelta
+
+    code = f"{_secrets.randbelow(1000000):06d}"
+    expires = datetime.now() + timedelta(minutes=PAIR_MINUTES)
+    _save_setting(db, PAIR_CODE_KEY, code)
+    _save_setting(db, PAIR_EXPIRES_KEY, expires.isoformat())
+    db.commit()
+    return code
+
+
+def redeem_pair_code(db, code: str, user_id: str) -> tuple[bool, str]:
+    """用配對碼把自己加進名單。回傳 (成功與否, 給使用者看的訊息)。"""
+    import hmac as _hmac
+    from datetime import datetime
+
+    stored = _setting(db, PAIR_CODE_KEY).strip()
+    raw_expires = _setting(db, PAIR_EXPIRES_KEY).strip()
+
+    if not stored or not raw_expires:
+        return False, "目前沒有有效的配對碼。請先到後台「網站設定 → LINE 通知機器人」按「產生配對碼」。"
+
+    try:
+        expires = datetime.fromisoformat(raw_expires)
+    except ValueError:
+        return False, "配對碼的資料壞了，請到後台重新產生一次。"
+
+    if datetime.now() > expires:
+        return False, f"這組配對碼已經過期（只有 {PAIR_MINUTES} 分鐘），請到後台重新產生。"
+
+    # 用 compare_digest 而不是 == ：一般字串比較會在第一個不同的字元就回傳，
+    # 理論上可以從回應時間反推。六位數字本來就好猜，不要再送出額外線索。
+    if not _hmac.compare_digest(stored, code.strip()):
+        return False, "配對碼不對，請確認後重新輸入。"
+
+    added = add_admin(db, user_id)
+    # 用過就作廢，不管有沒有真的加到人 —— 一組碼只能用一次
+    _save_setting(db, PAIR_CODE_KEY, "")
+    _save_setting(db, PAIR_EXPIRES_KEY, "")
+    db.commit()
+
+    if added:
+        return True, "設定完成，之後有訂單就會通知你，也可以直接在這裡建立物流單。"
+    return True, "你本來就已經在通知名單裡了。"

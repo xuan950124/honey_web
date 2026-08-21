@@ -365,6 +365,171 @@ def test_notify_never_breaks_checkout():
           "模組名會被區域變數 line 蓋掉")
 
 
+def test_recipients_can_be_managed_in_admin():
+    """收件人名單要能在後台改，而且**支援多個人**。
+
+    只用環境變數的話，加一個幫忙出貨的人就要重新部署一次 ——
+    而「誰要收通知」是會變的事。所以名單存在設定表，
+    環境變數留著當備援，兩邊取聯集。
+    """
+    print("\n[收件人可以在後台管理]")
+    client, Session, staff, member = make_app()
+    original = live.LINE_ADMIN_USER_IDS
+    live.LINE_ADMIN_USER_IDS = "U_from_env"
+
+    try:
+        db = Session()
+        check("環境變數的算數", "U_from_env" in line.admin_ids(db))
+
+        line.add_admin(db, "U_from_admin")
+        ids = line.admin_ids(db)
+        check("後台加的也算數", "U_from_admin" in ids)
+        check("兩邊是聯集不是取代", len(ids) == 2, str(ids))
+        check("重複加不會變兩筆", line.add_admin(db, "U_from_admin") is False)
+        db.close()
+
+        with client:
+            r = client.get("/api/line/recipients", headers=staff)
+            check("後台看得到名單", r.status_code == 200, r.text[:150])
+            data = r.json()
+            check("分得出哪些來自環境變數", data["from_env"] == ["U_from_env"], str(data))
+            check("分得出哪些是後台加的", data["from_settings"] == ["U_from_admin"], str(data))
+
+            r = client.delete("/api/line/recipients/U_from_env", headers=staff)
+            check("環境變數的移不掉（並說明去哪改）",
+                  r.status_code == 400 and "環境變數" in r.json().get("detail", ""),
+                  r.text[:150])
+
+            r = client.delete("/api/line/recipients/U_from_admin", headers=staff)
+            check("後台加的移得掉", r.status_code == 200, r.text[:150])
+
+            for label, headers in (("未登入", {}), ("一般會員", member)):
+                check(f"{label} 看不到名單",
+                      client.get("/api/line/recipients", headers=headers).status_code
+                      in (401, 403))
+                check(f"{label} 不能移除",
+                      client.delete("/api/line/recipients/U_x", headers=headers).status_code
+                      in (401, 403))
+    finally:
+        live.LINE_ADMIN_USER_IDS = original
+
+
+def test_pair_code():
+    """配對碼：後台產生六位數字，那個人在 LINE 打那六個字就加入名單。
+
+    比「複製 33 個字元的 user ID」可靠太多 —— 那串東西用手機複製再貼到電腦，
+    少一個字就整個不會動，而且**錯了完全沒有提示**，
+    只會表現成「怎麼都收不到通知」。
+    """
+    print("\n[配對碼]")
+    client, Session, staff, member = make_app()
+    original = (live.LINE_CHANNEL_SECRET, live.LINE_ADMIN_USER_IDS,
+                live.LINE_CHANNEL_ACCESS_TOKEN)
+    live.LINE_CHANNEL_SECRET = SECRET
+    live.LINE_ADMIN_USER_IDS = ""
+    live.LINE_CHANNEL_ACCESS_TOKEN = ""
+
+    def send(text, user_id="U_new"):
+        raw, headers = event({"events": [{
+            "type": "message", "replyToken": "tok",
+            "source": {"userId": user_id},
+            "message": {"type": "text", "text": text},
+        }]})
+        return client.post("/api/line/webhook", content=raw, headers=headers)
+
+    try:
+        with client:
+            r = client.post("/api/line/pair-code", headers=staff)
+            check("產生得出配對碼", r.status_code == 200, r.text[:150])
+            code = r.json()["code"]
+            check("是六位數字", code.isdigit() and len(code) == 6, code)
+
+            for label, headers in (("未登入", {}), ("一般會員", member)):
+                check(f"{label} 產生不了配對碼",
+                      client.post("/api/line/pair-code", headers=headers).status_code
+                      in (401, 403),
+                      "不然任何人都能把自己加進通知名單")
+
+            # 猜錯的不算
+            send("000000" if code != "000000" else "111111")
+            db = Session()
+            check("猜錯的碼不會加進名單", not line.admin_ids(db), str(line.admin_ids(db)))
+            db.close()
+
+            send(code)
+            db = Session()
+            check("用對的碼就加進去了", "U_new" in line.admin_ids(db), str(line.admin_ids(db)))
+            db.close()
+
+            # 一組碼只能用一次
+            send(code, "U_second")
+            db = Session()
+            check("同一組碼不能用第二次", "U_second" not in line.admin_ids(db),
+                  "不然一組碼外流就變成公開的加入通道")
+            db.close()
+
+        # 過期的不算
+        db = Session()
+        code2 = line.issue_pair_code(db)
+        from datetime import datetime, timedelta
+        line._save_setting(db, line.PAIR_EXPIRES_KEY,
+                           (datetime.now() - timedelta(minutes=1)).isoformat())
+        db.commit()
+        ok, message = line.redeem_pair_code(db, code2, "U_late")
+        check("過期的碼不能用", ok is False, message)
+        check("並說明為什麼", "過期" in message, message)
+        check("過期的人沒被加進去", "U_late" not in line.admin_ids(db))
+        db.close()
+
+        # 沒有配對碼時
+        db = Session()
+        line._save_setting(db, line.PAIR_CODE_KEY, "")
+        line._save_setting(db, line.PAIR_EXPIRES_KEY, "")
+        db.commit()
+        ok, message = line.redeem_pair_code(db, "123456", "U_x")
+        check("沒有有效配對碼時擋掉", ok is False)
+        check("訊息告訴他去哪產生", "產生配對碼" in message, message)
+        db.close()
+    finally:
+        (live.LINE_CHANNEL_SECRET, live.LINE_ADMIN_USER_IDS,
+         live.LINE_CHANNEL_ACCESS_TOKEN) = original
+
+
+def test_pair_code_never_leaks():
+    """配對碼**不能**出現在公開的 /api/settings 裡。
+
+    那支端點沒有登入也拿得到（前台要用店名、電話、運費）。
+    配對碼外流的話任何人都能把自己加進通知名單，
+    而名單裡的人按得動「建立物流單」—— 那會從綠界餘額扣運費。
+
+    這是加設定時最容易漏掉的一步：DEFAULT_SETTINGS 加一行很快，
+    但那一行預設就是公開的。
+    """
+    print("\n[配對碼不能外流]")
+    from app.routers.content import PRIVATE_SETTINGS
+
+    for key in ("line_pair_code", "line_pair_expires", "line_admin_user_ids"):
+        check(f"{key} 列在私密設定裡", key in PRIVATE_SETTINGS)
+
+    client, Session, staff, _ = make_app()
+    with client:
+        code = client.post("/api/line/pair-code", headers=staff).json()["code"]
+        public = client.get("/api/settings")
+        check("公開設定端點不用登入", public.status_code == 200)
+        check("配對碼沒出現在回應裡", code not in public.text,
+              "外流等於開了一條「誰都能加自己」的通道")
+        for key in PRIVATE_SETTINGS:
+            check(f"{key} 沒出現在公開回應", key not in public.json())
+
+        # 也不能用設定表單反過來自己設一組
+        client.put("/api/settings", headers=staff,
+                   json={"values": {"line_pair_code": "000000"}})
+        db = Session()
+        stored = line._setting(db, line.PAIR_CODE_KEY)
+        check("設定表單改不動配對碼", stored != "000000", stored)
+        db.close()
+
+
 def test_shared_logistics_code():
     """LINE 與後台必須用同一份建單邏輯。
 
@@ -393,7 +558,8 @@ if __name__ == "__main__":
         test_signature, test_webhook_rejects_forgery, test_only_admin_can_ship,
         test_duplicate_press_does_not_rebuild, test_message_shapes,
         test_status_endpoint, test_notify_never_breaks_checkout,
-        test_shared_logistics_code,
+        test_recipients_can_be_managed_in_admin, test_pair_code,
+        test_pair_code_never_leaks, test_shared_logistics_code,
     ):
         fn()
 

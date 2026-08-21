@@ -383,8 +383,15 @@ UPDATE users SET role = 'staff' WHERE email = '要升級的Email';
 ```
 LINE_CHANNEL_ACCESS_TOKEN=   # Messaging API 分頁
 LINE_CHANNEL_SECRET=         # Basic settings 分頁
-LINE_ADMIN_USER_IDS=         # 你的 LINE ID（加好友後傳「我的ID」就查得到）
 ```
+
+**收件人不用設環境變數。** 在後台「網站設定 → LINE 通知機器人」按
+「**產生配對碼**」拿到六位數字，請那個人在 LINE 傳那六個字就加進名單了 ——
+**可以有很多人**，隨時能加能移除，不用重新部署。
+
+> 為什麼不叫你複製 user ID：那串 33 個字元用手機複製再貼到電腦，
+> 少一個字就整個不會動，而且**錯了完全沒有提示**。
+> 配對碼打錯它會直接告訴你。
 
 webhook 填 `https://api.你的網域.com/api/line/webhook`。
 設定狀態與「傳一則測試訊息」在 **後台 → 網站設定 → LINE 通知機器人**。
@@ -682,7 +689,7 @@ cd backend  && python tests/test_cart_and_order_state.py     (103 項)
 cd backend  && python tests/test_checkout_stability.py       (101 項)
 cd backend  && python tests/test_ecpay_env.py                 (78 項)
 cd backend  && python tests/test_refunds.py                   (79 項)
-cd backend  && python tests/test_line_bot.py                  (46 項)
+cd backend  && python tests/test_line_bot.py                  (80 項)
 cd backend  && python tests/test_startup_resilience.py        (43 項)
 cd frontend && node tests/cart-stock-and-map.test.mjs         (94 項)
 cd frontend && node tests/edit-mode.test.mjs                  (90 項)
@@ -690,7 +697,7 @@ cd frontend && node tests/layout-css.test.mjs                 (18 項)
 ```
 
 十三份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
-共 1235 項。
+共 1269 項。
 
 ---
 

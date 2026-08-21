@@ -225,6 +225,13 @@ export default function AdminSettings() {
   */
   const [lineInfo, setLineInfo] = useState(null)
   const [lineTest, setLineTest] = useState('')
+  const [recipients, setRecipients] = useState(null)
+  const [pairCode, setPairCode] = useState(null)
+
+  const reloadLine = () => {
+    api.lineStatus().then(setLineInfo).catch(() => {})
+    api.lineRecipients().then(setRecipients).catch(() => {})
+  }
   const { reload } = useSettings()
 
   // 從前台編輯模式帶 ?focus=欄位 過來時，捲到那一格並高亮
@@ -237,7 +244,7 @@ export default function AdminSettings() {
       .finally(() => setLoaded(true))
     // 綠界目前開通到哪，決定哪些付款方式「勾了也沒用」
     api.checkoutOptions().then(setCheckout).catch(() => {})
-    api.lineStatus().then(setLineInfo).catch(() => {})
+    reloadLine()
   }, [])
 
   const change = (e) => setValues((v) => ({ ...v, [e.target.name]: e.target.value }))
@@ -423,15 +430,85 @@ export default function AdminSettings() {
               </div>
             </div>
 
+            {/*
+              收件人名單。**可以有多個人** —— 家人、幫忙出貨的人都能各自收到通知。
+
+              加人不用複製那串 33 個字元的 user ID：後台產生六位配對碼，
+              對方在 LINE 打那六個字就好。用手機複製 ID 再貼到電腦，
+              少一個字就整個不會動，而且錯了完全沒有提示。
+            */}
             <div className="field">
-              <label>怎麼查自己的 LINE ID</label>
-              <div className="field__hint">
-                {richHint(
-                  '手機加你自己的官方帳號好友 → 在聊天室傳「**我的ID**」→ '
-                  + '機器人會回一串 U 開頭的英數字 → 填進 `LINE_ADMIN_USER_IDS`（多人用逗號分隔）。'
-                  + '　這一欄留空 = **沒有任何人**能按建立物流單的按鈕。',
+              <label>誰會收到通知</label>
+              {recipients && (
+                <>
+                  {!recipients.from_settings.length && !recipients.from_env.length && (
+                    <div className="field__hint">
+                      目前<strong>沒有任何人</strong>。沒有人收得到通知，
+                      也沒有人按得動「建立物流單」。
+                    </div>
+                  )}
+                  {recipients.from_settings.map((id) => (
+                    <div key={id} className="check-row">
+                      <span style={{ flex: 1 }}>
+                        <code className="hint-code">{id}</code>
+                      </span>
+                      <button type="button" className="btn btn--ghost btn--sm"
+                              onClick={async () => {
+                                if (!window.confirm(`把 ${id} 從通知名單移除？`)) return
+                                try {
+                                  await api.lineRemoveRecipient(id)
+                                  reloadLine()
+                                } catch (e) { setErr(e.message) }
+                              }}>
+                        移除
+                      </button>
+                    </div>
+                  ))}
+                  {recipients.from_env.map((id) => (
+                    <div key={id} className="check-row">
+                      <span style={{ flex: 1 }}>
+                        <code className="hint-code">{id}</code>
+                        <span className="small muted" style={{ marginLeft: 8 }}>
+                          來自環境變數，要移除請到 Zeabur 改
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+
+            <div className="field">
+              <label>加一個人（不用複製 ID）</label>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button type="button" className="btn btn--primary btn--sm"
+                        onClick={async () => {
+                          try {
+                            setPairCode(await api.linePairCode())
+                          } catch (e) { setErr(e.message) }
+                        }}>
+                  產生配對碼
+                </button>
+                {pairCode && (
+                  <span>
+                    <strong style={{ fontSize: 26, letterSpacing: 4 }}>{pairCode.code}</strong>
+                    <span className="small muted" style={{ marginLeft: 10 }}>
+                      {pairCode.minutes} 分鐘內有效
+                    </span>
+                  </span>
                 )}
               </div>
+              <div className="field__hint">
+                {richHint(
+                  '請那個人**先加官方帳號好友**，然後在聊天室把這六位數字傳過去，'
+                  + '就會自動加入通知名單。一組碼只能用一次。'
+                  + '　加完記得按下面的「重新整理」看名單。',
+                )}
+              </div>
+              <button type="button" className="btn btn--ghost btn--sm"
+                      onClick={() => { setPairCode(null); reloadLine() }}>
+                重新整理名單
+              </button>
             </div>
 
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
