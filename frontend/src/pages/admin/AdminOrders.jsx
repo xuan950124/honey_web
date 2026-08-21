@@ -48,6 +48,8 @@ export default function AdminOrders() {
   const [pendingStatus, setPendingStatus] = useState(null)
   const [filter, setFilter] = useState('')
   const [senderIssues, setSenderIssues] = useState([])
+  // 退款面板：{ order, plan, amount, note, mode }
+  const [refund, setRefund] = useState(null)
 
   // 先檢查寄件人資料是否齊全，缺的話直接提醒，不要等到建單失敗才發現
   useEffect(() => {
@@ -143,6 +145,62 @@ export default function AdminOrders() {
     }
   }
 
+  /*
+    退款。
+
+    先去問後端「這一筆該怎麼退」再開面板 —— 付款方式與付款日期決定了
+    是取消授權、退刷、還是只能自己匯款，這件事不該讓使用者自己記。
+  */
+  const openRefund = async (order) => {
+    setErr(''); setMsg(''); setBusyId(order.id)
+    try {
+      const plan = await api.refundPlan(order.order_no)
+      setRefund({ order, plan, amount: String(Math.round(plan.remaining || 0)), note: '' })
+    } catch (e) {
+      setErr(e.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const submitRefund = async (mode) => {
+    if (!refund) return
+    const { order, plan } = refund
+    const amount = Number(refund.amount)
+    if (!(amount > 0)) { setErr('請填寫退款金額'); return }
+
+    /*
+      這是後台唯一一個「按下去錢就出去、收不回來」的操作。
+      再問一次「你確定嗎」沒有用 —— 那種框大家都直接按確定。
+      所以 API 退款要求把金額重打一次，逼人真的看一眼自己在退多少。
+    */
+    if (mode === 'api') {
+      const typed = window.prompt(
+        `這會真的把 NT$${amount.toLocaleString('zh-TW')} 退給買家，而且收不回來。\n`
+        + `確認的話請重新輸入金額（只填數字）：`,
+      )
+      if (typed === null) return
+      if (Number(String(typed).replace(/[^\d.]/g, '')) !== amount) {
+        setErr('輸入的金額跟要退的金額不一樣，已取消這次退款。')
+        return
+      }
+    }
+
+    setErr(''); setMsg(''); setBusyId(order.id)
+    try {
+      const res = await api.refundOrder(order.order_no, {
+        amount, mode, note: refund.note,
+      })
+      setMsg(`訂單 ${order.order_no}：${res.message}`)
+      setRefund(null)
+      load()
+    } catch (e) {
+      setErr(e.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   const sweepExpired = async () => {
     setErr(''); setMsg(''); setSweeping(true)
     try {
@@ -190,6 +248,92 @@ export default function AdminOrders() {
 
       {err && <div className="alert alert--error">{err}</div>}
       {msg && <div className="alert alert--success">{msg}</div>}
+
+      {/*
+        退款面板。
+
+        兩條路刻意並排：綠界後台手動退（大多數情況）與 API 一鍵退。
+        API 那顆只有信用卡有 —— ATM、超商代碼、貨到付款綠界都沒有退款 API，
+        放一顆按了會失敗的按鈕比不放還糟。
+      */}
+      {refund && (
+        <div className="alert alert--warn">
+          <strong>退款：訂單 {refund.order.order_no}　{refund.plan.title}</strong>
+
+          <ol style={{ margin: '10px 0 0', paddingLeft: 20, listStyle: 'decimal' }}>
+            {(refund.plan.steps || []).map((step, i) => (
+              <li key={i} className="small" style={{ marginBottom: 6, lineHeight: 1.75 }}>
+                {step.split(/(\*\*[^*]+\*\*)/g).map((part, n) => (
+                  part.startsWith('**') && part.endsWith('**')
+                    ? <strong key={n}>{part.slice(2, -2)}</strong>
+                    : <span key={n}>{part}</span>
+                ))}
+              </li>
+            ))}
+          </ol>
+
+          <table className="spec-table spec-table--wide" style={{ margin: '12px 0' }}>
+            <tbody>
+              <tr><th>訂單金額</th><td>NT${Number(refund.plan.total_amount).toLocaleString('zh-TW')}</td></tr>
+              {Number(refund.plan.refunded_amount) > 0 && (
+                <tr><th>已退金額</th><td>NT${Number(refund.plan.refunded_amount).toLocaleString('zh-TW')}</td></tr>
+              )}
+              <tr><th>可退餘額</th><td><strong>NT${Number(refund.plan.remaining).toLocaleString('zh-TW')}</strong></td></tr>
+              {refund.plan.trade_no && (
+                <tr>
+                  <th>綠界交易編號</th>
+                  <td style={{ fontFamily: 'monospace' }}>{refund.plan.trade_no}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+
+          <div className="dgrid2" style={{ maxWidth: 560 }}>
+            <div className="field">
+              <label htmlFor="refund-amount">退款金額</label>
+              <input id="refund-amount" className="input" type="number" min="1"
+                     max={refund.plan.remaining}
+                     value={refund.amount}
+                     onChange={(e) => setRefund((r) => ({ ...r, amount: e.target.value }))} />
+              <div className="field__hint">部分退款也可以（例如只退運費），會累加計算。</div>
+            </div>
+            <div className="field">
+              <label htmlFor="refund-note">備註</label>
+              <input id="refund-note" className="input" placeholder="例：匯款 8/22 後五碼 12345"
+                     value={refund.note}
+                     onChange={(e) => setRefund((r) => ({ ...r, note: e.target.value }))} />
+              <div className="field__hint">自己看的紀錄，客人不會看到。</div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+            <a className="btn btn--outline btn--sm" href={refund.plan.vendor_url}
+               target="_blank" rel="noreferrer">
+              開啟綠界後台自己處理
+            </a>
+            <button type="button" className="btn btn--ghost btn--sm"
+                    disabled={busyId === refund.order.id}
+                    onClick={() => submitRefund('manual')}>
+              標記為已退款（我已經處理完了）
+            </button>
+            {refund.plan.can_use_api && (
+              <button type="button" className="btn btn--primary btn--sm"
+                      disabled={busyId === refund.order.id}
+                      onClick={() => submitRefund('api')}>
+                向綠界送出{refund.plan.action_label}
+              </button>
+            )}
+            <button type="button" className="btn btn--ghost btn--sm" onClick={() => setRefund(null)}>
+              先不要
+            </button>
+          </div>
+
+          <p className="small muted" style={{ margin: '10px 0 0' }}>
+            全額退款後，訂單會改成「已取消」，庫存自動還原，
+            會員的累積消費也會扣回去（等級與折價券跟著重算）。
+          </p>
+        </div>
+      )}
 
       {/*
         綠界建單失敗的說明。刻意排成步驟清單而不是一行紅字 ——
@@ -490,6 +634,13 @@ export default function AdminOrders() {
                                             onClick={() => changeStatus(o, 'cancelled')}>
                                       取消訂單並還原庫存
                                     </button>
+                                    {/* 收到錢了才需要退款。沒收到錢直接取消訂單就好 */}
+                                    {o.payment_status === 'paid' && (
+                                      <button type="button" className="btn btn--ghost btn--sm"
+                                              disabled={busyId === o.id} onClick={() => openRefund(o)}>
+                                        退款…
+                                      </button>
+                                    )}
                                   </div>
                                   <p className="small muted" style={{ margin: '10px 0 0' }}>
                                     「手動註記已收款」用在綠界以外的收款（買家直接匯款、面交付現）。

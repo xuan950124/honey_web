@@ -36,7 +36,7 @@ export default function ProductDetail() {
   // 結構化資料會讓 Google 在搜尋結果直接顯示價格與庫存狀態。
   useEffect(() => {
     if (!product) return undefined
-    const shop = settings.shop_name || '皇龍蜂蜜'
+    const shop = settings.shop_name || '黃家基蜜'
     const desc = (product.subtitle || product.description || '')
       .replace(/\s+/g, ' ').slice(0, 120) || `${shop}的${product.name}`
     const url = window.location.origin + `/products/${product.id}`

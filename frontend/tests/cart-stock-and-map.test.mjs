@@ -180,13 +180,13 @@ function testCheckoutGuard() {
 
 function testMap() {
   console.log('\n[地圖網址]')
-  const base = { shop_name: '皇龍蜂蜜', contact_address: '基隆市七堵區華新一路89-6號' }
+  const base = { shop_name: '黃家基蜜', contact_address: '基隆市七堵區華新一路89-6號' }
 
   // 門牌 -6 的處理
   const q = addressQuery(base)
   check('89-6號 轉成 89之6號', q.includes('89之6號'), q)
-  check('查詢帶上店名', q.startsWith('皇龍蜂蜜'), q)
-  check('沒有地址就沒有查詢字串', addressQuery({ shop_name: '皇龍蜂蜜' }) === '')
+  check('查詢帶上店名', q.startsWith('黃家基蜜'), q)
+  check('沒有地址就沒有查詢字串', addressQuery({ shop_name: '黃家基蜜' }) === '')
   check(
     '多個門牌都會轉',
     addressQuery({ contact_address: '中山路1-2號與民生路3-4號' }) === '中山路1之2號與民生路3之4號',
@@ -244,7 +244,7 @@ function testMap() {
 
 function testDirections() {
   console.log('\n[規劃路線的目的地]')
-  const base = { shop_name: '皇龍蜂蜜', contact_address: '基隆市七堵區華新一路89-6號' }
+  const base = { shop_name: '黃家基蜜', contact_address: '基隆市七堵區華新一路89-6號' }
 
   // 沒填座標：只能用地址，Google 會自己猜（這正是會導到 89 號的原因）
   const byAddress = directionsUrl(base)
@@ -302,7 +302,7 @@ function testDirections() {
  */
 function testPlaceLink() {
   console.log('\n[分享連結與出廠預設]')
-  const base = { shop_name: '皇龍蜂蜜', contact_address: '基隆市七堵區華新一路89-6號' }
+  const base = { shop_name: '黃家基蜜', contact_address: '基隆市七堵區華新一路89-6號' }
   const link = 'https://maps.app.goo.gl/wrzBQ8iPtgkoWdMs8'
 
   const withLink = { ...base, map_link_url: link }

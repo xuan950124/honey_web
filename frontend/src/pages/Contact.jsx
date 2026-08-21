@@ -1,5 +1,5 @@
 import {
-  ContactChannels, ContactHeader, ContactLine, ContactMap, ContactNotice,
+  ContactChannels, ContactFaq, ContactHeader, ContactLine, ContactMap, ContactNotice,
 } from '../components/sections/ContactSections'
 
 export default function Contact() {
@@ -23,6 +23,11 @@ export default function Contact() {
 
       <section className="section section--cream">
         <div className="container"><ContactNotice /></div>
+      </section>
+
+      {/* 常見問題同時是給客人看的內容，也是 Google 會展開在搜尋結果裡的資料 */}
+      <section className="section">
+        <div className="container"><ContactFaq /></div>
       </section>
     </>
   )

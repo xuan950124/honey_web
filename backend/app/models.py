@@ -303,6 +303,16 @@ class Order(Base):
     payment_trade_no: Mapped[str | None] = mapped_column(String(30))
     payment_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     payment_message: Mapped[str | None] = mapped_column(String(200))  # 最近一次失敗原因
+    # ---------------- 退款 ----------------
+    # 退了多少（部分退款會累加）、什麼時候退的、怎麼退的。
+    #
+    # 記「累計金額」而不是只記一個布林值，是因為部分退款是真的會發生的事
+    # （少寄一瓶、運費補償）。只記「已退款」的話對不了帳。
+    refunded_amount: Mapped[float] = mapped_column(Numeric(10, 2), default=0, nullable=False)
+    refunded_at: Mapped[datetime | None] = mapped_column(DateTime)
+    # api = 從後台按鈕呼叫綠界退的；manual = 自己去綠界後台按完再回來標記
+    refund_method: Mapped[str | None] = mapped_column(String(20))
+    refund_note: Mapped[str | None] = mapped_column(String(300))
     cancel_reason: Mapped[str | None] = mapped_column(String(200))    # 取消原因（逾期未付款等）
     stock_restored: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 

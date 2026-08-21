@@ -13,16 +13,16 @@ from datetime import datetime, timedelta
 from html import escape
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from sqlalchemy.orm import Session, joinedload
 
 from ..config import settings
 from ..database import get_db
 from ..deps import get_optional_user, require_staff
-from .. import membership
+from .. import membership, refunds
 from ..models import User
-from .orders import can_view_order
+from .orders import _restore_stock, can_view_order
 from ..ecpay import (
     auto_submit_form, sanitize_goods_name, verify_check_mac_value, with_check_mac_value,
 )
@@ -447,3 +447,113 @@ def mark_paid(order_no: str, db: Session = Depends(get_db)):
 
     extra = f"，並發放 {len(issued)} 張折價券" if issued else ""
     return {"ok": True, "message": f"已註記為已付款{extra}。", "payment_status": "paid"}
+
+
+# ---------------------------------------------------------------- 退款
+
+@router.get("/{order_no}/refund-plan", dependencies=[Depends(require_staff)])
+def refund_plan(order_no: str, db: Session = Depends(get_db)):
+    """這一筆該怎麼退。只回說明，不動任何東西。
+
+    刻意做成獨立的端點：後台展開訂單就先看得到步驟，
+    不必按了才知道「喔原來 ATM 不能用 API 退」。
+    """
+    order = db.query(Order).filter(Order.order_no == order_no).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="找不到訂單")
+
+    plan = refunds.refund_plan(order)
+    return {
+        **plan,
+        "order_no": order.order_no,
+        "trade_no": order.ecpay_trade_no,
+        "total_amount": float(order.total_amount or 0),
+        "refunded_amount": float(order.refunded_amount or 0),
+        "payment_method": order.payment_method.value if order.payment_method else None,
+        "payment_status": order.payment_status.value,
+        "paid_at": order.paid_at,
+        "vendor_url": refunds.VENDOR_URL,
+    }
+
+
+@router.post("/{order_no}/refund", dependencies=[Depends(require_staff)])
+def do_refund(order_no: str, payload: dict = Body(...), db: Session = Depends(get_db)):
+    """執行退款。
+
+    ## 為什麼要重打一次金額
+
+    這是整個後台唯一一個「按下去錢就出去、而且收不回來」的操作。
+    再問一次「你確定嗎」的對話框沒有用 —— 那種框大家都是直接按確定。
+    要求把金額打進來，才會逼人真的看一眼自己在退多少。
+
+    `mode`：
+      - `api`    → 呼叫綠界的信用卡退款（只有信用卡可以）
+      - `manual` → 你已經在綠界後台按完了，或是自己匯款了，回來做紀錄
+    """
+    order = (
+        db.query(Order).options(joinedload(Order.items))
+        .filter(Order.order_no == order_no).first()
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="找不到訂單")
+
+    mode = str(payload.get("mode") or "manual").strip()
+    note = str(payload.get("note") or "").strip()
+    remaining = refunds.refundable_amount(order)
+    if remaining <= 0:
+        raise HTTPException(status_code=400, detail="這筆訂單沒有可退的金額")
+
+    try:
+        amount = float(payload.get("amount"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="請填寫退款金額") from None
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="退款金額要大於 0")
+    if amount > remaining + 0.001:
+        raise HTTPException(
+            status_code=400,
+            detail=f"退款金額不能超過可退餘額 NT${remaining:,.0f}",
+        )
+
+    if mode == "api":
+        plan = refunds.refund_plan(order)
+        if not plan.get("can_use_api"):
+            raise HTTPException(status_code=400, detail=plan.get("title") or "這筆不能用 API 退款")
+        ok, message = refunds.call_ecpay_refund(
+            db, order, int(round(amount)), plan["action"]
+        )
+        if not ok:
+            db.commit()   # 保留失敗紀錄
+            raise HTTPException(
+                status_code=400,
+                detail=f"綠界拒絕了這次退款：{message}　"
+                       f"可以改到綠界後台手動處理，完成後回來按「標記為已退款」。",
+            )
+    elif mode != "manual":
+        raise HTTPException(status_code=400, detail="不認得的退款方式")
+
+    refunds.apply_refund(order, amount, mode, note)
+
+    # 全額退款 = 這筆生意沒有成立：庫存要還、累積消費要扣回去
+    fully = refunds.refundable_amount(order) <= 0
+    if fully:
+        membership.revoke_spending(db, order)
+        if order.status != OrderStatus.cancelled:
+            order.status = OrderStatus.cancelled
+        _restore_stock(db, order)
+
+    _log(db, "payment_refund", order_no, True,
+         f"{mode} 退款 {amount}（累計 {order.refunded_amount}）", {"note": note})
+    db.commit()
+
+    return {
+        "ok": True,
+        "refunded_amount": float(order.refunded_amount or 0),
+        "remaining": refunds.refundable_amount(order),
+        "payment_status": order.payment_status.value,
+        "status": order.status.value,
+        "message": (
+            f"已記錄退款 NT${amount:,.0f}。"
+            + ("這筆已全額退款，訂單改為已取消、庫存已還原。" if fully else "")
+        ),
+    }

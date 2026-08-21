@@ -10,6 +10,7 @@
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import sys
@@ -65,7 +66,7 @@ def make_client(seed=True):
         db.add(Product(id=2, name="已下架的商品", price=100, stock=0, is_active=False))
         db.add(News(id=1, title="媒體報導", is_active=True))
         db.add(News(id=2, title="隱藏的消息", is_active=False))
-        db.add(SiteSetting(key="shop_name", value="皇龍蜂蜜"))
+        db.add(SiteSetting(key="shop_name", value="黃家基蜜"))
         db.commit()
         db.close()
 
@@ -124,7 +125,7 @@ def test_policy_placeholders_replaced():
     for key, text in data.items():
         check(f"{key} 沒有殘留 {{shop_name}}", "{shop_name}" not in text,
               text[:80] if "{shop_name}" in text else "")
-    check("政策裡出現實際店名", "皇龍蜂蜜" in data["policy_privacy"])
+    check("政策裡出現實際店名", "黃家基蜜" in data["policy_privacy"])
 
     # 沒設定店名時要退回一個合理的字，不能出現空白或「None」
     db = Session()
@@ -481,7 +482,7 @@ def test_structured_data():
 
     check("型別是 LocalBusiness", data.get("@type") == "LocalBusiness", str(data.get("@type")))
     check("有 @context", data.get("@context") == "https://schema.org")
-    check("有店名", data.get("name") == "皇龍蜂蜜", str(data.get("name")))
+    check("有店名", data.get("name") == "黃家基蜜", str(data.get("name")))
     check("網址指向前台", data.get("url") == FRONT, str(data.get("url")))
     check("有電話", data.get("telephone") == "0930081500")
     check("有地址且標明台灣", data.get("address", {}).get("addressCountry") == "TW",
@@ -497,6 +498,93 @@ def test_structured_data():
 
 
 # ---------------------------------------------------------------- 前端有用到
+
+def test_local_seo_signals():
+    """在地關鍵字最有力的訊號：座標、地圖連結、服務範圍。
+
+    「基隆蜂蜜」「七堵蜂蜜」這種查詢 Google 是拿地理位置在比對的。
+    只給一段地址它還要自己猜，而它猜「89-6 號」會猜成「89 號」——
+    這件事在地圖上已經吃過虧一次了，結構化資料不要再犯。
+    """
+    print("\n[在地 SEO 的訊號]")
+    from app.routers.seo import _coordinates
+
+    check("純座標認得出來",
+          _coordinates("25.095065, 121.666138") == (25.095065, 121.666138))
+    check("嵌入碼的 pb 參數認得出來（先經度後緯度）",
+          _coordinates("https://www.google.com/maps/embed?pb=!2d121.666!3d25.095!4v1")
+          == (25.095, 121.666),
+          "!2d 是經度、!3d 是緯度，順序寫反的話點會跑到地球另一邊")
+    check("分享網址的 @座標認得出來",
+          _coordinates("https://www.google.com/maps/place/x/@25.095,121.666,18z")
+          == (25.095, 121.666))
+    check("空字串回 None", _coordinates("") is None)
+    check("看不懂的東西回 None", _coordinates("台北車站") is None)
+
+    client, Session = make_client()
+    db = Session()
+    from app.models import SiteSetting
+    db.add(SiteSetting(key="map_embed_url", value="25.095065, 121.666138"))
+    db.add(SiteSetting(key="map_link_url", value="https://maps.app.goo.gl/abc"))
+    db.commit()
+    db.close()
+
+    with client:
+        data = client.get("/api/seo/structured-data").json()
+
+    check("有 @id（讓 Google 認得是同一個商家）", data.get("@id", "").endswith("#business"))
+    check("有座標", isinstance(data.get("geo"), dict), str(data.get("geo")))
+    check("座標的緯度對", data["geo"]["latitude"] == 25.095065, str(data.get("geo")))
+    check("hasMap 用分享連結", data.get("hasMap") == "https://maps.app.goo.gl/abc",
+          str(data.get("hasMap")))
+    check("有服務範圍", data.get("areaServed", {}).get("name") == "台灣")
+    check("有幣別與付款方式", "TWD" == data.get("currenciesAccepted")
+          and "貨到付款" in (data.get("paymentAccepted") or ""))
+    check("knowsAbout 涵蓋在地字",
+          "基隆七堵" in data.get("knowsAbout", []), str(data.get("knowsAbout")))
+
+
+def test_faq_structured_data():
+    """FAQPage 是投報率最高的結構化資料 —— Google 會直接展開在搜尋結果裡。
+
+    但**內容必須在頁面上找得到**，只掛 JSON-LD 而畫面沒有東西會被判違規。
+    所以這裡除了驗資料，也要驗前台真的有畫出來。
+    """
+    print("\n[常見問題的結構化資料]")
+    client, _ = make_client()
+    with client:
+        data = client.get("/api/seo/faq").json()
+
+    check("型別是 FAQPage", data.get("@type") == "FAQPage")
+    items = data.get("mainEntity") or []
+    check("至少有 5 題", len(items) >= 5, str(len(items)))
+    check("每一題都有答案",
+          all(q.get("name") and q.get("acceptedAnswer", {}).get("text") for q in items))
+    check("每一題的型別對",
+          all(q.get("@type") == "Question" for q in items))
+
+    text = json.dumps(data, ensure_ascii=False)
+    # 這幾題是真的有人在 Google 搜的
+    for keyword in ("結晶", "溯源", "嬰兒", "發票", "分開寄"):
+        check(f"有涵蓋「{keyword}」的問題", keyword in text)
+
+    check("嬰兒那題答案是正確的（不可以）",
+          any("不可以" in q["acceptedAnswer"]["text"] for q in items
+              if "嬰兒" in q["name"] or "寶寶" in q["name"]),
+          "這是食品安全問題，答錯會出人命")
+
+    # 前台要真的畫出來，不然結構化資料是空的承諾
+    contact = (ROOT / "frontend/src/components/sections/ContactSections.jsx").read_text("utf-8")
+    check("前台有常見問題區塊", "ContactFaq" in contact)
+    check("前台的內容來自同一支 API", "api.faq()" in contact,
+          "自己另外寫一份的話遲早會跟結構化資料對不起來")
+    check("同時掛上結構化資料", "setStructuredData('faq'" in contact)
+    check("離開頁面會清掉", "setStructuredData('faq', null)" in contact,
+          "不清掉的話會跟著使用者跑到別的頁面")
+
+    page = (ROOT / "frontend/src/pages/Contact.jsx").read_text("utf-8")
+    check("聯絡頁有放這個區塊", "<ContactFaq />" in page)
+
 
 def test_frontend_wiring():
     print("\n[前端真的有用到這些東西]")
@@ -532,7 +620,7 @@ def test_frontend_wiring():
               "LINE 與 FB 不執行 JS，只讀得到這一份")
     check("index.html 有 canonical", 'rel="canonical"' in index)
     check("index.html 的 title 是完整版",
-          "皇龍蜂蜜｜基隆七堵在地蜂場" in index, "不要被 JS 蓋成只剩店名")
+          "黃家基蜜｜基隆七堵自家蜂場" in index, "不要被 JS 蓋成只剩店名")
 
     entry = (ROOT / "frontend/docker-entrypoint.d/40-app-config.sh").read_text("utf-8")
     check("啟動時會產生 robots.txt", "robots.txt" in entry)
@@ -556,6 +644,7 @@ if __name__ == "__main__":
         test_tax_id_and_food_registration_are_optional,
         test_no_ecpay_invoice_params,
         test_sitemap, test_sitemap_survives_broken_db, test_robots, test_structured_data,
+        test_local_seo_signals, test_faq_structured_data,
         test_frontend_wiring,
     ):
         fn()

@@ -1,4 +1,7 @@
+import { useEffect, useState } from 'react'
+import { api } from '../../api/client'
 import Placeholder from '../Placeholder'
+import { setStructuredData } from '../SiteMeta'
 import { buildMapSrc, directionsUrl, hasExactLocation, placeUrl } from '../../lib/maps'
 import { useAuth } from '../../context/AuthContext'
 import { editable } from '../../context/EditModeContext'
@@ -233,6 +236,57 @@ export function ContactMap() {
           </p>
         </div>
       )}
+    </>
+  )
+}
+
+/**
+ * 常見問題。
+ *
+ * ## 為什麼這一區同時是內容也是 SEO
+ *
+ * 「蜂蜜結晶是壞掉了嗎」「寶寶可以吃蜂蜜嗎」這類問題本來就有人在 Google 搜，
+ * 而 Google 會把 FAQPage 結構化資料**直接展開在搜尋結果裡** ——
+ * 佔的版面比一般結果大好幾倍，等於免費曝光。
+ *
+ * 但結構化資料**必須跟頁面上看得到的字一致**，只掛 JSON-LD 而頁面沒有內容
+ * 會被判定為垃圾。所以這一份問答同時拿來畫畫面與產生結構化資料，
+ * 資料來源只有後端那一份，不可能對不起來。
+ */
+export function ContactFaq() {
+  const [items, setItems] = useState([])
+
+  useEffect(() => {
+    api.faq()
+      .then((data) => {
+        setItems(data?.mainEntity || [])
+        setStructuredData('faq', data)
+      })
+      .catch(() => {})
+    // 離開這一頁就把結構化資料拿掉，不然會跟著使用者跑到別頁
+    return () => setStructuredData('faq', null)
+  }, [])
+
+  if (!items.length) return null
+
+  return (
+    <>
+      <div className="section-head">
+        <div className="section-head__eyebrow">FAQ</div>
+        <h2 className="section-head__title">常見問題</h2>
+      </div>
+      <div style={{ maxWidth: 760, margin: '0 auto' }}>
+        {items.map((item) => (
+          <div key={item.name} style={{ padding: '20px 0', borderBottom: '1px solid var(--line)' }}>
+            <h3 style={{ fontSize: 16, color: 'var(--honey-800)', marginBottom: 8 }}>
+              Q．{item.name}
+            </h3>
+            <p className="muted" style={{ margin: 0, fontSize: 14, lineHeight: 1.9 }}>
+              {item.acceptedAnswer?.text}
+            </p>
+          </div>
+        ))}
+      </div>
     </>
   )
 }

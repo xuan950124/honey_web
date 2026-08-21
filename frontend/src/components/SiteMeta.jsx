@@ -98,7 +98,7 @@ export default function SiteMeta() {
   useEffect(() => {
     if (!loaded) return   // 還沒拿到設定就先維持 index.html 的預設值
 
-    const name = settings.shop_name || '皇龍蜂蜜'
+    const name = settings.shop_name || '黃家基蜜'
     const slogan = settings.shop_slogan || ''
     const siteDesc = settings.hero_desc || slogan
       || '基隆七堵山區自家蜂場，等蜜在巢裡熟成才採收，不加水不加糖。'

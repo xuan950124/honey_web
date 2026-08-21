@@ -226,6 +226,13 @@ export const api = {
   // 金流（綠界）
   syncPayment: (orderNo) => request(`/api/payments/${orderNo}/sync`, { method: 'POST' }),
   markPaid: (orderNo) => request(`/api/payments/${orderNo}/mark-paid`, { method: 'POST' }),
+  // 這一筆該怎麼退（只是說明，不會動到錢）
+  refundPlan: (orderNo) => request(`/api/payments/${orderNo}/refund-plan`),
+  // mode='api' 呼叫綠界退款；mode='manual' 只做紀錄（你已經在綠界後台按完了）
+  refundOrder: (orderNo, { amount, mode, note }) =>
+    request(`/api/payments/${orderNo}/refund`, {
+      method: 'POST', body: { amount, mode, note },
+    }),
 
   // 設定
   getSettings: () => request('/api/settings'),
@@ -240,6 +247,9 @@ export const api = {
   // 政策條款（分開的端點：這幾份文字很長，不該讓每一頁都載）
   policies: () => request('/api/policies'),
   structuredData: () => request('/api/seo/structured-data'),
+  // 常見問題。同一份資料同時用來畫頁面與產生 FAQPage 結構化資料 ——
+  // Google 會比對頁面上找不找得到這些字，兩邊必須一致
+  faq: () => request('/api/seo/faq'),
 
   // 上傳
   uploadImage: (file) => {

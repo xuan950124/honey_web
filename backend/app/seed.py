@@ -179,7 +179,7 @@ COUPON_RULES = [
 ]
 
 SETTINGS = {
-    "shop_name": "皇龍蜂蜜",
+    "shop_name": "黃家基蜜",
     "shop_slogan": "基隆七堵自家蜂場．熟成才採收",
     "hero_title": "基隆山裡",
     "hero_highlight": "等熟成才採的蜜",

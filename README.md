@@ -309,6 +309,27 @@ UPDATE users SET role = 'staff' WHERE email = '要升級的Email';
 > 訂單走到已出貨／已完成之後，付款欄位改成顯示付款方式（例如「信用卡」），
 > 因為那時候錢的事已經是內部對帳，不該讓客人以為自己欠款。
 
+### 退款
+
+**後台 → 訂單與出貨管理 → 展開訂單 → 「退款…」**（只有已付款的訂單才有）
+
+按下去會先告訴你**這一筆該怎麼退** —— 依付款方式與付款日期判斷該取消授權還是退刷：
+
+| 付款方式 | 一鍵退 | 說明 |
+|---|---|---|
+| 信用卡．當天付的 | ✅ | 取消授權，客人帳單**不會出現**這筆 |
+| 信用卡．隔天之後 | ✅ | 退刷，帳單先扣款再退款，7～14 個工作天 |
+| ATM／超商代碼 | ❌ | 綠界沒有退款 API，要自己匯款 |
+| 貨到付款 | ❌ | 沒取貨就讓它退回；取了貨要自己匯回去 |
+
+一鍵退款會要求**重新輸入一次金額**才送出 —— 這是後台唯一一個
+「按下去錢就出去、收不回來」的操作，而「你確定嗎」那種框大家都直接按確定。
+
+全額退款後訂單改成已取消、庫存還原、會員累積消費扣回去（等級與券跟著重算）；
+部分退款（少寄一瓶、補運費）只累加金額，不動庫存。
+
+完整說明請看 **[docs/退款怎麼處理.md](docs/退款怎麼處理.md)**。
+
 ### 購物車跟著帳號走
 
 登入後購物車存在伺服器，**換裝置、換瀏覽器都看得到同一車**。
@@ -387,6 +408,28 @@ UPDATE users SET role = 'staff' WHERE email = '要升級的Email';
 所以**商品主圖建議上傳正方形**，其他地方的照片不用管比例。
 
 兩者的完整說明請看 **[docs/編輯模式與照片顯示.md](docs/編輯模式與照片顯示.md)**。
+
+### 讓 Google 找得到你
+
+技術面已經做完了：sitemap（依實際商品自動產生）、robots、每頁獨立的標題與描述、
+canonical、**LocalBusiness**（含座標、營業時間、價格區間）、**Product**（價格與庫存）、
+**FAQPage**（Google 會把問答**直接展開在搜尋結果裡**）、OG／Twitter 分享卡片。
+
+> FAQ 那一份是同一份資料同時畫在 `/contact` 頁面上、也產生結構化資料 ——
+> 結構化資料的內容必須在頁面上找得到，只掛 JSON-LD 會被判定為垃圾。
+
+**接下來能拉開差距的都不是程式。** 照投報率排序：
+
+1. **Google 商家檔案** —— 補照片、每週發動態、**想辦法收評價**。
+   搜「基隆 蜂蜜」的人有一半根本不會滑到一般搜尋結果，他們點的是上面那個地圖區塊
+2. **每則報導的內文補到 300 字以上** —— 現在只有一兩句，Google 對「一頁 50 個字」評價很低
+3. **Search Console 提交 sitemap**，每月看一次「哪些字有人搜」
+
+不要跟大廠拚「蜂蜜」這種字。能贏的是**基隆蜂蜜、七堵蜂蜜、蜂蜜結晶正常嗎、
+公司團購蜂蜜、溯源蜂蜜**這類具體、有意圖、競爭者少的長尾字。
+
+關鍵字清單、每月要做什麼、以及現實的時間表（新網站觀察期 3～6 個月）
+請看 **[docs/讓客人搜尋得到你.md](docs/讓客人搜尋得到你.md)**。
 
 ### 地圖要顯示正確門牌
 
@@ -558,21 +601,22 @@ honey_web/
 ### 跑測試
 
 ```
-cd backend  && python tests/test_compliance_seo.py           (205 項)
+cd backend  && python tests/test_compliance_seo.py           (237 項)
 cd backend  && python tests/test_payment_flow.py             (139 項)
 cd backend  && python tests/test_security.py                  (96 項)
 cd backend  && python tests/test_long_urls.py                 (84 項)
 cd backend  && python tests/test_cart_and_order_state.py      (81 項)
 cd backend  && python tests/test_checkout_stability.py       (101 項)
 cd backend  && python tests/test_ecpay_env.py                 (78 項)
+cd backend  && python tests/test_refunds.py                   (56 項)
 cd backend  && python tests/test_startup_resilience.py        (43 項)
 cd frontend && node tests/cart-stock-and-map.test.mjs         (94 項)
 cd frontend && node tests/edit-mode.test.mjs                  (90 項)
 cd frontend && node tests/layout-css.test.mjs                 (18 項)
 ```
 
-十一份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
-共 1029 項。
+十二份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
+共 1117 項。
 
 ---
 
