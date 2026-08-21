@@ -115,6 +115,20 @@ class Settings(BaseSettings):
     ECPAY_HOME_HASH_KEY: str = "5294y06JbISpM5x9"
     ECPAY_HOME_HASH_IV: str = "v77hoKGq4kWxNNIS"
 
+    # ---------------- LINE 官方帳號 ----------------
+    #
+    # 三個都要填才會運作，缺一個就整個關閉（寧可不動，也不要半殘）：
+    #   TOKEN  → 推播與回覆用（Messaging API 分頁的 Channel access token）
+    #   SECRET → 驗證 webhook 真的來自 LINE（Basic settings 分頁的 Channel secret）
+    #   IDS    → 誰按得動「建立物流單」。留空 = 沒有人能操作
+    #
+    # 為什麼 SECRET 不能省：webhook 網址是公開的，任何人都能 POST 假事件進來。
+    # 沒有簽章驗證的話，別人送一包假的 postback 就能叫你的系統去綠界建單、
+    # 從你的餘額扣運費。
+    LINE_CHANNEL_ACCESS_TOKEN: str = ""
+    LINE_CHANNEL_SECRET: str = ""
+    LINE_ADMIN_USER_IDS: str = ""
+
     # 綠界回呼會打到這個網址，必須是「外部連得到」的公開網址（80 或 443 埠）
     # 本機開發請用 ngrok 之類的工具取得公開網址後填入
     BACKEND_BASE_URL: str = "http://127.0.0.1:8000"

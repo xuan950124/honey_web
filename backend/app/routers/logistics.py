@@ -368,7 +368,16 @@ def create_logistics_order(order_id: int, db: Session = Depends(get_db)):
     """工作人員在後台按下「建立物流單」時呼叫。
 
     成功後會拿到寄件代碼（超商）或託運單號（宅配）。
+
+    實作在 `build_logistics_order()` —— LINE 機器人那邊按按鈕也要建單，
+    兩邊必須是同一份程式碼。複製一份出去的話，
+    改了驗證規則只改到一邊，另一邊就會靜靜地建出爛單。
     """
+    return build_logistics_order(db, order_id)
+
+
+def build_logistics_order(db: Session, order_id: int) -> dict:
+    """真正的建單邏輯。呼叫端負責確認權限。"""
     order = (
         db.query(Order).options(joinedload(Order.items)).filter(Order.id == order_id).first()
     )

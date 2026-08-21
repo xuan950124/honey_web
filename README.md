@@ -372,6 +372,34 @@ UPDATE users SET role = 'staff' WHERE email = '要升級的Email';
 
 ---
 
+## 六之三、LINE 機器人：手機收單、一鍵建物流單
+
+有訂單就推播到 LINE，訊息上直接有「**建立物流單**」按鈕 ——
+按下去建單並把**寄件代碼與驗證碼**回傳到同一個聊天室。
+包好包裹就能出門，中間不用開電腦。
+
+要設三個環境變數（少一個就整個關閉）：
+
+```
+LINE_CHANNEL_ACCESS_TOKEN=   # Messaging API 分頁
+LINE_CHANNEL_SECRET=         # Basic settings 分頁
+LINE_ADMIN_USER_IDS=         # 你的 LINE ID（加好友後傳「我的ID」就查得到）
+```
+
+webhook 填 `https://api.你的網域.com/api/line/webhook`，
+用 `/api/line/status` 確認 `ready` 是 `true`。
+
+> **這是一個花錢的遙控器** —— 按下去會真的向綠界建單，而超商運費是從你的
+> 綠界餘額先扣的。所以有兩道關卡：**簽章驗證**（證明來自 LINE，webhook
+> 網址是公開的）與**白名單**（證明是你按的，任何人加好友都能送事件進來）。
+> `LINE_ADMIN_USER_IDS` 留空 = 誰都不能按。
+>
+> 同一筆按兩次不會建兩次單。通知失敗永遠不會影響下單。
+
+設定步驟與常見問題見 **[docs/LINE 機器人設定.md](docs/LINE%20機器人設定.md)**。
+
+---
+
 ## 七、會員帳號與 Email 驗證
 
 - **顯示密碼**：所有密碼欄位都有勾選框，可以確認自己打了什麼
@@ -650,14 +678,15 @@ cd backend  && python tests/test_cart_and_order_state.py     (103 項)
 cd backend  && python tests/test_checkout_stability.py       (101 項)
 cd backend  && python tests/test_ecpay_env.py                 (78 項)
 cd backend  && python tests/test_refunds.py                   (79 項)
+cd backend  && python tests/test_line_bot.py                  (46 項)
 cd backend  && python tests/test_startup_resilience.py        (43 項)
 cd frontend && node tests/cart-stock-and-map.test.mjs         (94 項)
 cd frontend && node tests/edit-mode.test.mjs                  (90 項)
 cd frontend && node tests/layout-css.test.mjs                 (18 項)
 ```
 
-十二份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
-共 1186 項。
+十三份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
+共 1232 項。
 
 ---
 

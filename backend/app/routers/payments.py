@@ -21,8 +21,9 @@ from ..config import settings
 from ..database import get_db
 from ..deps import get_optional_user, require_staff
 from .. import membership, refunds
+from ..line import notify_new_order
 from ..models import User
-from .orders import _restore_stock, can_view_order
+from .orders import _decorate, _restore_stock, can_view_order
 from ..ecpay import (
     auto_submit_form, sanitize_goods_name, verify_check_mac_value, with_check_mac_value,
 )
@@ -230,6 +231,9 @@ def _apply_payment_result(db: Session, order: Order, form: dict[str, str]) -> No
             order.status = OrderStatus.paid
         # 付款完成才計入會員累積消費（內部有防重複計算的旗標）
         issued = membership.record_spending(db, order)
+        # 錢確定進來了才通知老闆 —— 這時候才是真的可以出貨。
+        # 通知失敗不會影響付款流程（notify_new_order 內部全部包起來了）。
+        notify_new_order(_decorate(order))
         for coupon in issued:
             _log(db, "coupon_issued", order.order_no, True,
                  f"累積消費達標，發放折價券 {coupon.code}（{coupon.name}）", {})
@@ -441,6 +445,7 @@ def mark_paid(order_no: str, db: Session = Depends(get_db)):
     if order.status in (OrderStatus.pending, OrderStatus.cancelled):
         order.status = OrderStatus.paid
     issued = membership.record_spending(db, order)
+    notify_new_order(_decorate(order))
 
     _log(db, "payment_manual", order_no, True, "工作人員手動註記已收款", {})
     db.commit()

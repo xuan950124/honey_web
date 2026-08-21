@@ -10,6 +10,8 @@ from ..database import get_db
 from ..deps import get_current_user, get_optional_user, require_staff
 from ..ecpay import extract_zipcode
 from .. import membership
+# 直接 import 函式：這個檔案裡 `line` 是「訂單的一行」的區域變數，會蓋掉模組名
+from ..line import notify_new_order
 from ..models import (
     PAYMENT_MAP, SHIPPING_MAP, LogisticsStatus, Order, OrderItem, OrderStatus,
     PaymentMethod, PaymentStatus, Product, ShippingMethod, Temperature, User, UserRole,
@@ -511,6 +513,11 @@ def create_order(
         payment_url = (
             f"{base}/api/payments/{order.order_no}/checkout?t={order.access_token}"
         )
+    else:
+        # 貨到付款沒有線上付款那一步，訂單成立就是可以出貨的狀態。
+        # 線上付款的通知在收到綠界付款結果時才送（見 payments.py）——
+        # 那時候才確定錢真的進來了。
+        notify_new_order(_decorate(order))
 
     return OrderCreated(order=OrderOut.model_validate(_decorate(order)), payment_url=payment_url)
 

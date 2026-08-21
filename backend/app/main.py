@@ -32,7 +32,7 @@ def _engine():
     """同上，連線引擎也現查。"""
     return database.engine
 from .routers import (
-    auth, cart, content, logistics, membership, orders, payments, products,
+    auth, cart, content, line_bot, logistics, membership, orders, payments, products,
     seo, uploads,
 )
 
@@ -184,6 +184,7 @@ app.include_router(payments.router)
 app.include_router(membership.router)
 app.include_router(seo.router)
 app.include_router(cart.router)
+app.include_router(line_bot.router)
 
 
 EXPIRE_SWEEP_SECONDS = 3600  # 每小時清一次逾期未付款訂單
