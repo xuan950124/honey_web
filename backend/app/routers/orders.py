@@ -720,3 +720,52 @@ def update_status(order_id: int, payload: OrderStatusUpdate, db: Session = Depen
     db.commit()
     db.refresh(order)
     return _decorate(order, unpaid_expire_days(db))
+
+
+@router.delete("/{order_id}", dependencies=[Depends(require_staff)])
+def delete_order(order_id: int, confirm: str = Query(""), db: Session = Depends(get_db)):
+    """永久刪除一筆訂單。
+
+    ## 這支存在的理由
+
+    測試期間會產生一堆假訂單，混在真訂單裡會讓「待出貨」「待付款」這些
+    數字失去意義 —— 而那幾個數字是每天要看的東西，不準就等於沒有。
+
+    ## 為什麼要求把訂單編號打進來
+
+    刪掉之後**救不回來**：明細、金額、綠界交易編號、出貨紀錄全部消失。
+    `window.confirm` 那種框大家都是直接按確定，所以改成要打字。
+
+    ## 刪之前會先把帳做平
+
+    - 有計入會員累積消費的 → 扣回去（等級與發券資格跟著重算）
+    - 還佔著庫存的 → 還回去（已取消或已還過的不會重複加）
+
+    順序很重要：先還帳再刪，刪掉之後就沒有資料可以還了。
+    """
+    order = (
+        db.query(Order).options(joinedload(Order.items))
+        .filter(Order.id == order_id).first()
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="找不到訂單")
+
+    if confirm.strip() != order.order_no:
+        raise HTTPException(
+            status_code=400,
+            detail="請輸入完整的訂單編號才能刪除（刪掉之後救不回來）。",
+        )
+
+    membership.revoke_spending(db, order)
+
+    # 已取消的訂單庫存早就還過了，_restore_stock 內部有旗標防重複
+    if order.status != OrderStatus.cancelled:
+        _restore_stock(db, order)
+
+    order_no = order.order_no
+    restored = sum(i.quantity for i in order.items) if not order.stock_restored else 0
+    db.delete(order)
+    db.commit()
+
+    note = f"，已還原 {restored} 件庫存" if restored else ""
+    return {"ok": True, "message": f"訂單 {order_no} 已刪除{note}。"}

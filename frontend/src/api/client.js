@@ -188,6 +188,10 @@ export const api = {
       body: { status, mark_paid: markPaid },
     }),
 
+  // 永久刪除訂單。要帶完整訂單編號當確認 —— 刪掉救不回來
+  deleteOrder: (id, orderNo) =>
+    request(`/api/orders/${id}?confirm=${encodeURIComponent(orderNo)}`, { method: 'DELETE' }),
+
   // 未付款／付款失敗的處理
   changePaymentMethod: (orderNo, paymentMethod, token) =>
     request(

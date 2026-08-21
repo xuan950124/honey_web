@@ -14,6 +14,33 @@ const FILTERS = [
   { key: 'shipped', label: '已出貨' },
 ]
 
+/*
+  待出貨 = **包裹還在你手上**。
+
+  這裡踩過兩個坑，都是把「待出貨」定義成別的東西造成的：
+
+  1. 原本要求 `logistics_status === 'none'`（還沒建物流單）。
+     但建完單、拿到寄件代碼、還沒拿去超商的訂單才是最該出貨的那一批 ——
+     結果真正要出的貨反而不會出現在待出貨清單裡。
+
+  2. 原本沒有排除**已完成**的訂單。舊的測試訂單是「已完成 + 未建單」，
+     兩個條件都符合，於是佔滿了待出貨清單。
+
+  所以判斷要看兩件事：**訂單還沒走完**，而且**包裹還沒送出去**。
+*/
+
+/** 物流走到這幾個狀態，代表包裹還沒交出去。 */
+const NOT_HANDED_OVER = ['none', 'created', 'failed']
+
+/** 訂單走到這幾個狀態就不必再出貨了。 */
+const DONE_STATUSES = ['cancelled', 'completed', 'shipped']
+
+const isNeedShip = (o) =>
+  !DONE_STATUSES.includes(o.status)
+  && NOT_HANDED_OVER.includes(o.logistics_status || 'none')
+  // 錢收到了才出貨；貨到付款例外，那本來就是取貨才收錢
+  && (o.payment_status === 'paid' || o.payment_method === 'cod')
+
 /** 未付款且尚未取消的訂單（貨到付款不算，那本來就是取貨才收錢）。 */
 const isUnpaid = (o) =>
   o.payment_method !== 'cod' && o.payment_status !== 'paid' && o.status !== 'cancelled'
@@ -201,6 +228,39 @@ export default function AdminOrders() {
     }
   }
 
+  /*
+    永久刪除訂單。主要用途是清掉測試期間留下的假單 ——
+    混在真訂單裡會讓「待出貨」「待付款」這些每天要看的數字失去意義。
+
+    要求把訂單編號打完整才刪：這個動作**救不回來**，
+    而 window.confirm 那種框大家都是直接按確定。
+  */
+  const removeOrder = async (order) => {
+    const typed = window.prompt(
+      `永久刪除訂單 ${order.order_no}？\n\n`
+      + `明細、金額、綠界交易編號、出貨紀錄都會消失，而且救不回來。\n`
+      + `庫存會還原，計入的會員消費也會扣回去。\n\n`
+      + `確定的話請把訂單編號完整輸入一次：`,
+    )
+    if (typed === null) return
+    if (typed.trim() !== order.order_no) {
+      setErr('輸入的訂單編號不符，已取消刪除。')
+      return
+    }
+
+    setErr(''); setMsg(''); setBusyId(order.id)
+    try {
+      const res = await api.deleteOrder(order.id, order.order_no)
+      setMsg(res.message)
+      setOpenId(null)
+      load()
+    } catch (e) {
+      setErr(e.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   const sweepExpired = async () => {
     setErr(''); setMsg(''); setSweeping(true)
     try {
@@ -248,17 +308,14 @@ export default function AdminOrders() {
   const unpaidList = orders.filter(isUnpaid)
   const overdueList = orders.filter(isOverdue)
   const mismatchList = orders.filter(isMismatch)
-  const needShip = orders.filter(
-    (o) => o.logistics_status === 'none' && o.status !== 'cancelled'
-      && (o.payment_status === 'paid' || o.payment_method === 'cod'),
-  )
+  const needShip = orders.filter(isNeedShip)
+  // 待出貨裡面還沒建物流單的 —— 這些要先按「建立物流單」才拿得到寄件代碼
+  const needLabel = needShip.filter((o) => (o.logistics_status || 'none') === 'none')
   const unpaidValue = unpaidList.reduce((sum, o) => sum + Number(o.total_amount || 0), 0)
 
   const visible = orders.filter((o) => {
-    if (filter === 'need-ship') {
-      return o.logistics_status === 'none' && o.status !== 'cancelled'
-        && (o.payment_status === 'paid' || o.payment_method === 'cod')
-    }
+    // 統計數字與清單用同一個判斷 —— 分開寫過一次，兩邊就馬上走鐘了
+    if (filter === 'need-ship') return isNeedShip(o)
     if (filter === 'unpaid') return isUnpaid(o)
     if (filter === 'overdue') return isOverdue(o)
     if (filter === 'mismatch') return isMismatch(o)
@@ -445,7 +502,16 @@ export default function AdminOrders() {
         <button type="button" className={`order-stat${filter === 'need-ship' ? ' is-active' : ''}`}
                 onClick={() => setFilter('need-ship')}>
           <div className="order-stat__num">{needShip.length}</div>
-          <div className="order-stat__label">待出貨</div>
+          <div className="order-stat__label">
+            待出貨
+            {/* 分成「還沒建單」與「已建單等你拿去超商」——
+                兩者要做的事完全不同，合成一個數字看不出下一步 */}
+            {needShip.length > 0 && (
+              <span className="muted">
+                　{needLabel.length ? `${needLabel.length} 筆待建單` : '都已建單'}
+              </span>
+            )}
+          </div>
         </button>
         <button type="button" className={`order-stat${filter === 'unpaid' ? ' is-active' : ''}`}
                 onClick={() => setFilter('unpaid')}>
@@ -800,6 +866,28 @@ export default function AdminOrders() {
                                     )}
                                   </>
                                 )}
+                              </div>
+
+                              {/*
+                                永久刪除。放在最下面、樣式最不顯眼 ——
+                                這是清測試單用的，不是日常操作。
+                                真的要作廢一筆訂單請用「取消訂單」，那個留得下紀錄。
+                              */}
+                              <div style={{
+                                marginTop: 18, paddingTop: 14,
+                                borderTop: '1px solid var(--line)',
+                                display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+                              }}>
+                                <button type="button" className="btn btn--ghost btn--sm"
+                                        style={{ color: 'var(--danger)' }}
+                                        disabled={busyId === o.id}
+                                        onClick={() => removeOrder(o)}>
+                                  永久刪除這筆訂單
+                                </button>
+                                <span className="small muted">
+                                  清測試單用。會要求輸入訂單編號，刪掉救不回來 ——
+                                  只是要作廢請改用「取消訂單」，那個留得下紀錄。
+                                </span>
                               </div>
                             </div>
                           </td>

@@ -35,7 +35,7 @@ from sqlalchemy.pool import StaticPool  # noqa: E402
 
 from app import database, main  # noqa: E402
 from app.models import (  # noqa: E402
-    Base, CartItem, LogisticsStatus, Order, OrderStatus, PaymentMethod,
+    Base, CartItem, LogisticsStatus, Order, OrderItem, OrderStatus, PaymentMethod,
     PaymentStatus, Product, User, UserRole,
 )
 from app.routers.orders import _decorate, new_access_token  # noqa: E402
@@ -65,6 +65,21 @@ def make_app():
     database.SessionLocal = Session
     from fastapi.testclient import TestClient
     return TestClient(main.app, raise_server_exceptions=False), Session
+
+
+def make_app_with_users():
+    """帶好工作人員與一般會員的測試環境（權限測試用）。"""
+    client, Session = make_app()
+    db = Session()
+    db.add(User(id=1, email="staff@huanglong-honey.com", name="工作人員",
+                hashed_password=hash_password("x"), role=UserRole.staff))
+    db.add(User(id=2, email="member@huanglong-honey.com", name="會員",
+                hashed_password=hash_password("x"), role=UserRole.member))
+    db.commit()
+    db.close()
+    return (client, Session,
+            {"Authorization": f"Bearer {create_access_token(1)}"},
+            {"Authorization": f"Bearer {create_access_token(2)}"})
 
 
 def make_order(**kw) -> Order:
@@ -453,6 +468,118 @@ def test_frontend_wiring():
     check("訂單頁用後端的 can_cancel", "order.can_cancel" in panel)
 
 
+# ---------------------------------------------------------------- 待出貨的定義
+
+def test_need_ship_definition():
+    """「待出貨」= 包裹還在你手上。
+
+    這裡踩過兩個坑，兩個都讓每天要看的數字失去意義：
+
+    1. 原本要求 `logistics_status === 'none'`（還沒建物流單）。
+       但**建完單、拿到寄件代碼、還沒拿去超商**的訂單才是最該出貨的那一批 ——
+       結果真正要出的貨反而不在清單裡。
+    2. 原本沒排除**已完成**的訂單。舊測試單是「已完成 + 未建單」，
+       兩個條件都符合，於是佔滿了待出貨清單。
+    """
+    print("\n[待出貨的判斷]")
+    src = (ROOT / "frontend/src/pages/admin/AdminOrders.jsx").read_text("utf-8")
+
+    check("有獨立的判斷函式", "const isNeedShip" in src,
+          "統計數字與清單分開寫的話，兩邊遲早會不一致")
+    check("統計用它", "orders.filter(isNeedShip)" in src)
+    check("清單也用它", "if (filter === 'need-ship') return isNeedShip(o)" in src)
+
+    check("已建單但還沒寄的算待出貨",
+          "'none', 'created', 'failed'" in src,
+          "建完單還沒拿去超商的，正是最該出貨的那一批")
+    check("已完成的不算待出貨",
+          "'cancelled', 'completed', 'shipped'" in src,
+          "舊測試單是「已完成 + 未建單」，不排除的話會佔滿清單")
+    check("已寄件的不算待出貨", "'shipped'" in src)
+    check("沒收到錢的不算（貨到付款除外）",
+          "o.payment_status === 'paid' || o.payment_method === 'cod'" in src)
+
+    # 待出貨裡面還要分得出「還沒建單」與「已建單等你拿去超商」
+    check("分得出還沒建單的", "needLabel" in src,
+          "兩者要做的事完全不同，合成一個數字看不出下一步")
+
+
+def test_delete_order():
+    """刪除訂單：清測試單用，但不能讓帳跟著壞掉。"""
+    print("\n[刪除訂單]")
+    client, Session, staff, member = make_app_with_users()
+
+    db = Session()
+    db.add(Product(id=1, name="龍眼蜜", price=680, stock=5))
+    db.commit()
+    db.close()
+
+    def make(order_no, **kw):
+        db = Session()
+        o = Order(order_no=order_no, receiver_name="買家", receiver_phone="0912345678",
+                  receiver_address="基隆市七堵區華新一路89-6號",
+                  subtotal=1360, total_amount=1360, **{"status": OrderStatus.pending, **kw})
+        db.add(o)
+        db.flush()
+        db.add(OrderItem(order_id=o.id, product_id=1, product_name="龍眼蜜",
+                         unit_price=680, quantity=2))
+        db.commit()
+        oid = o.id
+        db.close()
+        return oid
+
+    with client:
+        oid = make("20260822900")
+
+        r = client.delete(f"/api/orders/{oid}", headers=staff)
+        check("沒帶訂單編號不給刪", r.status_code == 400, str(r.status_code))
+        check("錯誤訊息說得出要什麼",
+              "訂單編號" in r.json().get("detail", ""), str(r.json().get("detail")))
+
+        r = client.delete(f"/api/orders/{oid}?confirm=打錯了", headers=staff)
+        check("編號打錯不給刪", r.status_code == 400, str(r.status_code))
+
+        for label, headers in (("未登入", {}), ("一般會員", member)):
+            r = client.delete(f"/api/orders/{oid}?confirm=20260822900", headers=headers)
+            check(f"{label} 不能刪訂單", r.status_code in (401, 403), str(r.status_code))
+
+        r = client.delete(f"/api/orders/{oid}?confirm=20260822900", headers=staff)
+        check("編號正確就刪得掉", r.status_code == 200, r.text[:150])
+
+        db = Session()
+        check("訂單真的不見了",
+              db.query(Order).filter(Order.order_no == "20260822900").first() is None)
+        check("明細也跟著刪掉",
+              db.query(OrderItem).filter(OrderItem.order_id == oid).count() == 0,
+              "留下孤兒明細的話報表會算到不存在的訂單")
+        check("庫存還原了", db.get(Product, 1).stock == 7,
+              f"{db.get(Product, 1).stock}（原本 5，訂單佔 2）")
+        db.close()
+
+        r = client.delete("/api/orders/99999?confirm=x", headers=staff)
+        check("不存在的訂單回 404", r.status_code == 404, str(r.status_code))
+
+    # 已取消的訂單庫存早就還過了，不能再還一次
+    with client:
+        oid = make("20260822901", status=OrderStatus.cancelled, stock_restored=True)
+        before = None
+        db = Session()
+        before = db.get(Product, 1).stock
+        db.close()
+        client.delete(f"/api/orders/{oid}?confirm=20260822901", headers=staff)
+        db = Session()
+        check("已取消的訂單不會重複還庫存", db.get(Product, 1).stock == before,
+              f"{db.get(Product, 1).stock} vs {before}")
+        db.close()
+
+    src = (ROOT / "frontend/src/pages/admin/AdminOrders.jsx").read_text("utf-8")
+    check("後台有刪除按鈕", "removeOrder" in src)
+    check("要求輸入訂單編號", "window.prompt" in src and "訂單編號完整輸入" in src,
+          "確認框大家都直接按確定，刪掉又救不回來")
+    check("有引導改用取消訂單", "改用「取消訂單」" in src,
+          "只是要作廢的話應該留紀錄，不是刪掉")
+
+
 if __name__ == "__main__":
     print("=" * 60)
     print("購物車同步與訂單狀態測試")
@@ -464,6 +591,7 @@ if __name__ == "__main__":
         test_cancel_permissions, test_cancel_restores_stock,
         test_cart_sync, test_cart_rejects_bad_input,
         test_customer_facing_labels, test_frontend_wiring,
+        test_need_ship_definition, test_delete_order,
     ):
         fn()
 
@@ -474,3 +602,4 @@ if __name__ == "__main__":
             print(f"  - {f}")
         sys.exit(1)
     print(f"全部 {passed} 項測試通過")
+

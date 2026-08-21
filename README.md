@@ -330,6 +330,34 @@ UPDATE users SET role = 'staff' WHERE email = '要升級的Email';
 
 完整說明請看 **[docs/退款怎麼處理.md](docs/退款怎麼處理.md)**。
 
+### 「待出貨」到底算哪些單
+
+**待出貨 = 包裹還在你手上。** 判斷看兩件事：訂單還沒走完，而且包裹還沒交出去。
+
+| 條件 | 說明 |
+|---|---|
+| 訂單狀態 | 不是已取消／已完成／已出貨 |
+| 物流狀態 | 未建單、已建單、建單失敗（都還沒交給超商）|
+| 付款 | 已付款，或貨到付款 |
+
+上方那個數字還會標「**N 筆待建單**」—— 還沒建單要按「建立物流單」拿寄件代碼，
+已建單則是把包裹拿去超商，兩件事完全不同。
+
+> 這裡踩過兩個坑：原本要求「還沒建物流單」才算待出貨，
+> 結果**建完單、拿到寄件代碼、還沒拿去超商**的那批（最該出貨的）反而不在清單裡；
+> 而且沒排除已完成的訂單，舊測試單是「已完成＋未建單」，兩個條件都符合，
+> 把清單整個佔滿。
+
+### 刪除訂單（清測試單用）
+
+展開訂單 → 最下面「**永久刪除這筆訂單**」。會要求**把訂單編號完整輸入一次**才刪 ——
+明細、金額、綠界交易編號、出貨紀錄都會消失，救不回來。
+
+刪之前系統會先把帳做平：計入的會員消費扣回去、還佔著的庫存還回去。
+
+> 只是要作廢一筆訂單請用「**取消訂單並還原庫存**」，那個留得下紀錄。
+> 刪除是給「測試單混在真訂單裡，讓每天要看的數字失去意義」這種情況用的。
+
 ### 購物車跟著帳號走
 
 登入後購物車存在伺服器，**換裝置、換瀏覽器都看得到同一車**。
@@ -618,7 +646,7 @@ cd backend  && python tests/test_compliance_seo.py           (261 項)
 cd backend  && python tests/test_payment_flow.py             (139 項)
 cd backend  && python tests/test_security.py                  (96 項)
 cd backend  && python tests/test_long_urls.py                 (84 項)
-cd backend  && python tests/test_cart_and_order_state.py      (81 項)
+cd backend  && python tests/test_cart_and_order_state.py     (103 項)
 cd backend  && python tests/test_checkout_stability.py       (101 項)
 cd backend  && python tests/test_ecpay_env.py                 (78 項)
 cd backend  && python tests/test_refunds.py                   (79 項)
@@ -629,7 +657,7 @@ cd frontend && node tests/layout-css.test.mjs                 (18 項)
 ```
 
 十二份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
-共 1164 項。
+共 1186 項。
 
 ---
 
