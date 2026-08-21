@@ -45,6 +45,29 @@ def line_status():
     }
 
 
+@router.post("/test", dependencies=[Depends(require_staff)])
+def send_test(db: Session = Depends(get_db)):
+    """推一則測試訊息，確認整條路真的通。
+
+    比對照設定表逐項檢查有用得多 —— 收到訊息就是通了，
+    沒收到就看回傳的錯誤，不用猜是哪一段斷掉。
+    """
+    if not line.is_configured():
+        return {"ok": False, "message": "還沒設定 LINE_CHANNEL_ACCESS_TOKEN。"}
+    if not line.admin_ids():
+        return {"ok": False, "message":
+                "還沒設定 LINE_ADMIN_USER_IDS。加官方帳號好友後傳「我的ID」就查得到。"}
+
+    sent = line.push_to_admins([line.text(
+        "測試訊息：LINE 通知設定成功。\n\n"
+        "之後有訂單就會推播到這裡，訊息上會有「建立物流單」按鈕。"
+    )])
+    if sent:
+        return {"ok": True, "message": f"已送出給 {sent} 個帳號，請看你的 LINE。"}
+    return {"ok": False, "message":
+            "送出失敗。多半是 token 填錯或已被 Reissue，也可能是你還沒加官方帳號好友。"}
+
+
 @router.post("/webhook")
 async def webhook(
     request: Request,

@@ -215,6 +215,16 @@ export default function AdminSettings() {
   const [saving, setSaving] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [checkout, setCheckout] = useState(null)
+  /*
+    LINE 的設定狀態。
+
+    這一區存在的理由是踩過的坑：`/api/line/status` 只有工作人員能看，
+    而在瀏覽器直接打開那個網址是**普通導航、不會帶 Authorization 標頭**
+    （權杖存在 localStorage，只有 fetch 會加），所以一定看到
+    「登入憑證無效或已過期」。要看狀態就得在**後台頁面裡**看。
+  */
+  const [lineInfo, setLineInfo] = useState(null)
+  const [lineTest, setLineTest] = useState('')
   const { reload } = useSettings()
 
   // 從前台編輯模式帶 ?focus=欄位 過來時，捲到那一格並高亮
@@ -227,6 +237,7 @@ export default function AdminSettings() {
       .finally(() => setLoaded(true))
     // 綠界目前開通到哪，決定哪些付款方式「勾了也沒用」
     api.checkoutOptions().then(setCheckout).catch(() => {})
+    api.lineStatus().then(setLineInfo).catch(() => {})
   }, [])
 
   const change = (e) => setValues((v) => ({ ...v, [e.target.name]: e.target.value }))
@@ -353,6 +364,94 @@ export default function AdminSettings() {
           />
         ))}
       </form>
+
+      {/*
+        LINE 機器人的設定狀態。只顯示「有沒有填」，不回傳任何金鑰內容 ——
+        後台被看一眼就不該把設定全部洩漏出去。
+      */}
+      <div className="panel">
+        <h2 className="panel__title">LINE 通知機器人</h2>
+        <p className="small muted" style={{ marginTop: -8 }}>
+          有訂單就推播到你的 LINE，訊息上直接有「建立物流單」按鈕，
+          按下去回傳寄件代碼。設定在後端環境變數（Zeabur → 後端服務 → Variables）。
+        </p>
+
+        {!lineInfo && <div className="loading">讀取設定中…</div>}
+
+        {lineInfo && (
+          <>
+            <div className={`alert alert--${lineInfo.ready ? 'success' : 'warn'}`}>
+              <strong>
+                {lineInfo.ready ? 'LINE 通知已啟用' : '還沒設定完成，目前不會推播'}
+              </strong>
+              <table className="spec-table spec-table--wide" style={{ margin: '10px 0 0' }}>
+                <tbody>
+                  <tr>
+                    <th>LINE_CHANNEL_ACCESS_TOKEN</th>
+                    <td>{lineInfo.configured ? '已設定' : '未設定（推不出訊息）'}</td>
+                  </tr>
+                  <tr>
+                    <th>LINE_CHANNEL_SECRET</th>
+                    <td>
+                      {lineInfo.can_verify
+                        ? '已設定'
+                        : '未設定（驗不了簽章，按鈕功能會整個關閉）'}
+                    </td>
+                  </tr>
+                  <tr>
+                    <th>LINE_ADMIN_USER_IDS</th>
+                    <td>
+                      {lineInfo.admin_count
+                        ? `${lineInfo.admin_count} 個帳號`
+                        : '未設定（沒有人會收到通知，也沒有人按得動按鈕）'}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="field">
+              <label htmlFor="line-webhook">Webhook URL（貼到 LINE Developers）</label>
+              <input id="line-webhook" className="input" readOnly value={lineInfo.webhook_url}
+                     onFocus={(e) => e.target.select()} />
+              <div className="field__hint">
+                {richHint(
+                  'LINE Developers → 你的 channel → **Messaging API** 分頁 → '
+                  + 'Webhook URL 填這個，打開 **Use webhook**，然後按 Verify。'
+                  + '順便把 Auto-reply messages 關掉，不然機器人回一次、罐頭訊息再回一次。',
+                )}
+              </div>
+            </div>
+
+            <div className="field">
+              <label>怎麼查自己的 LINE ID</label>
+              <div className="field__hint">
+                {richHint(
+                  '手機加你自己的官方帳號好友 → 在聊天室傳「**我的ID**」→ '
+                  + '機器人會回一串 U 開頭的英數字 → 填進 `LINE_ADMIN_USER_IDS`（多人用逗號分隔）。'
+                  + '　這一欄留空 = **沒有任何人**能按建立物流單的按鈕。',
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <button type="button" className="btn btn--outline btn--sm"
+                      onClick={async () => {
+                        setLineTest('傳送中…')
+                        try {
+                          const res = await api.lineTest()
+                          setLineTest(res.message)
+                        } catch (e) {
+                          setLineTest(e.message)
+                        }
+                      }}>
+                傳一則測試訊息
+              </button>
+              {lineTest && <span className="small">{lineTest}</span>}
+            </div>
+          </>
+        )}
+      </div>
 
       <form className="panel" onSubmit={submit}>
         <h2 className="panel__title">付款方式</h2>

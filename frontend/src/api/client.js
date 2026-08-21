@@ -254,6 +254,11 @@ export const api = {
 
   // 政策條款（分開的端點：這幾份文字很長，不該讓每一頁都載）
   policies: () => request('/api/policies'),
+  // LINE 機器人。狀態端點只有工作人員能看，所以一定要走這裡（帶得上權杖），
+  // 不能叫人直接在瀏覽器打開那個網址 —— 那是普通導航，不會帶 Authorization
+  lineStatus: () => request('/api/line/status'),
+  lineTest: () => request('/api/line/test', { method: 'POST' }),
+
   structuredData: () => request('/api/seo/structured-data'),
   // 常見問題。同一份資料同時用來畫頁面與產生 FAQPage 結構化資料 ——
   // Google 會比對頁面上找不找得到這些字，兩邊必須一致

@@ -386,8 +386,12 @@ LINE_CHANNEL_SECRET=         # Basic settings 分頁
 LINE_ADMIN_USER_IDS=         # 你的 LINE ID（加好友後傳「我的ID」就查得到）
 ```
 
-webhook 填 `https://api.你的網域.com/api/line/webhook`，
-用 `/api/line/status` 確認 `ready` 是 `true`。
+webhook 填 `https://api.你的網域.com/api/line/webhook`。
+設定狀態與「傳一則測試訊息」在 **後台 → 網站設定 → LINE 通知機器人**。
+
+> 那一區不會顯示任何金鑰內容，只說「有沒有填」。
+> **不要在瀏覽器直接開 `/api/line/status`** —— 那支只有工作人員能看，
+> 而網址列輸入是普通導航、不會帶登入權杖，一定看到「登入憑證無效」。
 
 > **這是一個花錢的遙控器** —— 按下去會真的向綠界建單，而超商運費是從你的
 > 綠界餘額先扣的。所以有兩道關卡：**簽章驗證**（證明來自 LINE，webhook
@@ -672,7 +676,7 @@ honey_web/
 ```
 cd backend  && python tests/test_compliance_seo.py           (261 項)
 cd backend  && python tests/test_payment_flow.py             (139 項)
-cd backend  && python tests/test_security.py                  (96 項)
+cd backend  && python tests/test_security.py                  (99 項)
 cd backend  && python tests/test_long_urls.py                 (84 項)
 cd backend  && python tests/test_cart_and_order_state.py     (103 項)
 cd backend  && python tests/test_checkout_stability.py       (101 項)
@@ -686,7 +690,7 @@ cd frontend && node tests/layout-css.test.mjs                 (18 項)
 ```
 
 十三份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
-共 1232 項。
+共 1235 項。
 
 ---
 

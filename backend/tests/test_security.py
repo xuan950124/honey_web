@@ -33,6 +33,8 @@ from app.routers.orders import can_view_order, new_access_token  # noqa: E402
 from app.routers.uploads import looks_like_image  # noqa: E402
 from app.security import hash_password, verify_password  # noqa: E402
 
+ROOT = Path(__file__).resolve().parent.parent.parent
+
 passed = 0
 failures: list[str] = []
 
@@ -436,6 +438,88 @@ def test_payment_trust_boundary():
     check("主動查詢也有驗金額", "金額不符" in src[src.index("def _query_and_apply"):])
 
 
+# ------------------------------------------------- 「在瀏覽器打開」與登入權杖
+
+def _staff_only_get_paths() -> list[str]:
+    """從原始碼找出「需要工作人員權限的 GET 端點」。
+
+    用讀原始碼而不是問 FastAPI：這個版本的 include_router 會把子路由
+    收在內部結構裡，走 app.routes 撈不到，而且那是私有實作、隨時會變。
+    正則掃裝飾器穩定得多。
+    """
+    import re
+
+    found: list[str] = []
+    for path in (ROOT / "backend/app/routers").glob("*.py"):
+        src = path.read_text("utf-8")
+        prefix_match = re.search(r'APIRouter\(prefix="([^"]*)"', src)
+        prefix = prefix_match.group(1) if prefix_match else ""
+
+        # 抓 @router.get(...) 到函式定義結束的那一段，看裡面有沒有 require_staff
+        for m in re.finditer(
+            r'@router\.get\(\s*"([^"]*)"(.*?)\)\s*\n(?:async\s+)?def\s+\w+\((.*?)\)\s*(?:->[^:]*)?:',
+            src, re.S,
+        ):
+            route, decorator_rest, signature = m.groups()
+            if "require_staff" in decorator_rest or "require_staff" in signature:
+                found.append(f"{prefix}{route}")
+    return found
+
+
+def test_docs_never_tell_you_to_open_a_staff_url():
+    """文件不可以叫人「在瀏覽器打開」需要登入權杖的網址。
+
+    ## 為什麼這值得一條測試
+
+    同一種錯誤犯過兩次：列印託運單、LINE 設定狀態。
+    兩次都是「後端擋得好好的，但使用指示叫人用一個帶不了權杖的方式去打開」。
+
+    在網址列輸入網址是一次**普通的瀏覽器導航，不會帶 Authorization 標頭**
+    —— 登入權杖存在 localStorage，只有網頁用 fetch 呼叫時才會加上去。
+    所以那種指示的結果一定是「登入憑證無效或已過期」，
+    而使用者會以為是自己登入壞掉了。
+
+    需要權限的東西就該在**後台頁面裡**看，或改用短效通行證。
+    """
+    print("\n[文件不能叫人開需要權限的網址]")
+
+    staff_paths = _staff_only_get_paths()
+    check("掃得到工作人員專用的 GET 端點", len(staff_paths) > 0,
+          "一個都沒掃到通常代表正則失效，不是真的沒有")
+
+    """比對要用「整條路徑相等」，不能用包含。
+
+    `/api/orders` 是工作人員專用（訂單列表），但 `/api/orders/checkout-options`
+    是公開的 —— 用 `in` 比對的話後者會被前者誤判成違規。
+    這種假警報比沒有測試更糟：久了大家就會習慣忽略它。
+    """
+    import re as _re
+
+    # 「打開」「開啟」這類動詞 + 網址 = 叫人用瀏覽器去開
+    OPEN_WORDS = ("打開", "開啟", "瀏覽器", "網址列", "貼到網址")
+    staff_set = {p.rstrip("/") for p in staff_paths if p}
+    offenders: list[str] = []
+
+    for doc in list((ROOT / "docs").glob("*.md")) + [ROOT / "README.md"]:
+        for lineno, text in enumerate(doc.read_text("utf-8").splitlines(), 1):
+            # 明確在講「不要這樣做」的句子不算
+            if "不要直接" in text or "不會帶" in text:
+                continue
+            if not any(word in text for word in OPEN_WORDS):
+                continue
+            for url in _re.findall(r"https?://[^\s<>()`]+", text):
+                path = _re.sub(r"^https?://[^/]+", "", url).split("?")[0].rstrip("/")
+                if path in staff_set:
+                    offenders.append(f"{doc.name}:{lineno} → {path}")
+
+    check("沒有任何文件叫人用瀏覽器開需要權限的端點",
+          not offenders, "；".join(offenders[:3]))
+
+    # 反面確認：健康檢查是公開的，叫人打開它完全正確
+    check("健康檢查不在權限清單裡", "/api/health" not in staff_paths,
+          "那支刻意公開，網站掛掉時要能直接開來看")
+
+
 if __name__ == "__main__":
     print("=" * 60)
     print("安全性測試（攻擊者視角）")
@@ -447,7 +531,7 @@ if __name__ == "__main__":
         test_login_throttle, test_login_endpoint_throttle, test_password_hashing,
         test_upload_signature_check, test_upload_endpoint,
         test_amount_is_server_side, test_duplicate_lines_merged,
-        test_payment_trust_boundary,
+        test_payment_trust_boundary, test_docs_never_tell_you_to_open_a_staff_url,
     ):
         fn()
 
@@ -458,3 +542,4 @@ if __name__ == "__main__":
             print(f"  - {f}")
         sys.exit(1)
     print(f"全部 {passed} 項測試通過")
+
