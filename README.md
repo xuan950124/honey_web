@@ -418,6 +418,19 @@ canonical、**LocalBusiness**（含座標、營業時間、價格區間）、**P
 > FAQ 那一份是同一份資料同時畫在 `/contact` 頁面上、也產生結構化資料 ——
 > 結構化資料的內容必須在頁面上找得到，只掛 JSON-LD 會被判定為垃圾。
 
+> **搜尋結果旁邊那個小圓圖**（favicon）也處理好了。以前一直顯示預設的地球圖示，
+> 因為 **Google 抓 favicon 只讀首頁的靜態 HTML、不執行 JavaScript**，
+> 而且圖示必須跟首頁**同一個網域** —— 前端載入後才用 JS 換成 API 網域的圖，
+> 兩個條件都不符合。
+>
+> 現在 `index.html` 直接寫同網域的 `/site-icon.png` 與 `/favicon.ico`，
+> 由 nginx 代理到後端，內容是後台上傳的那張圖 ——
+> 換圖不用重新部署，網址也永遠不變（LINE 與 FB 是用網址在快取的）。
+> 分享大圖 `/og-cover.jpg` 同理，用的是首頁主視覺。
+>
+> Google 更新圖示要幾天到幾週，可以在 Search Console 用「網址審查 →
+> 要求建立索引」催一下。圖示建議是**正方形、48×48 的倍數**。
+
 **接下來能拉開差距的都不是程式。** 照投報率排序：
 
 1. **Google 商家檔案** —— 補照片、每週發動態、**想辦法收評價**。
@@ -601,7 +614,7 @@ honey_web/
 ### 跑測試
 
 ```
-cd backend  && python tests/test_compliance_seo.py           (237 項)
+cd backend  && python tests/test_compliance_seo.py           (261 項)
 cd backend  && python tests/test_payment_flow.py             (139 項)
 cd backend  && python tests/test_security.py                  (96 項)
 cd backend  && python tests/test_long_urls.py                 (84 項)
@@ -616,7 +629,7 @@ cd frontend && node tests/layout-css.test.mjs                 (18 項)
 ```
 
 十二份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
-共 1117 項。
+共 1141 項。
 
 ---
 

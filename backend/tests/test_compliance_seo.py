@@ -586,6 +586,86 @@ def test_faq_structured_data():
     check("聯絡頁有放這個區塊", "<ContactFaq />" in page)
 
 
+def test_site_icon():
+    """搜尋結果旁邊那個小圓圖。
+
+    ## 為什麼不能只靠前端換
+
+    **Google 抓 favicon 只讀首頁的靜態 HTML，不執行 JavaScript**，
+    而且圖示必須跟首頁**同一個網域**。
+
+    以前的做法是載入後用 JS 把 <link rel="icon"> 換成 API 網域的圖 ——
+    兩個條件都不符合，所以搜尋結果一直是預設的地球圖示。
+    """
+    print("\n[網站圖示]")
+    from app.routers.uploads import UPLOAD_DIR
+
+    client, Session = make_client()
+    icon = UPLOAD_DIR / "test-site-icon.png"
+    icon.write_bytes(bytes.fromhex("89504e470d0a1a0a") + b"FAKEPNG")
+
+    db = Session()
+    db.add(SiteSetting(key="favicon_url", value="/uploads/test-site-icon.png"))
+    db.commit()
+    db.close()
+
+    try:
+        with client:
+            for path in ("/favicon.ico", "/site-icon", "/og-cover.jpg"):
+                r = client.get(path)
+                check(f"{path} 回 200", r.status_code == 200, str(r.status_code))
+                check(f"{path} 是圖片",
+                      r.headers.get("content-type", "").startswith("image/"),
+                      r.headers.get("content-type"))
+                check(f"{path} 有快取標頭", "max-age" in r.headers.get("cache-control", ""))
+
+            r = client.get("/site-icon")
+            check("內容就是後台上傳的那張", r.content.startswith(bytes.fromhex("89504e47")),
+                  "回錯圖的話搜尋結果會顯示別的東西")
+
+            # 沒設定時要有備援，不能回 404 或 HTML
+            db = Session()
+            db.query(SiteSetting).delete()
+            db.commit()
+            db.close()
+            r = client.get("/favicon.ico")
+            check("沒設定時仍回得出圖示", r.status_code == 200 and "image" in
+                  r.headers.get("content-type", ""), str(r.status_code))
+    finally:
+        icon.unlink(missing_ok=True)
+
+    # 設定值是後台存的，但仍要當成不可信的輸入處理
+    from app.routers.seo import _serve_upload
+    check("擋掉路徑穿越", _serve_upload("/uploads/../app/config.py") is None)
+    check("外部網址不由這裡處理", _serve_upload("https://evil.com/a.png") is None)
+    check("空值不處理", _serve_upload("") is None)
+
+    # 靜態 HTML 才是 Google 讀到的那一份
+    index = (ROOT / "frontend/index.html").read_text("utf-8")
+    check("index.html 靜態就指向同網域的圖示",
+          'href="/site-icon.png"' in index,
+          "指到 api.xxx.com 的話 Google 不算數")
+    check("index.html 有 /favicon.ico", 'href="/favicon.ico"' in index)
+    check("og:image 也是同網域的固定網址",
+          'content="https://huanglong-honey.com/og-cover.jpg"' in index)
+
+    meta = (ROOT / "frontend/src/components/SiteMeta.jsx").read_text("utf-8")
+    check("前端不再用 JS 換 favicon",
+          "setLink('icon'" not in meta,
+          "JS 換的 Google 看不到，留著只會讓人以為做完了")
+
+    # nginx 要把這幾個網址代理到後端，否則會掉進 SPA fallback 回一頁 HTML
+    conf = (ROOT / "frontend/nginx.conf").read_text("utf-8")
+    check("nginx 有留代理的位置", "/etc/nginx/site-icon/" in conf)
+    check("用萬用字元 include（檔案不存在也不會啟動失敗）",
+          "site-icon/*.conf" in conf)
+
+    entry = (ROOT / "frontend/docker-entrypoint.d/40-app-config.sh").read_text("utf-8")
+    for path in ("/favicon.ico", "/site-icon.png", "/og-cover.jpg"):
+        check(f"啟動腳本會產生 {path} 的代理", path in entry)
+    check("後端網址沒設定時有備援", "favicon.svg" in entry)
+
+
 def test_frontend_wiring():
     print("\n[前端真的有用到這些東西]")
     src = ROOT / "frontend/src"
@@ -644,7 +724,7 @@ if __name__ == "__main__":
         test_tax_id_and_food_registration_are_optional,
         test_no_ecpay_invoice_params,
         test_sitemap, test_sitemap_survives_broken_db, test_robots, test_structured_data,
-        test_local_seo_signals, test_faq_structured_data,
+        test_local_seo_signals, test_faq_structured_data, test_site_icon,
         test_frontend_wiring,
     ):
         fn()

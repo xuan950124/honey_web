@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
+from pathlib import Path
 from xml.sax.saxutils import escape
 
 from fastapi import APIRouter, Depends, Response
@@ -288,3 +289,104 @@ def faq_structured_data(db: Session = Depends(get_db)) -> dict:
             for q, a in qa
         ],
     }
+
+
+# ---------------------------------------------------------------- 網站圖示
+
+# Google 搜尋結果旁邊那個小圓圖，以及分享到 LINE／FB 的大圖。
+#
+# ## 為什麼要有這兩支端點
+#
+# 圖片是後台上傳的，檔名帶雜湊值（/uploads/913cc76….png），每換一次就變。
+# 但 `index.html` 是**靜態檔**，寫死一個會變的檔名等於每次換圖都要重新部署。
+#
+# 更關鍵的是：**Google 抓 favicon 只看首頁的靜態 HTML，不會執行 JavaScript。**
+# 前端在載入後把 <link rel="icon"> 換成後台設定的圖是沒有用的 ——
+# 那時候 Google 早就抓完走了，看到的還是預設的佔位圖示。
+#
+# 所以這裡提供**固定不變的網址**，前端 nginx 再把同網域的
+# /favicon.ico 與 /site-icon.png 代理過來（同網域這點很重要，
+# Google 的圖示要跟首頁同一個網域才算數）。
+
+_FALLBACK_ICON = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
+    '<rect width="64" height="64" rx="14" fill="#3B2712"/>'
+    '<path d="M32 12 L48 21 L48 39 L32 48 L16 39 L16 21 Z" fill="none" '
+    'stroke="#E0AB3C" stroke-width="3.4" stroke-linejoin="round"/>'
+    '<path d="M32 22 C36.5 28.5 39 32.2 39 35.2 A7 7 0 0 1 25 35.2 '
+    'C25 32.2 27.5 28.5 32 22 Z" fill="#E0AB3C"/></svg>'
+)
+
+_MIME = {
+    ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+    ".gif": "image/gif", ".webp": "image/webp", ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
+}
+
+
+def _serve_upload(path_value: str) -> Response | None:
+    """把 /uploads/xxx.png 這種設定值變成真的圖片位元組。
+
+    只接受 uploads 資料夾底下的檔案 —— 設定值是後台存的，
+    但仍然要當成不可信的輸入處理（`..` 之類的路徑穿越）。
+    """
+    from .uploads import UPLOAD_DIR
+
+    value = (path_value or "").strip()
+    if not value or value.startswith(("http://", "https://")):
+        return None
+
+    name = Path(value).name           # 丟掉所有目錄成分，杜絕路徑穿越
+    if not name or name != value.removeprefix("/uploads/"):
+        return None
+
+    target = UPLOAD_DIR / name
+    if not target.is_file():
+        return None
+
+    media = _MIME.get(target.suffix.lower(), "application/octet-stream")
+    return Response(
+        content=target.read_bytes(),
+        media_type=media,
+        # 一天。改圖之後最多隔一天生效，但省下大量重複請求。
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
+def _setting(db: Session, key: str) -> str:
+    from ..models import SiteSetting
+
+    row = db.get(SiteSetting, key)
+    return (row.value or "") if row else ""
+
+
+@router.get("/site-icon", response_class=Response)
+@router.get("/favicon.ico", response_class=Response)
+def site_icon(db: Session = Depends(get_db)) -> Response:
+    """後台設定的網站 icon。沒設定就回內建的蜂巢圖示。"""
+    try:
+        served = _serve_upload(_setting(db, "favicon_url"))
+    except Exception:  # noqa: BLE001 - 圖示拿不到不該讓整站的請求失敗
+        served = None
+    if served:
+        return served
+    return Response(content=_FALLBACK_ICON, media_type="image/svg+xml",
+                    headers={"Cache-Control": "public, max-age=3600"})
+
+
+@router.get("/og-cover.jpg", response_class=Response)
+def og_cover(db: Session = Depends(get_db)) -> Response:
+    """分享到 LINE／Facebook 時的大圖。
+
+    優先用首頁主視覺（實景照比 logo 有吸引力得多），
+    沒有的話退回網站 icon。
+    """
+    for key in ("hero_image_url", "favicon_url"):
+        try:
+            served = _serve_upload(_setting(db, key))
+        except Exception:  # noqa: BLE001
+            served = None
+        if served:
+            return served
+    return Response(content=_FALLBACK_ICON, media_type="image/svg+xml",
+                    headers={"Cache-Control": "public, max-age=3600"})

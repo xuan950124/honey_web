@@ -122,9 +122,15 @@ export default function SiteMeta() {
     setMeta('property', 'og:type', 'website')
     setMeta('property', 'og:url', url)
     setMeta('property', 'og:locale', 'zh_TW')
-    if (settings.hero_image_url) {
-      setMeta('property', 'og:image', mediaUrl(settings.hero_image_url))
-    }
+    /*
+      分享大圖一律用同網域的固定網址 `/og-cover.jpg`（nginx 代理到後端）。
+
+      不直接指到 API 網域的 /uploads/xxx.png，原因有兩個：
+      一是那個檔名會隨著換圖而變，而 LINE 與 Facebook 是**用網址在快取**的，
+      換一次圖就要等對方重抓；二是同網域的圖比較不會被當成外連而被略過。
+    */
+    setMeta('property', 'og:image', `${window.location.origin}/og-cover.jpg`)
+    setMeta('name', 'twitter:image', `${window.location.origin}/og-cover.jpg`)
     // Twitter / X 用的是另一套標籤，大圖比小縮圖好看很多
     setMeta('name', 'twitter:card', 'summary_large_image')
     setMeta('name', 'twitter:title', title)
@@ -134,10 +140,16 @@ export default function SiteMeta() {
     // 避免帶了追蹤參數的網址被當成不同頁面而分散權重
     setLink('canonical', url)
 
-    if (settings.favicon_url) {
-      setLink('icon', mediaUrl(settings.favicon_url))
-      document.querySelector('link[rel="icon"]')?.removeAttribute('type')
-    }
+    /*
+      這裡**刻意不再動 favicon**。
+
+      以前是載入後把 <link rel="icon"> 換成 API 網域的圖，但那對搜尋沒有用：
+      Google 抓 favicon 只讀首頁的靜態 HTML、不執行 JavaScript，
+      而且圖示必須跟首頁同網域。
+
+      現在 index.html 直接寫 /site-icon.png（nginx 代理到後端），
+      靜態就是對的，也就沒有必要再用 JS 換一次。
+    */
   }, [settings, loaded, location.pathname])
 
   return null
