@@ -347,7 +347,9 @@ class CheckoutOptions(BaseModel):
     # 金流與物流是分開審核的，狀態要分開回報。
     # 前台用 payment_production 決定要不要顯示測試卡號提示，
     # 後台用整包判斷現在能不能開賣、能用哪些付款方式。
-    ecpay_status: dict[str, bool] = {}
+    # 大部分是布林（can_sell_online…），但 warnings 是一串說明文字，
+    # 所以不能鎖成 dict[str, bool]
+    ecpay_status: dict[str, object] = {}
     backend_base_url: str
 
 

@@ -174,8 +174,16 @@ UPDATE users SET role = 'staff' WHERE email = '要升級的Email';
 - **超商取貨**：萊爾富、7-ELEVEN 交貨便、全家店到店（C2C 店到店，不用先付運費）
 - **宅配**：中華郵政、黑貓宅急便（常溫／冷藏／冷凍）
 
-**目前預設是測試環境**，用綠界公開的測試金鑰，不會真的扣款。
+**程式的預設是測試環境**，用綠界公開的測試金鑰，不會真的扣款。
 測試卡號 `4311-9511-1111-1111`，安全碼任意三碼，有效期限填未來日期，3D 驗證碼 `1234`。
+
+> **綠界後台按了「已開通」網站不會自己知道。** 收不收得到錢是由後端的環境變數決定的：
+> `ECPAY_ENV=production` **而且**金流金鑰換成自己的，兩件事都要做。
+> 步驟與驗收方式見 **[docs/切換到正式收款.md](docs/切換到正式收款.md)**。
+>
+> 只改環境沒換金鑰是最糟的狀態 —— 客人會被帶到**正式**付款頁然後每筆都失敗。
+> 所以系統會自己認出「還在用綠界的公開測試金鑰」並維持線上付款關閉，
+> 後台「網站設定 → 付款方式」會直接列出是哪一項沒設好。
 
 > **金流與物流可以分開切正式。** 綠界是分開審核的，物流通常先過 ——
 > 物流一過就能先用「**貨到付款**」開賣，不必等金流（貨到付款走的是物流的代收貨款）。
@@ -201,6 +209,15 @@ UPDATE users SET role = 'staff' WHERE email = '要升級的Email';
 
 完整說明（含切換正式環境、申請流程、金額限制）請看
 **[docs/綠界金流物流串接說明.md](docs/綠界金流物流串接說明.md)**。
+
+### 要開放哪幾種付款方式
+
+**後台 → 網站設定 → 付款方式**，勾起來的才會出現在結帳頁。留空 = 綠界開通的全部開放。
+
+這裡只能**再關掉**，不能打開綠界還沒開通的服務 —— 錢收不收得到是綠界那邊決定的，
+放一個開了也沒用的開關只會誤導。系統也一定會保留貨到付款：
+一種都不能選的結帳頁等於關店（而且前端的自動修正邏輯會在無解的組合上來回跳，
+那個 bug 曾經把資料庫連線池打爆）。
 
 ### 運費怎麼設才不會虧
 
@@ -547,7 +564,7 @@ cd backend  && python tests/test_security.py                  (96 項)
 cd backend  && python tests/test_long_urls.py                 (84 項)
 cd backend  && python tests/test_cart_and_order_state.py      (81 項)
 cd backend  && python tests/test_checkout_stability.py       (101 項)
-cd backend  && python tests/test_ecpay_env.py                 (61 項)
+cd backend  && python tests/test_ecpay_env.py                 (78 項)
 cd backend  && python tests/test_startup_resilience.py        (43 項)
 cd frontend && node tests/cart-stock-and-map.test.mjs         (94 項)
 cd frontend && node tests/edit-mode.test.mjs                  (90 項)
@@ -555,7 +572,7 @@ cd frontend && node tests/layout-css.test.mjs                 (18 項)
 ```
 
 十一份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
-共 1012 項。
+共 1029 項。
 
 ---
 

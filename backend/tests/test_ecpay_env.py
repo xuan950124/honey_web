@@ -107,19 +107,45 @@ def test_env_value_parsing():
 
 def test_status_shape():
     print("\n[回給前端的狀態]")
-    keys = {"payment_production", "logistics_production", "can_sell_cod", "can_sell_online"}
+    flags = {
+        "payment_production", "logistics_production",
+        "payment_credentials_ok", "logistics_credentials_ok",
+        "can_sell_cod", "can_sell_online",
+    }
     for payment, logistics in [("stage", ""), ("stage", "production"),
                                ("production", ""), ("production", "stage")]:
         status = make(payment, logistics).ecpay_status
         check(f"{payment}/{logistics or '（跟隨）'} 欄位齊全",
-              set(status) == keys, str(set(status)))
-        check(f"{payment}/{logistics or '（跟隨）'} 都是布林值",
-              all(isinstance(v, bool) for v in status.values()), str(status))
+              set(status) == flags | {"warnings"}, str(set(status)))
+        check(f"{payment}/{logistics or '（跟隨）'} 旗標都是布林值",
+              all(isinstance(status[k], bool) for k in flags), str(status))
+        check(f"{payment}/{logistics or '（跟隨）'} warnings 是字串清單",
+              isinstance(status["warnings"], list)
+              and all(isinstance(w, str) for w in status["warnings"]),
+              str(status["warnings"]))
 
     # 貨到付款只需要物流，線上付款只需要金流
     s = make("stage", "production").ecpay_status
     check("貨到付款只看物流", s["can_sell_cod"] == s["logistics_production"])
-    check("線上付款只看金流", s["can_sell_online"] == s["payment_production"])
+
+
+    # 線上付款除了環境還要看金鑰換了沒。
+    #
+    # 「ECPAY_ENV 改了、金鑰忘了換」是切正式時最容易漏的一步，
+    # 而那個狀態比停在測試環境更糟：客人會被帶到**正式**付款頁，
+    # 然後每一筆都因為檢查碼不符而失敗，畫面上只有一句綠界的錯誤訊息。
+    prod_test_keys = make("production", "production").ecpay_status
+    check("切了環境但金鑰還是測試值 → 不能賣",
+          prod_test_keys["can_sell_online"] is False)
+    check("而且說得出是哪裡沒設好",
+          any("金鑰" in w for w in prod_test_keys["warnings"]),
+          str(prod_test_keys["warnings"]))
+
+    real = make("production", "production")
+    real.ECPAY_MERCHANT_ID = "3511166"
+    real.ECPAY_HASH_KEY = "RealHashKey12345"
+    real.ECPAY_HASH_IV = "RealHashIV123456"
+    check("金鑰換過了才能賣", real.ecpay_status["can_sell_online"] is True)
 
 
 def test_cod_only_mode_blocks_online_payment():
@@ -189,15 +215,109 @@ def test_cod_only_mode_blocks_online_payment():
                   not any(p["disabled"] for p in options["payment"]),
                   str([p["value"] for p in options["payment"] if p["disabled"]]))
 
-        # 兩邊都正式時也不擋
+        # 兩邊都正式、金鑰也換過了 → 全部開放
         live.ECPAY_ENV = "production"
         live.ECPAY_LOGISTICS_ENV = "production"
+        keys = (live.ECPAY_MERCHANT_ID, live.ECPAY_HASH_KEY, live.ECPAY_HASH_IV)
+        live.ECPAY_MERCHANT_ID = "3511166"
+        live.ECPAY_HASH_KEY = "RealHashKey12345"
+        live.ECPAY_HASH_IV = "RealHashIV123456"
         with TestClient(main.app, raise_server_exceptions=False) as client:
             options = client.get("/api/orders/checkout-options").json()
             check("兩邊都正式時不停用任何付款方式",
-                  not any(p["disabled"] for p in options["payment"]))
+                  not any(p["disabled"] for p in options["payment"]),
+                  str([p["value"] for p in options["payment"] if p["disabled"]]))
+
+        # 切了環境卻忘了換金鑰 —— 比停在測試環境更糟，要擋住
+        live.ECPAY_MERCHANT_ID, live.ECPAY_HASH_KEY, live.ECPAY_HASH_IV = keys
+        with TestClient(main.app, raise_server_exceptions=False) as client:
+            options = client.get("/api/orders/checkout-options").json()
+            by_value = {p["value"]: p for p in options["payment"]}
+            check("忘了換金鑰時線上付款仍被擋",
+                  by_value["credit"]["disabled"] is True,
+                  "客人會被帶到正式付款頁然後每一筆都失敗，沒有人知道原因")
+            check("貨到付款照樣可用", by_value["cod"]["disabled"] is False)
+            check("狀態回報 can_sell_online 為 false",
+                  options["ecpay_status"]["can_sell_online"] is False)
+            check("有講出是哪裡沒設好",
+                  any("金鑰" in w for w in options["ecpay_status"]["warnings"]),
+                  str(options["ecpay_status"].get("warnings")))
     finally:
         live.ECPAY_ENV, live.ECPAY_LOGISTICS_ENV = original
+        main.DB_STATE.update({"ready": False, "error": None, "attempts": 0})
+
+
+def test_store_can_turn_methods_off():
+    """店家可以自己關掉某些付款方式，但不能把最後一種也關掉。
+
+    一個都不能選的結帳頁等於關店；而且前端的自動修正邏輯
+    會在無解的組合上來回跳 —— 那個 bug 曾經把資料庫連線池打爆。
+    """
+    print("\n[後台可以關掉個別付款方式]")
+    from fastapi.testclient import TestClient
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+
+    from app import database, main
+    from app.config import settings as live
+    from app.models import Base, Product, SiteSetting
+
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False},
+                           poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    database.engine = engine
+    database.SessionLocal = Session
+
+    db = Session()
+    db.add(Product(id=1, name="龍眼蜜", price=680, stock=10))
+    db.commit()
+    db.close()
+
+    original = (live.ECPAY_ENV, live.ECPAY_LOGISTICS_ENV,
+                live.ECPAY_MERCHANT_ID, live.ECPAY_HASH_KEY, live.ECPAY_HASH_IV)
+    live.ECPAY_ENV = live.ECPAY_LOGISTICS_ENV = "production"
+    live.ECPAY_MERCHANT_ID = "3511166"
+    live.ECPAY_HASH_KEY = "RealHashKey12345"
+    live.ECPAY_HASH_IV = "RealHashIV123456"
+
+    def options_with(value):
+        db = Session()
+        row = db.get(SiteSetting, "payment_methods_enabled")
+        if row:
+            row.value = value
+        else:
+            db.add(SiteSetting(key="payment_methods_enabled", value=value))
+        db.commit()
+        db.close()
+        with TestClient(main.app, raise_server_exceptions=False) as client:
+            return {p["value"]: p for p in
+                    client.get("/api/orders/checkout-options").json()["payment"]}
+
+    try:
+        by_value = options_with("")
+        check("留空 = 全部開放",
+              not any(p["disabled"] for p in by_value.values()),
+              str([k for k, p in by_value.items() if p["disabled"]]))
+
+        by_value = options_with("credit,cod")
+        check("沒勾的 ATM 被關掉", by_value["atm"]["disabled"] is True)
+        check("沒勾的超商代碼被關掉", by_value["cvs_code"]["disabled"] is True)
+        check("勾了的信用卡還在", by_value["credit"]["disabled"] is False)
+        check("勾了的貨到付款還在", by_value["cod"]["disabled"] is False)
+        check("關掉的有說明原因",
+              "未開放" in (by_value["atm"]["disabled_reason"] or ""),
+              str(by_value["atm"]["disabled_reason"]))
+
+        # 全部關掉是使用者不該做到的事，但資料上做得到（例如手動改資料庫）
+        by_value = options_with("nonexistent")
+        check("全關掉時至少保留貨到付款",
+              by_value["cod"]["disabled"] is False,
+              "一種都不能選的結帳頁等於關店，前端還會在無解的組合上來回跳")
+    finally:
+        (live.ECPAY_ENV, live.ECPAY_LOGISTICS_ENV, live.ECPAY_MERCHANT_ID,
+         live.ECPAY_HASH_KEY, live.ECPAY_HASH_IV) = original
         main.DB_STATE.update({"ready": False, "error": None, "attempts": 0})
 
 
@@ -231,7 +351,7 @@ if __name__ == "__main__":
     for fn in (
         test_default_follows_payment, test_split, test_env_value_parsing,
         test_status_shape, test_cod_only_mode_blocks_online_payment,
-        test_frontend_wiring,
+        test_store_can_turn_methods_off, test_frontend_wiring,
     ):
         fn()
 

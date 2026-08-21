@@ -3,6 +3,18 @@ from urllib.parse import quote_plus
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# 綠界公開的測試金鑰。
+#
+# 抽成常數不是為了少打幾個字，是為了**認得出來** ——
+# 切正式環境時最容易漏的一步就是「環境改了、金鑰忘了換」，
+# 而那個狀態下客人會被帶到正式付款頁然後每一筆都失敗。
+# 有了這幾個常數，程式就能自己發現「你還在用測試金鑰」並擋下來。
+TEST_PAYMENT_MERCHANT_ID = "3002607"
+TEST_PAYMENT_HASH_KEY = "pwFHCqoQZGmho4w6"
+TEST_PAYMENT_HASH_IV = "EkRm7iFT261dpevs"
+TEST_C2C_MERCHANT_ID = "2000933"
+TEST_HOME_MERCHANT_ID = "2000132"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
@@ -89,17 +101,17 @@ class Settings(BaseSettings):
     ECPAY_LOGISTICS_ENV: str = ""
 
     # 金流（全方位金流）
-    ECPAY_MERCHANT_ID: str = "3002607"
-    ECPAY_HASH_KEY: str = "pwFHCqoQZGmho4w6"
-    ECPAY_HASH_IV: str = "EkRm7iFT261dpevs"
+    ECPAY_MERCHANT_ID: str = TEST_PAYMENT_MERCHANT_ID
+    ECPAY_HASH_KEY: str = TEST_PAYMENT_HASH_KEY
+    ECPAY_HASH_IV: str = TEST_PAYMENT_HASH_IV
 
     # 物流 C2C 店到店（測試環境與金流是不同組帳號）
-    ECPAY_C2C_MERCHANT_ID: str = "2000933"
+    ECPAY_C2C_MERCHANT_ID: str = TEST_C2C_MERCHANT_ID
     ECPAY_C2C_HASH_KEY: str = "XBERn1YOvpM9nfZc"
     ECPAY_C2C_HASH_IV: str = "h1ONHk4P4yqbl5LK"
 
     # 物流 宅配（黑貓 / 中華郵政）
-    ECPAY_HOME_MERCHANT_ID: str = "2000132"
+    ECPAY_HOME_MERCHANT_ID: str = TEST_HOME_MERCHANT_ID
     ECPAY_HOME_HASH_KEY: str = "5294y06JbISpM5x9"
     ECPAY_HOME_HASH_IV: str = "v77hoKGq4kWxNNIS"
 
@@ -111,6 +123,66 @@ class Settings(BaseSettings):
     @staticmethod
     def _is_production(value: str) -> bool:
         return (value or "").strip().lower() in ("production", "prod", "正式")
+
+    @property
+    def payment_credentials_ok(self) -> bool:
+        """金流的金鑰是不是換成自己的了。
+
+        這是切正式時最容易漏的一步：`ECPAY_ENV` 改成 production，
+        但 MerchantID／HashKey／HashIV 還是綠界公開的測試值。
+
+        後果比忘記切還糟 —— 客人會被帶到**正式**的付款頁，
+        然後每一筆都因為檢查碼或廠商編號不符而失敗；
+        畫面上只會看到一句綠界的錯誤訊息，沒有人知道原因是什麼。
+        所以這裡直接把它視為「還不能開賣線上付款」。
+        """
+        return not any((
+            self.ECPAY_MERCHANT_ID.strip() == TEST_PAYMENT_MERCHANT_ID,
+            self.ECPAY_HASH_KEY.strip() == TEST_PAYMENT_HASH_KEY,
+            self.ECPAY_HASH_IV.strip() == TEST_PAYMENT_HASH_IV,
+        ))
+
+    @property
+    def logistics_credentials_ok(self) -> bool:
+        """物流的金鑰是不是換成自己的了（C2C 與宅配各一組）。"""
+        test_ids = {TEST_C2C_MERCHANT_ID, TEST_HOME_MERCHANT_ID}
+        return not (
+            self.ECPAY_C2C_MERCHANT_ID.strip() in test_ids
+            or self.ECPAY_HOME_MERCHANT_ID.strip() in test_ids
+        )
+
+    @property
+    def can_sell_online_now(self) -> bool:
+        """現在能不能真的收線上付款（環境是正式、而且金鑰換過了）。"""
+        return self.is_ecpay_production and self.payment_credentials_ok
+
+    @property
+    def ecpay_warnings(self) -> list[str]:
+        """設定看起來不對勁的地方。後台會直接列出來。
+
+        只講「哪裡不對、要去改什麼」，不猜使用者的意圖 ——
+        這幾種組合每一種都會讓錢收不到，值得講清楚。
+        """
+        out: list[str] = []
+        if self.is_ecpay_production and not self.payment_credentials_ok:
+            out.append(
+                "ECPAY_ENV 已設成 production，但金流金鑰還是綠界的公開測試值。"
+                "請把 ECPAY_MERCHANT_ID／ECPAY_HASH_KEY／ECPAY_HASH_IV "
+                "換成綠界廠商後台「系統開發管理 → 系統介接設定」裡你自己的那一組。"
+                "在換好之前，線上付款會維持關閉。"
+            )
+        if self.is_logistics_production and not self.logistics_credentials_ok:
+            out.append(
+                "物流已設成正式環境，但物流金鑰還是測試值。"
+                "請填 ECPAY_C2C_*（超商店到店）與 ECPAY_HOME_*（宅配）兩組。"
+            )
+        if self.is_ecpay_production and not self.BACKEND_BASE_URL.startswith("https://"):
+            out.append(
+                f"BACKEND_BASE_URL 目前是 {self.BACKEND_BASE_URL}。"
+                "綠界的付款結果通知只會打 https 的公開網址，"
+                "設錯的話錢收到了、訂單卻不會變成已付款。"
+            )
+        return out
 
     @property
     def is_ecpay_production(self) -> bool:
@@ -153,10 +225,15 @@ class Settings(BaseSettings):
         return {
             "payment_production": payment,
             "logistics_production": logistics,
+            "payment_credentials_ok": self.payment_credentials_ok,
+            "logistics_credentials_ok": self.logistics_credentials_ok,
             # 貨到付款只需要物流（代收貨款），不需要金流服務
             "can_sell_cod": logistics,
-            # 線上付款（信用卡／ATM／超商代碼）要金流正式才收得到錢
-            "can_sell_online": payment,
+            # 線上付款（信用卡／ATM／超商代碼）要金流正式**而且**金鑰是自己的。
+            # 只切環境沒換金鑰的話，客人會被帶到正式付款頁然後每筆都失敗 ——
+            # 那比停在測試環境更糟，所以這裡一併擋住。
+            "can_sell_online": self.can_sell_online_now,
+            "warnings": self.ecpay_warnings,
         }
 
     def logistics_credentials(self, logistics_type: str) -> tuple[str, str, str]:

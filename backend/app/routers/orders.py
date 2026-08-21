@@ -188,17 +188,37 @@ def checkout_options(db: Session = Depends(get_db)):
     # 客人以為買到了，你這邊卻沒有一毛錢進來，是最糟的狀況。
     #
     # 兩邊都還在測試時不擋，那是開發中的正常狀態，要能測所有付款方式。
-    cod_only = settings.is_logistics_production and not settings.is_ecpay_production
+    cod_only = settings.is_logistics_production and not settings.can_sell_online_now
     online_reason = "線上付款服務審核中，目前僅開放貨到付款" if cod_only else None
 
-    payment = [
-        PaymentOption(
+    # 店家自己關掉的付款方式（後台 → 網站設定 → 付款方式）。
+    #
+    # 留空 = 全開。只能再關掉，不能打開綠界還沒開通的 ——
+    # 那種開關只會讓人以為自己開得起來，結果客人刷了收不到錢。
+    #
+    # 另外**永遠不會把最後一種也關掉**：一個都不能選的結帳頁等於關店，
+    # 而且前端的自動修正邏輯會在無解的組合上來回跳（曾經把連線池打爆過）。
+    chosen = {s.strip() for s in (cfg.get("payment_methods_enabled") or "").split(",") if s.strip()}
+
+    payment = []
+    for v, (_, lbl) in PAYMENT_MAP.items():
+        blocked_by_ecpay = bool(cod_only and v != PaymentMethod.cod.value)
+        turned_off = bool(chosen) and v not in chosen
+        payment.append(PaymentOption(
             value=v, label=lbl, note=payment_notes.get(v),
-            disabled=bool(cod_only and v != PaymentMethod.cod.value),
-            disabled_reason=online_reason if v != PaymentMethod.cod.value else None,
-        )
-        for v, (_, lbl) in PAYMENT_MAP.items()
-    ]
+            disabled=blocked_by_ecpay or turned_off,
+            disabled_reason=(
+                online_reason if blocked_by_ecpay
+                else ("本店目前未開放這個付款方式" if turned_off else None)
+            ),
+        ))
+
+    if all(p.disabled for p in payment):
+        # 全被關掉時至少留貨到付款，不然結帳頁會變成死路
+        for p in payment:
+            if p.value == PaymentMethod.cod.value:
+                p.disabled = False
+                p.disabled_reason = None
 
     shipping = []
     for value, (ltype, sub_type, label, supports_cod) in SHIPPING_MAP.items():

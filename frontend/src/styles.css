@@ -353,6 +353,14 @@ ul { margin: 0; padding: 0; list-style: none; }
    紅色會讓人以為出事了，資訊藍又太容易被當成裝飾滑過去。 */
 .alert--warn { background: #fdf6e6; border-color: #e8cf95; color: #7a5a12; }
 
+/* 後台的勾選列（付款方式這種一行一項的清單） */
+.check-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 11px 0; border-bottom: 1px solid var(--line); cursor: pointer;
+}
+.check-row:last-child { border-bottom: 0; }
+.check-row input { margin-top: 3px; flex: none; }
+
 /* 後台說明文字裡的短程式碼片段（網址範例、欄位名） */
 .hint-code {
   padding: 1px 5px; border-radius: 3px; background: var(--cream-2);

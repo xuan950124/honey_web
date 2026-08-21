@@ -27,6 +27,12 @@ SHIPPING_DEFAULTS: dict[str, str] = {
     "sender_cellphone": "",
     "sender_zipcode": "",
     "sender_address": "",
+    # 開放哪幾種付款方式（逗號分隔）。留空 = 綠界開通的全部開放。
+    #
+    # 放在這一份而不是另外查一次，是因為結帳選項本來就會整批讀出來 ——
+    # 多一個鍵不用多一次查詢。（曾經每算一次運費就查一次資料庫，
+    # 五種配送算三輪＝十幾次查詢，同時幾個人結帳就把連線池吃光。）
+    "payment_methods_enabled": "",
 }
 
 TEMPERATURE_LABELS = {

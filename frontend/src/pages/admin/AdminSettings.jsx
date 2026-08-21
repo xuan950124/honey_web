@@ -124,6 +124,20 @@ const IMAGE_FIELDS = [
   },
 ]
 
+/*
+  付款方式。
+
+  這裡只能**再關掉**，不能打開綠界還沒開通的服務 ——
+  放一個「開啟信用卡」的開關會讓人以為自己開得起來，
+  但錢收不收得到是綠界那邊決定的，開了只會讓客人刷了卻沒入帳。
+*/
+const PAYMENT_METHODS = [
+  { value: 'credit', label: '信用卡', note: '費率 2.75%，入帳最快' },
+  { value: 'atm', label: 'ATM 虛擬帳號', note: '每筆手續費較低，但買家可能忘記轉帳' },
+  { value: 'cvs_code', label: '超商代碼繳費', note: '沒有網銀的買家會用；有金額上限' },
+  { value: 'cod', label: '貨到付款', note: '取貨時付現，走物流代收貨款' },
+]
+
 // 團購的運送說明。獨立一個欄位而不是叫店家去每個商品的內文各貼一次 ——
 // 漏貼的那個商品就是下一次客訴。
 const GROUP_BUY_FIELDS = [
@@ -200,6 +214,7 @@ export default function AdminSettings() {
   const [err, setErr] = useState('')
   const [saving, setSaving] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [checkout, setCheckout] = useState(null)
   const { reload } = useSettings()
 
   // 從前台編輯模式帶 ?focus=欄位 過來時，捲到那一格並高亮
@@ -210,9 +225,39 @@ export default function AdminSettings() {
       .then(setValues)
       .catch((e) => setErr(e.message))
       .finally(() => setLoaded(true))
+    // 綠界目前開通到哪，決定哪些付款方式「勾了也沒用」
+    api.checkoutOptions().then(setCheckout).catch(() => {})
   }, [])
 
   const change = (e) => setValues((v) => ({ ...v, [e.target.name]: e.target.value }))
+
+  /*
+    付款方式：空字串 = 全開。
+
+    存成逗號分隔的字串而不是每個方式一個設定鍵，
+    是因為「有沒有勾」跟「這個鍵存不存在」很容易混淆 ——
+    一個字串就沒有這個問題，而且加新的付款方式時不必動資料。
+  */
+  const ecStatus = checkout?.ecpay_status || {}
+  const canOnline = Boolean(ecStatus.can_sell_online)
+  const enabledSet = new Set(
+    (values.payment_methods_enabled || '').split(',').map((s) => s.trim()).filter(Boolean),
+  )
+  const isOn = (v) => enabledSet.size === 0 || enabledSet.has(v)
+
+  const togglePayment = (v) => {
+    // 從「全開」狀態按第一下時，先展開成完整清單再拿掉那一個，
+    // 不然會變成「只留這一個」，跟使用者想的相反
+    const base = enabledSet.size === 0 ? PAYMENT_METHODS.map((p) => p.value) : [...enabledSet]
+    let next = base.includes(v) ? base.filter((x) => x !== v) : [...base, v]
+    if (!next.length) next = ['cod']   // 不留任何一種等於關店
+    const all = next.length === PAYMENT_METHODS.length
+    setValues((s) => ({
+      ...s,
+      // 全部都勾就存回空字串，語意上等於「跟著綠界開通的走」
+      payment_methods_enabled: all ? '' : next.join(','),
+    }))
+  }
 
   const submit = async (e) => {
     e.preventDefault()
@@ -222,6 +267,7 @@ export default function AdminSettings() {
       ;[...FIELDS, ...HERO_FIELDS, ...IMAGE_FIELDS, ...GROUP_BUY_FIELDS,
         ...SHIPPING_FIELDS, ...SENDER_FIELDS]
         .forEach((f) => { payload[f.key] = values[f.key] || '' })
+      payload.payment_methods_enabled = values.payment_methods_enabled || ''
       await api.updateSettings(payload)
       reload()
       setMsg('設定已儲存，前台已同步更新')
@@ -306,6 +352,60 @@ export default function AdminSettings() {
             onChange={(url) => setValues((v) => ({ ...v, [f.key]: url || '' }))}
           />
         ))}
+      </form>
+
+      <form className="panel" onSubmit={submit}>
+        <h2 className="panel__title">付款方式</h2>
+        <p className="small muted" style={{ marginTop: -8 }}>
+          勾起來的才會出現在結帳頁。這裡只能<strong>再關掉</strong>，
+          不能打開綠界還沒開通的服務 —— 錢收不收得到是綠界那邊決定的。
+        </p>
+
+        {checkout && !canOnline && (
+          <div className="alert alert--error">
+            <strong>線上付款目前是關閉的，只有貨到付款收得到錢。</strong>
+            {(ecStatus.warnings || []).length > 0 ? (
+              <ul className="small" style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+                {ecStatus.warnings.map((w) => <li key={w} style={{ marginBottom: 4 }}>{w}</li>)}
+              </ul>
+            ) : (
+              <p className="small" style={{ margin: '6px 0 0' }}>
+                後端環境變數 <code className="hint-code">ECPAY_ENV</code> 還是
+                <code className="hint-code">stage</code>。改成
+                <code className="hint-code">production</code> 並填上自己的金流金鑰後才會開通。
+              </p>
+            )}
+          </div>
+        )}
+
+        {checkout && canOnline && (
+          <div className="alert alert--success">
+            <strong>線上付款已開通，客人的付款會真的入帳。</strong>
+          </div>
+        )}
+
+        <div className="field">
+          {PAYMENT_METHODS.map((m) => {
+            // 綠界沒開通線上付款時，除了貨到付款都勾了也沒用，直接鎖住
+            const locked = !canOnline && m.value !== 'cod' && Boolean(checkout)
+            return (
+              <label key={m.value} className="check-row" style={{ opacity: locked ? 0.5 : 1 }}>
+                <input type="checkbox" checked={isOn(m.value) && !locked} disabled={locked}
+                       onChange={() => togglePayment(m.value)} />
+                <span>
+                  <strong>{m.label}</strong>
+                  <span className="small muted" style={{ marginLeft: 8 }}>
+                    {locked ? '綠界尚未開通線上付款' : m.note}
+                  </span>
+                </span>
+              </label>
+            )
+          })}
+        </div>
+        <div className="field__hint">
+          全部勾選 = 跟著綠界開通的走（建議）。至少要留一種，全關掉等於關店，
+          所以系統一定會幫你保留貨到付款。
+        </div>
       </form>
 
       <form className="panel" onSubmit={submit}>
