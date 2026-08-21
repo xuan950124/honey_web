@@ -621,7 +621,7 @@ cd backend  && python tests/test_long_urls.py                 (84 項)
 cd backend  && python tests/test_cart_and_order_state.py      (81 項)
 cd backend  && python tests/test_checkout_stability.py       (101 項)
 cd backend  && python tests/test_ecpay_env.py                 (78 項)
-cd backend  && python tests/test_refunds.py                   (56 項)
+cd backend  && python tests/test_refunds.py                   (79 項)
 cd backend  && python tests/test_startup_resilience.py        (43 項)
 cd frontend && node tests/cart-stock-and-map.test.mjs         (94 項)
 cd frontend && node tests/edit-mode.test.mjs                  (90 項)
@@ -629,7 +629,7 @@ cd frontend && node tests/layout-css.test.mjs                 (18 項)
 ```
 
 十二份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
-共 1141 項。
+共 1164 項。
 
 ---
 

@@ -15,20 +15,21 @@ from datetime import datetime
 from html import escape
 
 import httpx
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse
 from sqlalchemy.orm import Session, joinedload
 
 from ..config import settings
 from ..database import get_db
 from ..deps import require_staff
+from ..security import create_action_token, verify_action_token
 from ..ecpay import (
     auto_submit_form, parse_backend_response, sanitize_cellphone, sanitize_goods_name,
     sanitize_name, sanitize_phone, verify_check_mac_value, with_check_mac_value,
 )
 from ..models import (
     SHIPPING_MAP, EcpayLog, LogisticsStatus, Order, OrderStatus, PaymentMethod,
-    ShippingMethod, Temperature,
+    ShippingMethod, Temperature, User,
 )
 from ..shipping import get_shipping_settings
 
@@ -438,10 +439,41 @@ PRINT_PATHS = {
 }
 
 
-@router.get("/orders/{order_id}/print", response_class=HTMLResponse,
-            dependencies=[Depends(require_staff)])
-def print_shipping_label(order_id: int, db: Session = Depends(get_db)):
-    """導轉到綠界的託運單列印頁（會開新視窗，不可用 iframe）。"""
+PRINT_PURPOSE = "print-label"
+
+
+@router.post("/orders/{order_id}/print-token", dependencies=[Depends(require_staff)])
+def print_token(order_id: int, user: User = Depends(require_staff)):
+    """發一張只能列印託運單的短效通行證。
+
+    為什麼要這一步：列印會 `window.open` 到後端的網址，那是一次**普通的
+    瀏覽器導航，不會帶 Authorization 標頭** —— 登入權杖存在 localStorage，
+    只有 fetch 才會幫忙加上去。所以直接開會被權限檢查擋下來，
+    顯示「登入憑證無效或已過期」。
+
+    也不能把登入權杖塞進網址：它有七天效期，而網址會留在瀏覽器紀錄、
+    Referer 與伺服器日誌裡。這張通行證只能列印、只活五分鐘。
+    """
+    return {"token": create_action_token(PRINT_PURPOSE, user.id, minutes=5)}
+
+
+@router.get("/orders/{order_id}/print", response_class=HTMLResponse)
+def print_shipping_label(
+    order_id: int,
+    t: str = Query("", description="print-token 發的短效通行證"),
+    db: Session = Depends(get_db),
+):
+    """導轉到綠界的託運單列印頁（會開新視窗，不可用 iframe）。
+
+    這一支**不能**用 `require_staff` —— 見 print_token 的說明。
+    改成驗證短效通行證。
+    """
+    if not verify_action_token(t, PRINT_PURPOSE):
+        raise HTTPException(
+            status_code=401,
+            detail="列印連結已失效（只有 5 分鐘壽命）。請回後台重新按一次「列印託運單」。",
+        )
+
     order = db.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="找不到訂單")

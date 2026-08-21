@@ -220,6 +220,10 @@ export const api = {
   quote: (payload) => request('/api/orders/quote', { method: 'POST', body: payload }),
 
   // 物流（綠界）
+  // 列印託運單要先換一張短效通行證 —— window.open 是普通的瀏覽器導航，
+  // 不會帶 Authorization 標頭，直接開會被擋成「登入憑證無效」
+  printToken: (orderId) =>
+    request(`/api/logistics/orders/${orderId}/print-token`, { method: 'POST' }),
   createLogistics: (orderId) =>
     request(`/api/logistics/orders/${orderId}/create`, { method: 'POST' }),
 

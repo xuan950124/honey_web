@@ -290,6 +290,10 @@ class OrderOut(ORMModel):
     paid_at: datetime | None = None
     payment_message: str | None = None
     payment_attempts: int = 0
+    # 退款。後台要看得到「已經退了多少」，不然部分退款完全看不出來。
+    refunded_amount: float = 0
+    refunded_at: datetime | None = None
+    refund_note: str | None = None
     cancel_reason: str | None = None
     # 由後端算出來的（不是資料庫欄位），見 orders._decorate。
     # 前端不要自己拼這些條件，兩邊會不一致。

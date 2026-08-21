@@ -214,8 +214,35 @@ export default function AdminOrders() {
     }
   }
 
-  const printLabel = (order) => {
-    window.open(apiUrl(`/api/logistics/orders/${order.id}/print`), '_blank', 'width=1000,height=760')
+  /*
+    列印託運單。
+
+    先換一張只能列印、只活五分鐘的通行證，再把它帶在網址上開新視窗。
+
+    為什麼不能直接開：window.open 是一次**普通的瀏覽器導航，不會帶
+    Authorization 標頭** —— 登入權杖存在 localStorage，只有 fetch 會幫忙加。
+    所以直接開一定會看到「登入憑證無效或已過期」。
+
+    也不能把登入權杖塞進網址：它有七天效期，而網址會留在瀏覽器紀錄、
+    Referer 與伺服器日誌裡。
+
+    視窗要**先開再填網址** —— 等 await 回來才 window.open 會被瀏覽器
+    當成非使用者觸發的彈出視窗而擋掉。
+  */
+  const printLabel = async (order) => {
+    const win = window.open('', '_blank', 'width=1000,height=760')
+    setErr(''); setBusyId(order.id)
+    try {
+      const { token } = await api.printToken(order.id)
+      const url = apiUrl(`/api/logistics/orders/${order.id}/print?t=${encodeURIComponent(token)}`)
+      if (win) win.location.replace(url)
+      else window.open(url, '_blank', 'width=1000,height=760')   // 彈出視窗被擋時再試一次
+    } catch (e) {
+      win?.close()
+      setErr(`拿不到列印通行證：${e.message}`)
+    } finally {
+      setBusyId(null)
+    }
   }
 
   const unpaidList = orders.filter(isUnpaid)
@@ -634,18 +661,57 @@ export default function AdminOrders() {
                                             onClick={() => changeStatus(o, 'cancelled')}>
                                       取消訂單並還原庫存
                                     </button>
-                                    {/* 收到錢了才需要退款。沒收到錢直接取消訂單就好 */}
-                                    {o.payment_status === 'paid' && (
-                                      <button type="button" className="btn btn--ghost btn--sm"
-                                              disabled={busyId === o.id} onClick={() => openRefund(o)}>
-                                        退款…
-                                      </button>
-                                    )}
                                   </div>
                                   <p className="small muted" style={{ margin: '10px 0 0' }}>
                                     「手動註記已收款」用在綠界以外的收款（買家直接匯款、面交付現）。
                                     註記後會照正常流程計入會員累積消費。
                                   </p>
+                                </div>
+                              )}
+
+                              {/*
+                                已收到錢的訂單才需要退款。
+
+                                這一塊刻意跟上面的「未付款處理」分開 ——
+                                之前把退款按鈕放進 isUnpaid 的區塊裡，
+                                而 isUnpaid 依定義就不會包含已付款的訂單，
+                                所以那顆按鈕永遠不會出現。
+                              */}
+                              {o.payment_status === 'paid' && (
+                                <div className="ship-box" style={{ marginBottom: 14 }}>
+                                  <div className="small" style={{ marginBottom: 10 }}>
+                                    <strong>已收到款項 NT${formatPrice(o.total_amount)}</strong>
+                                    {Number(o.refunded_amount) > 0 && (
+                                      <span style={{ color: 'var(--danger)' }}>
+                                        {' '}已退 NT${formatPrice(o.refunded_amount)}
+                                      </span>
+                                    )}
+                                    <span className="muted">　（{o.payment_method_label}）</span>
+                                  </div>
+                                  <button type="button" className="btn btn--ghost btn--sm"
+                                          disabled={busyId === o.id} onClick={() => openRefund(o)}>
+                                    退款…
+                                  </button>
+                                  <p className="small muted" style={{ margin: '10px 0 0' }}>
+                                    按下去會先告訴你這一筆該怎麼退（取消授權還是退刷），
+                                    不會直接動到錢。
+                                  </p>
+                                </div>
+                              )}
+                              {o.payment_status === 'refunded' && (
+                                <div className="ship-box" style={{ marginBottom: 14 }}>
+                                  <div className="small">
+                                    <strong>這筆已全額退款</strong>
+                                    <span className="muted">
+                                      　NT${formatPrice(o.refunded_amount)}
+                                      {o.refunded_at ? `．${formatDate(o.refunded_at)}` : ''}
+                                    </span>
+                                    {o.refund_note && (
+                                      <div className="muted" style={{ marginTop: 4 }}>
+                                        備註：{o.refund_note}
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               )}
 

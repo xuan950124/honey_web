@@ -258,15 +258,51 @@ def test_permissions():
 
 # ---------------------------------------------------------------- 前端
 
+def test_refund_fields_reach_the_frontend():
+    """訂單清單要帶退款欄位，後台才看得出「已經退了多少」。
+
+    少了這幾個欄位，部分退款在畫面上完全看不出來 —— 對帳時會很痛苦。
+    """
+    print("\n[訂單有帶退款欄位]")
+    from app.schemas import OrderOut
+
+    for key in ("refunded_amount", "refunded_at", "refund_note"):
+        check(f"OrderOut 有 {key}", key in OrderOut.model_fields, key)
+
+    client, Session, staff, _ = make_app()
+    add_order(Session, method=PaymentMethod.credit)
+    with client:
+        rows = client.get("/api/orders", headers=staff).json()
+        row = next(r for r in rows if r["order_no"] == "20260822001")
+        check("清單回得出付款狀態", row["payment_status"] == "paid", str(row.get("payment_status")))
+        check("清單回得出已退金額", row["refunded_amount"] == 0, str(row.get("refunded_amount")))
+
+
 def test_frontend_wiring():
     print("\n[後台介面]")
     src = ROOT / "frontend/src"
     orders = (src / "pages/admin/AdminOrders.jsx").read_text("utf-8")
 
     check("有退款按鈕", "openRefund" in orders)
-    check("只有已付款的訂單才顯示",
+
+    """退款按鈕不能被關在「未付款」的區塊裡。
+
+    這是實際踩過的坑：按鈕的條件寫成 `o.payment_status === 'paid'`，
+    但整段被包在 `isUnpaid(o) && (...)` 裡面 —— 而 isUnpaid 依定義
+    就不會包含已付款的訂單，所以那顆按鈕**永遠不會出現**。
+    條件本身沒錯，錯在放的位置。
+    """
+    unpaid_start = orders.index("{isUnpaid(o) && (")
+    unpaid_end = orders.index("{o.payment_status === 'paid' && (")
+    check("退款按鈕在未付款區塊之外",
+          unpaid_start < unpaid_end
+          and "openRefund" not in orders[unpaid_start:unpaid_end],
+          "包在 isUnpaid 裡面的話，已付款的訂單永遠看不到這顆按鈕")
+    check("已付款時才顯示退款",
           "o.payment_status === 'paid' &&" in orders,
           "沒收到錢的訂單不該有退款按鈕，直接取消就好")
+    check("已退款的訂單看得到紀錄",
+          "o.payment_status === 'refunded'" in orders and "已全額退款" in orders)
     check("會先問後端該怎麼退", "api.refundPlan" in orders)
     check("步驟排成清單", "refund.plan.steps" in orders)
     check("有綠界後台的出口", "vendor_url" in orders)
@@ -285,6 +321,72 @@ def test_frontend_wiring():
     check("client 有 refundOrder", "refundOrder" in client_js)
 
 
+def test_print_label_auth():
+    """列印託運單是「瀏覽器直接開一個網址」，不會帶 Authorization 標頭。
+
+    這是實際踩過的坑：前端 window.open 到後端的列印網址，
+    而登入權杖存在 localStorage、只有 fetch 會幫忙加上去 ——
+    所以那一頁一定被權限檢查擋下來，顯示「登入憑證無效或已過期」。
+
+    解法不是把登入權杖放進網址（它有七天效期，而網址會留在瀏覽器紀錄、
+    Referer 與伺服器日誌裡），而是發一張只能列印、只活五分鐘的通行證。
+    """
+    print("\n[列印託運單的授權]")
+    from app.security import create_access_token as login_token
+    from app.security import create_action_token, verify_action_token
+
+    token = create_action_token("print-label", 1, minutes=5)
+    check("自己的用途通得過", verify_action_token(token, "print-label") == "1")
+    check("換一個用途就不認", verify_action_token(token, "other") is None,
+          "少了用途比對的話，這張通行證等於萬用鑰匙")
+    check("登入權杖不能當通行證用",
+          verify_action_token(login_token(1), "print-label") is None,
+          "登入權杖有七天效期，不該能拿來開網址")
+    check("亂寫的擋掉", verify_action_token("not-a-token", "print-label") is None)
+    check("空字串擋掉", verify_action_token("", "print-label") is None)
+
+    client, Session, staff, member = make_app()
+    db = Session()
+    order = make_order(method=PaymentMethod.credit)
+    order.allpay_logistics_id = "49794078"
+    order.cvs_payment_no = "E8691558"
+    order.cvs_validation_no = "4533"
+    db.add(order)
+    db.commit()
+    order_id = order.id
+    db.close()
+
+    with client:
+        r = client.get(f"/api/logistics/orders/{order_id}/print")
+        check("沒帶通行證回 401", r.status_code == 401, str(r.status_code))
+        check("錯誤訊息說得出怎麼辦",
+              "重新按一次" in r.json().get("detail", ""), str(r.json().get("detail")))
+
+        r = client.post(f"/api/logistics/orders/{order_id}/print-token", headers=staff)
+        check("工作人員換得到通行證", r.status_code == 200, r.text[:150])
+        issued = r.json()["token"]
+
+        r = client.get(f"/api/logistics/orders/{order_id}/print?t={issued}")
+        check("帶了通行證就開得起來", r.status_code == 200, str(r.status_code))
+        check("回的是綠界的自動送出表單",
+              "<form" in r.text and "ecpay" in r.text.lower(), r.text[:150])
+
+        for label, headers in (("未登入", {}), ("一般會員", member)):
+            r = client.post(f"/api/logistics/orders/{order_id}/print-token", headers=headers)
+            check(f"{label} 換不到通行證", r.status_code in (401, 403), str(r.status_code))
+
+    # 前端要走「先換票再開視窗」，而且視窗要先開再填網址
+    orders_jsx = (ROOT / "frontend/src/pages/admin/AdminOrders.jsx").read_text("utf-8")
+    check("前端會先換通行證", "api.printToken" in orders_jsx)
+    check("網址帶上通行證", "print?t=" in orders_jsx)
+    check("視窗先開再填網址",
+          orders_jsx.index("window.open('', '_blank'") < orders_jsx.index("api.printToken"),
+          "等 await 回來才 window.open 會被瀏覽器當成彈出視窗擋掉")
+
+    client_js2 = (ROOT / "frontend/src/api/client.js").read_text("utf-8")
+    check("client 有 printToken", "printToken" in client_js2)
+
+
 if __name__ == "__main__":
     print("=" * 60)
     print("退款測試")
@@ -293,7 +395,9 @@ if __name__ == "__main__":
 
     for fn in (
         test_plan_by_payment_method, test_plan_edge_cases, test_apply_refund_accounting,
-        test_refund_endpoint, test_amount_guards, test_permissions, test_frontend_wiring,
+        test_refund_endpoint, test_amount_guards, test_permissions,
+        test_refund_fields_reach_the_frontend, test_frontend_wiring,
+        test_print_label_auth,
     ):
         fn()
 
