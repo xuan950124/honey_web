@@ -71,15 +71,25 @@ def _split(raw: str) -> set[str]:
     }
 
 
-def admin_ids(db=None) -> set[str]:
+def admin_ids(db) -> set[str]:
     """誰會收到通知、誰按得動按鈕。
 
     後台設定與環境變數**取聯集** —— 兩邊都算數。
     這樣既可以在後台隨時加人，環境變數那條後路也還在。
+
+    ## db 是必填，不給預設值
+
+    這個參數原本是選填（`db=None`），結果三個呼叫點全都忘了傳，
+    於是只讀得到環境變數那一份 —— 而用配對碼加進來的人是存在**資料庫**裡的。
+
+    表現出來就是「付完款完全沒收到通知，也沒有任何錯誤訊息」，
+    跟沒設定一模一樣，查了很久才發現。
+
+    所以現在漏傳會直接 TypeError。**吵鬧的失敗遠比安靜的失敗好** ——
+    尤其是這種「不會有人發現」的功能。
     """
     ids = _split(settings.LINE_ADMIN_USER_IDS)
-    if db is not None:
-        ids |= _split(_setting(db, ADMIN_IDS_KEY))
+    ids |= _split(_setting(db, ADMIN_IDS_KEY))
     return ids
 
 
@@ -114,7 +124,7 @@ def add_admin(db, user_id: str) -> bool:
     return True
 
 
-def is_admin(user_id: str | None, db=None) -> bool:
+def is_admin(user_id: str | None, db) -> bool:
     ids = admin_ids(db)
     return bool(user_id and ids and user_id in ids)
 
@@ -166,7 +176,7 @@ def push(to: str, messages: list[dict]) -> tuple[bool, str]:
     return _post("/message/push", {"to": to, "messages": messages[:5]})
 
 
-def push_to_admins(messages: list[dict], db=None) -> int:
+def push_to_admins(messages: list[dict], db) -> int:
     """推播給所有設定的管理者，回傳成功幾個。
 
     **絕對不能讓這裡的失敗影響下單流程** —— LINE 掛掉、token 過期、
@@ -315,12 +325,21 @@ def shipping_code_card(order: Order, result: dict[str, Any]) -> dict:
     }
 
 
-def notify_new_order(order: Order, db=None) -> None:
+def notify_new_order(order: Order, db) -> None:
     """訂單成立／收到款項時通知老闆。
 
     失敗只記錄不拋出 —— 通知送不出去是小事，讓客人結不了帳是大事。
+
+    但**跳過的原因一定要寫進日誌**。之前是直接 return，
+    於是「沒設定 token」「沒有人收」「LINE 掛掉」三種情況
+    在外面看起來完全一樣，都是安靜的什麼都沒發生。
     """
-    if not is_configured() or not admin_ids(db):
+    if not is_configured():
+        log.info("略過 LINE 訂單通知：沒有設定 LINE_CHANNEL_ACCESS_TOKEN")
+        return
+    if not admin_ids(db):
+        log.info("略過 LINE 訂單通知：還沒有人配對，"
+                 "請到後台『網站設定 → LINE 通知機器人』取得配對碼")
         return
     try:
         push_to_admins([order_card(order, settings.FRONTEND_BASE_URL)], db)

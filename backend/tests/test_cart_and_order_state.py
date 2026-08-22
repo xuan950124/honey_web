@@ -36,7 +36,7 @@ from sqlalchemy.pool import StaticPool  # noqa: E402
 from app import database, main  # noqa: E402
 from app.models import (  # noqa: E402
     Base, CartItem, LogisticsStatus, Order, OrderItem, OrderStatus, PaymentMethod,
-    PaymentStatus, Product, User, UserRole,
+    PaymentStatus, Product, ShippingMethod, User, UserRole,
 )
 from app.routers.orders import _decorate, new_access_token  # noqa: E402
 from app.security import create_access_token, hash_password  # noqa: E402
@@ -580,6 +580,56 @@ def test_delete_order():
           "只是要作廢的話應該留紀錄，不是刪掉")
 
 
+def test_cancelled_orders_cannot_ship():
+    """已取消的訂單不能建物流單。
+
+    ## 為什麼後端一定要擋
+
+    前端把按鈕藏起來只是「不方便按到」。這支 API 還有另外兩個入口：
+    改一行網頁，或按 LINE 上那則舊通知裡的按鈕 —— 那則通知
+    在訂單被取消之後還躺在對話紀錄裡，按下去一樣打得到。
+
+    而且後果是真的：綠界會扣運費、託運單會印出來，
+    然後你要為一筆早就取消的訂單去處理退運費。
+    """
+    print("\n[已取消的訂單不能出貨]")
+    client, Session, staff, _ = make_app_with_users()
+
+    def make(order_no, status):
+        db = Session()
+        o = Order(order_no=order_no, receiver_name="買家", receiver_phone="0912345678",
+                  receiver_address="基隆市中正區信二路1號", receiver_zipcode="202",
+                  subtotal=680, total_amount=680, status=status,
+                  payment_method=PaymentMethod.credit,
+                  payment_status=PaymentStatus.paid,
+                  shipping_method=ShippingMethod.home_tcat)
+        db.add(o)
+        db.commit()
+        oid = o.id
+        db.close()
+        return oid
+
+    with client:
+        oid = make("20260823950", OrderStatus.cancelled)
+        r = client.post(f"/api/logistics/orders/{oid}/create", headers=staff)
+        check("已取消的訂單建單被擋", r.status_code == 400, str(r.status_code))
+        check("而且說得出為什麼", "已取消" in r.text, r.text[:150])
+        check("還告訴你怎麼救回來", "改回" in r.text, r.text[:150],)
+
+    db = Session()
+    check("沒有留下任何物流編號", db.get(Order, oid).allpay_logistics_id is None,
+          "建下去綠界就扣運費了")
+    db.close()
+
+    src = (ROOT / "frontend/src/pages/admin/AdminOrders.jsx").read_text("utf-8")
+    check("後台不顯示建單按鈕", "isCancelled ?" in src)
+    check("而且是判斷 status 不是 payment_status",
+          "o.status === 'cancelled'" in src,
+          "取消跟未付款是兩件事，貨到付款的取消單 payment_status 也不是 paid")
+    check("有寫出怎麼重新出貨", "改回" in src,
+          "只把按鈕藏起來的話，真的要補寄時會不知道該怎麼辦")
+
+
 if __name__ == "__main__":
     print("=" * 60)
     print("購物車同步與訂單狀態測試")
@@ -592,6 +642,7 @@ if __name__ == "__main__":
         test_cart_sync, test_cart_rejects_bad_input,
         test_customer_facing_labels, test_frontend_wiring,
         test_need_ship_definition, test_delete_order,
+        test_cancelled_orders_cannot_ship,
     ):
         fn()
 

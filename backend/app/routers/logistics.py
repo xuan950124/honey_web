@@ -222,7 +222,7 @@ LOGISTICS_HINTS: list[tuple[tuple[str, ...], str, list[str]]] = [
         [
             "宅配（黑貓、中華郵政）一定要有收件人郵遞區號，超商取貨才不用。",
             "系統現在會自己從地址查郵遞區號 —— 會出現這個訊息，"
-            "代表地址缺了縣市或區，例如只寫「華新一路103號」。",
+            "代表地址缺了縣市或區，例如只寫「信義路四段1號」。",
             "請在這筆訂單的收件資訊把地址補完整（含縣市與區），再按一次建立物流單。",
         ],
     ),
@@ -431,6 +431,19 @@ def build_logistics_order(db: Session, order_id: int) -> dict:
         raise HTTPException(status_code=404, detail="找不到訂單")
     if order.allpay_logistics_id:
         raise HTTPException(status_code=400, detail="這筆訂單已經建立過物流單了")
+
+    # 已取消的訂單不該建物流單。
+    #
+    # 前端會把按鈕藏起來，但那只是「不方便按到」——
+    # 改一行網頁、或用 LINE 上那則舊通知的按鈕，一樣打得到這支 API。
+    # 建出去的後果是真的：綠界會扣運費、託運單會印出來，
+    # 而那筆訂單早就取消了。所以後端這一關才是真的關。
+    if order.status == OrderStatus.cancelled:
+        raise HTTPException(
+            status_code=400,
+            detail="這筆訂單已取消，不能建立物流單。"
+                   "如果要重新出貨，請先把訂單狀態改回「已付款」或「待處理」。",
+        )
 
     logistics_type, params, hash_key, hash_iv = _build_create_params(db, order)
     signed = with_check_mac_value(params, hash_key, hash_iv, algorithm="md5")

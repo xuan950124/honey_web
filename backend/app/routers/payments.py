@@ -233,7 +233,7 @@ def _apply_payment_result(db: Session, order: Order, form: dict[str, str]) -> No
         issued = membership.record_spending(db, order)
         # 錢確定進來了才通知老闆 —— 這時候才是真的可以出貨。
         # 通知失敗不會影響付款流程（notify_new_order 內部全部包起來了）。
-        notify_new_order(_decorate(order))
+        notify_new_order(_decorate(order), db)
         for coupon in issued:
             _log(db, "coupon_issued", order.order_no, True,
                  f"累積消費達標，發放折價券 {coupon.code}（{coupon.name}）", {})
@@ -445,7 +445,7 @@ def mark_paid(order_no: str, db: Session = Depends(get_db)):
     if order.status in (OrderStatus.pending, OrderStatus.cancelled):
         order.status = OrderStatus.paid
     issued = membership.record_spending(db, order)
-    notify_new_order(_decorate(order))
+    notify_new_order(_decorate(order), db)
 
     _log(db, "payment_manual", order_no, True, "工作人員手動註記已收款", {})
     db.commit()

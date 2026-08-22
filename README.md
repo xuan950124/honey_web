@@ -285,7 +285,7 @@ UPDATE users SET role = 'staff' WHERE email = '要升級的Email';
 > 只比對區名會把包裹寄到別的縣市，而且**不會有人回報** ——
 > 客人只會覺得這家店很爛。所以一定要「縣市 + 區」兩層都對上。
 
-實在推不出來（例如只寫「華新一路103號」）就**回空字串，不猜**，
+實在推不出來（例如只寫「信義路四段1號」）就**回空字串，不猜**，
 並在結帳頁擋下來請客人補完整。猜錯的成本比查不到高太多。
 
 **寄件人的郵遞區號也一樣** —— 網站設定裡那欄留空也行，
@@ -484,6 +484,28 @@ webhook 填 `https://api.你的網域.com/api/line/webhook`。
 > 存不下來最省事。
 
 紀錄保留 180 天，更舊的每天自動刪掉。
+
+---
+
+### 收不到 LINE 通知的時候
+
+先到 **後台 → 網站設定 → LINE 通知機器人** 看狀態，三件事都要是綠的：
+
+| 要有 | 沒有的話 |
+|---|---|
+| Channel access token | 訊息推不出去。到 Zeabur 設 `LINE_CHANNEL_ACCESS_TOKEN` |
+| Channel secret | webhook 驗不了簽章。設 `LINE_CHANNEL_SECRET` |
+| 至少一個收件人 | 沒人收。按「取得配對碼」，在 LINE 傳那六個數字 |
+
+按「傳一則測試訊息」可以直接確認。
+
+> **曾經有一個很難查的 bug**：通知的程式沒把資料庫連線傳進去，
+> 於是只讀得到環境變數那份名單，**用配對碼加進來的人（存在資料庫裡）全被忽略**。
+>
+> 表現出來是「付完款完全沒收到通知，也沒有任何錯誤訊息」——
+> 跟根本沒設定 LINE 一模一樣。已經修掉，而且改成漏傳會直接報錯。
+>
+> 現在通知被跳過時也會在後端日誌寫明原因，不會再安靜地什麼都不做。
 
 ---
 
@@ -761,11 +783,11 @@ cd backend  && python tests/test_compliance_seo.py           (261 項)
 cd backend  && python tests/test_payment_flow.py             (139 項)
 cd backend  && python tests/test_security.py                  (99 項)
 cd backend  && python tests/test_long_urls.py                 (84 項)
-cd backend  && python tests/test_cart_and_order_state.py     (103 項)
+cd backend  && python tests/test_cart_and_order_state.py     (110 項)
 cd backend  && python tests/test_checkout_stability.py       (101 項)
 cd backend  && python tests/test_ecpay_env.py                 (78 項)
 cd backend  && python tests/test_refunds.py                   (79 項)
-cd backend  && python tests/test_line_bot.py                  (80 項)
+cd backend  && python tests/test_line_bot.py                  (90 項)
 cd backend  && python tests/test_startup_resilience.py        (43 項)
 cd backend  && python tests/test_analytics.py                  (69 項)
 cd backend  && python tests/test_zipcode.py                    (66 項)
@@ -775,7 +797,7 @@ cd frontend && node tests/layout-css.test.mjs                 (18 項)
 ```
 
 十五份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
-共 1404 項。
+共 1421 項。
 
 ---
 

@@ -244,7 +244,7 @@ export default function Cart() {
     }
     // 宅配沒有郵遞區號綠界會直接退件，寧可在這裡擋下來請客人補完整
     if (!isCvs && !(form.receiver_zipcode || '').trim()) {
-      return setError('地址裡看不到縣市與區，請寫成像「基隆市七堵區華新一路103號」這樣的完整地址')
+      return setError('地址裡看不到縣市與區，請寫成像「臺北市大安區信義路四段1號」這樣的完整地址')
     }
     if (!isCvs && isOutlying(form.receiver_address)) {
       return setError('這個地址在離島，宅配不寄送。請改選超商取貨，或用 LINE 跟我們聯絡')
@@ -571,7 +571,7 @@ export default function Cart() {
                       <div className="field">
                         <label htmlFor="receiver_address">收件地址<span className="req">*</span></label>
                         <input id="receiver_address" className="input" name="receiver_address" required
-                               placeholder="例：基隆市七堵區華新一路103號"
+                               placeholder="例：臺北市大安區信義路四段1號"
                                value={form.receiver_address} onChange={change} />
                         <div className="field__hint">請含縣市與區，郵遞區號會自動帶出</div>
                       </div>

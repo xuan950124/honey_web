@@ -600,6 +600,7 @@ export default function AdminOrders() {
                 {visible.map((o) => {
                   const isCod = o.payment_method === 'cod'
                   const paidOrCod = isCod || o.payment_status === 'paid'
+                  const isCancelled = o.status === 'cancelled'
                   return (
                     <Fragment key={o.id}>
                       <tr>
@@ -845,6 +846,22 @@ export default function AdminOrders() {
                                         : '宅配可線上列印託運單，或通知宅配員到府收件。'}
                                     </p>
                                   </>
+                                ) : isCancelled ? (
+                                  /*
+                                    已取消的訂單不給建物流單。
+
+                                    之前這裡沒判斷狀態，取消的訂單照樣顯示按鈕，
+                                    按下去就真的建單了 —— 綠界扣運費、託運單印出來，
+                                    而那筆訂單早就取消。
+
+                                    改成講清楚「為什麼不能按」而不是把按鈕變灰，
+                                    灰掉的按鈕不會告訴你要怎麼辦。
+                                  */
+                                  <div className="small muted">
+                                    這筆訂單<strong>已取消</strong>，不能建立物流單。
+                                    <br />
+                                    如果要重新出貨，先把上面的訂單狀態改回「已付款」或「待處理」。
+                                  </div>
                                 ) : (
                                   <>
                                     <div className="small" style={{ marginBottom: 12 }}>

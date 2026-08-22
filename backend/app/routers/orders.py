@@ -526,7 +526,7 @@ def create_order(
         # 貨到付款沒有線上付款那一步，訂單成立就是可以出貨的狀態。
         # 線上付款的通知在收到綠界付款結果時才送（見 payments.py）——
         # 那時候才確定錢真的進來了。
-        notify_new_order(_decorate(order))
+        notify_new_order(_decorate(order), db)
 
     return OrderCreated(order=OrderOut.model_validate(_decorate(order)), payment_url=payment_url)
 

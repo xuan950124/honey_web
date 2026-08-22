@@ -25,6 +25,7 @@ import hmac
 import json
 import logging
 import os
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -185,16 +186,18 @@ def test_only_admin_can_ship():
     # 沒有 token 就不會真的打 LINE 的 API（測試不該送出真訊息）
     live.LINE_CHANNEL_ACCESS_TOKEN = ""
 
+    db = Session()
     try:
-        check("白名單認得出自己人", line.is_admin(BOSS) is True)
-        check("陌生人不算", line.is_admin("U_stranger") is False)
-        check("拿不到 userId 也不算", line.is_admin(None) is False)
+        check("白名單認得出自己人", line.is_admin(BOSS, db) is True)
+        check("陌生人不算", line.is_admin("U_stranger", db) is False)
+        check("拿不到 userId 也不算", line.is_admin(None, db) is False)
 
         live.LINE_ADMIN_USER_IDS = ""
         check("沒設白名單時誰都不算",
-              line.is_admin(BOSS) is False,
+              line.is_admin(BOSS, db) is False,
               "空的白名單要當成「誰都不行」，不能當成「誰都可以」")
         live.LINE_ADMIN_USER_IDS = BOSS
+        db.close()
 
         raw, headers = event({"events": [{
             "type": "postback", "replyToken": "tok",
@@ -341,7 +344,7 @@ def test_notify_never_breaks_checkout():
         order.shipping_method_label = "7-ELEVEN 超商取貨"
         order.payment_method_label = "信用卡"
         try:
-            line.notify_new_order(order)
+            line.notify_new_order(order, db)
             ok = True
         except Exception:  # noqa: BLE001
             ok = False
@@ -548,6 +551,68 @@ def test_shared_logistics_code():
           "自己組一份的話，兩邊的規則遲早會不一樣")
 
 
+def test_notify_always_gets_the_database():
+    """通知一定要拿到 db，不然只讀得到環境變數那份名單。
+
+    ## 這是實際發生過的 bug
+
+    `admin_ids(db=None)` 的 db 原本是選填。三個呼叫點
+    （下單、綠界付款回呼、手動註記收款）全都忘了傳，
+    於是只讀環境變數 `LINE_ADMIN_USER_IDS` ——
+    而用配對碼加進來的人是存在**資料庫**裡的。
+
+    表現出來是「付完款完全沒收到通知，也沒有任何錯誤」，
+    跟根本沒設定 LINE 一模一樣，完全查不出差別。
+
+    修法是把 db 改成必填，漏傳直接 TypeError。
+    這份測試盯著：以後有人新增呼叫點又忘了傳，這裡會紅。
+    """
+    print("\n[通知一定拿得到資料庫]")
+    import inspect
+
+    from app import line as line_mod
+
+    for name in ("admin_ids", "push_to_admins", "is_admin", "notify_new_order"):
+        sig = inspect.signature(getattr(line_mod, name))
+        db_param = sig.parameters.get("db")
+        check(f"{name} 的 db 是必填",
+              db_param is not None and db_param.default is inspect.Parameter.empty,
+              "有預設值的話，漏傳不會報錯，只會安靜地少讀後台那份名單")
+
+    calls = []
+    for path in ("backend/app/routers/orders.py", "backend/app/routers/payments.py",
+                 "backend/app/routers/logistics.py", "backend/app/routers/line_bot.py"):
+        src = (ROOT / path).read_text("utf-8")
+        for m in re.finditer(r"notify_new_order\(([^\n]*?)\)\s*$", src, re.M):
+            calls.append((path, m.group(1)))
+
+    check("找得到 notify_new_order 的呼叫點", len(calls) >= 3, str(len(calls)))
+    bad = [f"{p}: {a}" for p, a in calls if not a.rstrip().endswith("db")]
+    check("每個呼叫點都有傳 db", not bad, "；".join(bad))
+
+    # 真的跑一次：後台配對進來的人收得到嗎
+    client, Session, _, _ = make_app()
+    db = Session()
+    line_mod.add_admin(db, "U" + "9" * 32)
+    check("配對後 admin_ids 讀得到（要靠 db）",
+          "U" + "9" * 32 in line_mod.admin_ids(db),
+          "讀不到就等於通知永遠不會送出去")
+    db.close()
+
+
+def test_skipped_notifications_say_why():
+    """通知沒送出去的時候，日誌要講得出是哪一種情況。
+
+    「沒設 token」「沒有人配對」「LINE 掛掉」在外面看起來
+    都是同一件事：什麼都沒發生。不寫日誌就永遠只能猜。
+    """
+    print("\n[跳過的原因要留下來]")
+    src = (ROOT / "backend/app/line.py").read_text("utf-8")
+    check("沒 token 會寫日誌", "沒有設定 LINE_CHANNEL_ACCESS_TOKEN" in src)
+    check("沒人配對會寫日誌", "還沒有人配對" in src)
+    check("而且告訴你去哪裡設定", "配對碼" in src)
+
+
 if __name__ == "__main__":
     print("=" * 60)
     print("LINE 機器人測試")
@@ -560,6 +625,7 @@ if __name__ == "__main__":
         test_status_endpoint, test_notify_never_breaks_checkout,
         test_recipients_can_be_managed_in_admin, test_pair_code,
         test_pair_code_never_leaks, test_shared_logistics_code,
+        test_notify_always_gets_the_database, test_skipped_notifications_say_why,
     ):
         fn()
 

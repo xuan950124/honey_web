@@ -170,7 +170,7 @@ const SENDER_FIELDS = [
   {
     key: 'sender_address',
     label: '寄件人地址',
-    hint: '宅配必填。請含縣市與區（例：基隆市七堵區華新一路103號）',
+    hint: '宅配必填。請含縣市與區，郵遞區號會自動查',
   },
 ]
 
