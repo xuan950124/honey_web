@@ -265,6 +265,11 @@ export const api = {
   lineRemoveRecipient: (userId) =>
     request(`/api/line/recipients/${encodeURIComponent(userId)}`, { method: 'DELETE' }),
 
+  // 瀏覽統計。記錄是公開的（每個訪客都要送得出來），看統計只有工作人員
+  recordView: (path, referrer) =>
+    request('/api/stats/view', { method: 'POST', body: { path, referrer } }),
+  statsSummary: (days = 30) => request(`/api/stats/summary?days=${days}`),
+
   structuredData: () => request('/api/seo/structured-data'),
   // 常見問題。同一份資料同時用來畫頁面與產生 FAQPage 結構化資料 ——
   // Google 會比對頁面上找不找得到這些字，兩邊必須一致

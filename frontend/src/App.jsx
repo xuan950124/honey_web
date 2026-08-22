@@ -10,6 +10,7 @@ import SiteMeta from './components/SiteMeta'
 import { useAuth } from './context/AuthContext'
 import { useCart } from './context/CartContext'
 import { useEditMode } from './context/EditModeContext'
+import usePageTracking from './hooks/usePageTracking'
 
 import Cart from './pages/Cart'
 import ForgotPassword from './pages/ForgotPassword'
@@ -41,7 +42,14 @@ import AdminPolicies from './pages/admin/AdminPolicies'
 import AdminProductForm from './pages/admin/AdminProductForm'
 import AdminProducts from './pages/admin/AdminProducts'
 import AdminSettings from './pages/admin/AdminSettings'
+import AdminStats from './pages/admin/AdminStats'
 import AdminStories from './pages/admin/AdminStories'
+
+/** 每次換頁記一次瀏覽。工作人員與關掉統計的裝置不算，詳見 usePageTracking。 */
+function PageTracker() {
+  usePageTracking()
+  return null
+}
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -66,6 +74,7 @@ export default function App() {
     <>
       <SiteMeta />
       <ScrollToTop />
+      <PageTracker />
       <Header />
       <main>
         <Routes>
@@ -105,6 +114,7 @@ export default function App() {
             <Route path="news" element={<AdminNews />} />
             <Route path="stories" element={<AdminStories />} />
             <Route path="orders" element={<AdminOrders />} />
+            <Route path="stats" element={<AdminStats />} />
             <Route path="members" element={<AdminMembers />} />
             <Route path="membership" element={<AdminMembership />} />
             <Route path="settings" element={<AdminSettings />} />

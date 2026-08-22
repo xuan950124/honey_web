@@ -162,8 +162,16 @@ const SENDER_FIELDS = [
   },
   { key: 'sender_cellphone', label: '寄件人手機', hint: '09 開頭共 10 碼，退貨通知簡訊會寄到這裡' },
   { key: 'sender_phone', label: '寄件人市話', hint: '選填' },
-  { key: 'sender_zipcode', label: '寄件人郵遞區號', hint: '宅配必填' },
-  { key: 'sender_address', label: '寄件人地址', hint: '宅配必填，需完整且超過 6 個字' },
+  {
+    key: 'sender_zipcode',
+    label: '寄件人郵遞區號',
+    hint: '留空也可以，系統會從下面的地址自己查',
+  },
+  {
+    key: 'sender_address',
+    label: '寄件人地址',
+    hint: '宅配必填。請含縣市與區（例：基隆市七堵區華新一路103號）',
+  },
 ]
 
 // 首頁最上面那塊大字。跟「品牌標語」分開，因為兩邊需要的長度差很多。

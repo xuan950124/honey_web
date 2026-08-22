@@ -31,8 +31,10 @@ def _session():
 def _engine():
     """同上，連線引擎也現查。"""
     return database.engine
+from . import analytics
 from .routers import (
     auth, cart, content, line_bot, logistics, membership, orders, payments, products,
+    stats,
     seo, uploads,
 )
 
@@ -185,6 +187,7 @@ app.include_router(membership.router)
 app.include_router(seo.router)
 app.include_router(cart.router)
 app.include_router(line_bot.router)
+app.include_router(stats.router)
 
 
 EXPIRE_SWEEP_SECONDS = 3600  # 每小時清一次逾期未付款訂單
@@ -192,10 +195,21 @@ EXPIRE_SWEEP_SECONDS = 3600  # 每小時清一次逾期未付款訂單
 
 def _sweep_expired_once() -> int:
     """跑一次清理。整個資料庫連線的生命週期都在同一個執行緒裡，
-    SQLAlchemy 的 Session 不是執行緒安全的，不要跨執行緒傳。"""
+    SQLAlchemy 的 Session 不是執行緒安全的，不要跨執行緒傳。
+
+    順便把過期的瀏覽紀錄刪掉 —— 一天幾百筆看起來沒什麼，
+    一年就是十幾萬列。搭這班車比另外開一條背景工作省事。
+    """
     db = _session()
     try:
-        return len(orders.expire_unpaid_orders(db))
+        expired = len(orders.expire_unpaid_orders(db))
+        try:
+            purged = analytics.purge_old(db)
+            if purged:
+                log.info("清掉 %d 筆過期的瀏覽紀錄", purged)
+        except Exception:  # noqa: BLE001 - 統計的清理失敗不該影響訂單清理
+            log.exception("清理瀏覽紀錄時發生錯誤")
+        return expired
     finally:
         db.close()
 

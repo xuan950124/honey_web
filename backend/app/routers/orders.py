@@ -9,6 +9,7 @@ from ..config import settings
 from ..database import get_db
 from ..deps import get_current_user, get_optional_user, require_staff
 from ..ecpay import extract_zipcode
+from .. import zipcode
 from .. import membership
 # 直接 import 函式：這個檔案裡 `line` 是「訂單的一行」的區域變數，會蓋掉模組名
 from ..line import notify_new_order
@@ -457,7 +458,15 @@ def create_order(
         receiver_zipcode = None
     else:
         receiver_address = (payload.receiver_address or "").strip()
-        receiver_zipcode = payload.receiver_zipcode or extract_zipcode(receiver_address)
+        # 客人自己填的最準，其次是地址開頭的數字，都沒有才查表。
+        # 在下單當下就算好，訂單列表與託運單才看得到，
+        # 也才不會拖到出貨那天才發現地址不完整。
+        receiver_zipcode = (
+            (payload.receiver_zipcode or "").strip()
+            or extract_zipcode(receiver_address)
+            or zipcode.lookup(receiver_address)
+            or None
+        )
 
     order = Order(
         order_no=_generate_order_no(),

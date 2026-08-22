@@ -386,6 +386,37 @@ class SiteSetting(Base):
     value: Mapped[str | None] = mapped_column(Text)
 
 
+class PageView(Base):
+    """瀏覽紀錄。
+
+    ## 為什麼自己做而不是掛 Google Analytics
+
+    GA 要放追蹤碼、要處理 cookie 同意、資料還在別人家，而店家真正想知道的
+    只有「今天幾個人來、看了什麼」。自己存的話後台直接看得到，
+    也不會有第三方 cookie 的合規問題。
+
+    ## 這裡刻意**不存 IP**
+
+    IP 在個資法下是個人資料。但要算「不重複訪客」又需要能分辨是不是同一個人，
+    所以存的是雜湊：`sha256(IP + User-Agent + 當天的鹽)`。
+
+    鹽**每天換**，帶來兩個結果：
+      - 反推不回原始 IP（就算資料庫外流也一樣）
+      - **跨日追蹤不了同一個人** —— 今天的張三跟明天的張三算成兩個訪客。
+        統計上略保守，但這正是隱私友善的做法該有的樣子。
+    """
+    __tablename__ = "page_views"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # 只存路徑（/products/3），不存查詢字串 —— 那裡面可能有訂單存取碼
+    path: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
+    visitor_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    # 來源網站的網域（google.com、line.me…），不存完整網址
+    referrer_host: Mapped[str | None] = mapped_column(String(120))
+    day: Mapped[str] = mapped_column(String(10), nullable=False, index=True)  # YYYY-MM-DD
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
 class EcpayLog(Base):
     """綠界回呼與 API 往來記錄，出問題時可回溯查證。"""
     __tablename__ = "ecpay_logs"

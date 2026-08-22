@@ -8,6 +8,7 @@ import StorePicker from '../components/StorePicker'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { useSettings } from '../context/SettingsContext'
+import { isOutlying, lookupZip } from '../lib/zipcode'
 
 const TEMPERATURES = ['0001', '0002', '0003']
 
@@ -77,12 +78,17 @@ export default function Cart() {
 
   useEffect(() => {
     if (!user) return
-    setForm((f) => ({
-      ...f,
-      receiver_name: f.receiver_name || user.name || '',
-      receiver_phone: f.receiver_phone || user.phone || '',
-      receiver_address: f.receiver_address || user.address || '',
-    }))
+    setForm((f) => {
+      const address = f.receiver_address || user.address || ''
+      return {
+        ...f,
+        receiver_name: f.receiver_name || user.name || '',
+        receiver_phone: f.receiver_phone || user.phone || '',
+        receiver_address: address,
+        // 會員帶出來的地址也要算郵遞區號，不然老客人反而會漏
+        receiver_zipcode: f.receiver_zipcode || lookupZip(address),
+      }
+    })
   }, [user])
 
   const selectedShipping = useMemo(
@@ -195,7 +201,31 @@ export default function Cart() {
     return () => { cancelled = true; clearTimeout(timer) }
   }, [subtotal, shippingMethod, paymentMethod, temperature, couponCode, items.length, quoteRetry])
 
-  const change = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }))
+  /*
+    郵遞區號自己算。
+
+    宅配（黑貓、中華郵政）的郵遞區號是綠界的必填欄位，少了會被退件，
+    但客人幾乎不會填 —— 他們心裡想的是「地址都寫完整了還要我查郵遞區號？」，
+    這很合理。所以打地址的時候就順手帶出來。
+
+    只在客人**沒有自己動過**郵遞區號欄位時才覆蓋。
+    有些地址（大樓、眷村改編）的實際郵遞區號跟行政區對照不一樣，
+    客人自己打的一定比我們查表準。
+  */
+  const [zipTouched, setZipTouched] = useState(false)
+
+  const change = (e) => {
+    const { name, value } = e.target
+    if (name === 'receiver_zipcode') setZipTouched(true)
+
+    setForm((f) => {
+      const next = { ...f, [name]: value }
+      if (name === 'receiver_address' && !zipTouched) {
+        next.receiver_zipcode = lookupZip(value) || ''
+      }
+      return next
+    })
+  }
 
   const submit = async (e) => {
     e.preventDefault()
@@ -211,6 +241,13 @@ export default function Cart() {
     if (isCvs && !store.cvs_store_id) return setError('請先選擇取貨門市')
     if (!isCvs && (form.receiver_address || '').trim().length < 6) {
       return setError('請填寫完整的收件地址')
+    }
+    // 宅配沒有郵遞區號綠界會直接退件，寧可在這裡擋下來請客人補完整
+    if (!isCvs && !(form.receiver_zipcode || '').trim()) {
+      return setError('地址裡看不到縣市與區，請寫成像「基隆市七堵區華新一路103號」這樣的完整地址')
+    }
+    if (!isCvs && isOutlying(form.receiver_address)) {
+      return setError('這個地址在離島，宅配不寄送。請改選超商取貨，或用 LINE 跟我們聯絡')
     }
     if (!/^09\d{8}$/.test((form.receiver_phone || '').replace(/\D/g, ''))) {
       return setError('請填寫正確的手機號碼（09 開頭共 10 碼），超商與宅配都需要簡訊通知')
@@ -524,13 +561,19 @@ export default function Cart() {
                       <div className="field">
                         <label htmlFor="receiver_zipcode">郵遞區號</label>
                         <input id="receiver_zipcode" className="input" name="receiver_zipcode"
-                               placeholder="例：733" value={form.receiver_zipcode} onChange={change} />
-                        <div className="field__hint">留空會自動從地址開頭判斷</div>
+                               placeholder="自動帶出" value={form.receiver_zipcode} onChange={change} />
+                        <div className="field__hint">
+                          {form.receiver_zipcode && !zipTouched
+                            ? '已從地址自動帶出，可以直接改'
+                            : '打完地址就會自動帶出'}
+                        </div>
                       </div>
                       <div className="field">
                         <label htmlFor="receiver_address">收件地址<span className="req">*</span></label>
                         <input id="receiver_address" className="input" name="receiver_address" required
-                               placeholder="請填寫完整地址" value={form.receiver_address} onChange={change} />
+                               placeholder="例：基隆市七堵區華新一路103號"
+                               value={form.receiver_address} onChange={change} />
+                        <div className="field__hint">請含縣市與區，郵遞區號會自動帶出</div>
                       </div>
                     </div>
                   )}

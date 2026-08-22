@@ -23,6 +23,7 @@ from ..config import settings
 from ..database import get_db
 from ..deps import require_staff
 from ..security import create_action_token, verify_action_token
+from .. import zipcode
 from ..ecpay import (
     auto_submit_form, parse_backend_response, sanitize_cellphone, sanitize_goods_name,
     sanitize_name, sanitize_phone, verify_check_mac_value, with_check_mac_value,
@@ -198,8 +199,10 @@ def _check_sender(cfg: dict, logistics_type: str, sub_type: str) -> None:
             problems.append("寄件人手機或市話（至少填一個）")
         elif raw_cell and not cell and not phone:
             problems.append(cell_problem())
-        if not (cfg.get("sender_zipcode") or "").strip():
-            problems.append("寄件人郵遞區號")
+        # 寄件人郵遞區號沒填也沒關係，只要地址推得出來就好
+        if not (cfg.get("sender_zipcode") or "").strip() \
+                and not zipcode.lookup(cfg.get("sender_address") or ""):
+            problems.append("寄件人郵遞區號（或把地址寫完整，含縣市與區）")
         if len((cfg.get("sender_address") or "").strip()) < 6:
             problems.append("寄件人地址（需完整且超過 6 個字）")
 
@@ -213,6 +216,25 @@ def _check_sender(cfg: dict, logistics_type: str, sub_type: str) -> None:
 # 每一條都寫出「為什麼」和「怎麼辦」——
 # 只把原文貼給店家看，他還是不知道要去哪裡按什麼。
 LOGISTICS_HINTS: list[tuple[tuple[str, ...], str, list[str]]] = [
+    (
+        ("ReceiverZipCode", "Null"),
+        "收件人郵遞區號是空的",
+        [
+            "宅配（黑貓、中華郵政）一定要有收件人郵遞區號，超商取貨才不用。",
+            "系統現在會自己從地址查郵遞區號 —— 會出現這個訊息，"
+            "代表地址缺了縣市或區，例如只寫「華新一路103號」。",
+            "請在這筆訂單的收件資訊把地址補完整（含縣市與區），再按一次建立物流單。",
+        ],
+    ),
+    (
+        ("SenderZipCode", "Null"),
+        "寄件人郵遞區號是空的",
+        [
+            "到「網站設定 → 出貨設定」把寄件人地址寫完整（含縣市與區），"
+            "或直接填寄件人郵遞區號。",
+            "這是你自己的地址，設定一次就好。",
+        ],
+    ),
     (
         ("可提領餘額", "餘額為負數", "不足支付物流運費"),
         "綠界帳戶餘額不足，付不出這筆運費",
@@ -345,9 +367,33 @@ def _build_create_params(db: Session, order: Order) -> tuple[str, dict, str, str
     else:
         if not order.receiver_address:
             raise HTTPException(status_code=400, detail="這筆訂單沒有收件地址")
-        params["SenderZipCode"] = cfg.get("sender_zipcode") or ""
+
+        # 郵遞區號是宅配的必填欄位，沒有的話綠界只會回一句
+        # 「ReceiverZipCode Is Null」，不會說是哪一筆、也不會說要去哪裡補。
+        #
+        # 客人幾乎不會主動填（結帳頁那欄是選填），所以這裡從地址自己查。
+        # 查到就順手存回訂單，下次重試不必再算一次，託運單上也印得出來。
+        if not order.receiver_zipcode:
+            found = zipcode.lookup(order.receiver_address)
+            if found:
+                order.receiver_zipcode = found
+                db.add(order)
+                db.commit()
+                db.refresh(order)
+
+        if not order.receiver_zipcode:
+            raise HTTPException(
+                status_code=400,
+                detail=(f"這筆訂單缺郵遞區號，而且從地址「{order.receiver_address}」"
+                        f"推不出來：{zipcode.describe(order.receiver_address)}。"
+                        "請在訂單的收件資訊直接補上。"),
+            )
+
+        sender_zip = (cfg.get("sender_zipcode") or "").strip() \
+            or zipcode.lookup(cfg.get("sender_address") or "")
+        params["SenderZipCode"] = sender_zip
         params["SenderAddress"] = cfg.get("sender_address") or ""
-        params["ReceiverZipCode"] = order.receiver_zipcode or ""
+        params["ReceiverZipCode"] = order.receiver_zipcode
         params["ReceiverAddress"] = order.receiver_address
         if sub_type == "TCAT":
             params["Temperature"] = order.temperature or Temperature.normal.value
