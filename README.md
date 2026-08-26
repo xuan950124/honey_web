@@ -509,6 +509,28 @@ webhook 填 `https://api.你的網域.com/api/line/webhook`。
 
 ---
 
+### 每天 00:00 自動推前一天的流量
+
+不用自己去後台看。每天午夜會把**剛結束那一天**的流量推到你的 LINE：
+幾次瀏覽、幾個人、最多人看哪一頁、客人從哪裡來，而且**跟前一天比**。
+
+> 為什麼一定要跟前一天比：「昨天 40 人」單獨看不知道是好是壞，
+> 看到「前天 12 人」才讀得出那是三倍。只給一個數字的日報，看兩天就沒人看了。
+
+**沒有人來的日子也會送。** 零瀏覽就不吵你的話，「今天沒收到訊息」
+會變成兩種意思：真的沒人來，或是系統壞了 —— 而這兩件事要做的處理完全相反。
+
+不想等到半夜確認它會不會動，按 **網站設定 → LINE 通知機器人 →
+「現在推一次昨天的流量」**。
+
+> **時區很重要。** `python:3.12-slim` 沒有內建時區資料，
+> 只設 `TZ=Asia/Taipei` 不會報錯，會安靜地退回 UTC ——
+> 那樣「00:00」會變成台灣時間早上 8 點，連訂單成立時間都差 8 小時。
+> Dockerfile 已經裝了 `tzdata`，後端啟動時也會把現在時間印在日誌上，
+> 部署完看一眼就知道對不對。
+
+---
+
 ## 七、會員帳號與 Email 驗證
 
 - **顯示密碼**：所有密碼欄位都有勾選框，可以確認自己打了什麼
@@ -789,7 +811,7 @@ cd backend  && python tests/test_ecpay_env.py                 (78 項)
 cd backend  && python tests/test_refunds.py                   (79 項)
 cd backend  && python tests/test_line_bot.py                  (90 項)
 cd backend  && python tests/test_startup_resilience.py        (43 項)
-cd backend  && python tests/test_analytics.py                  (69 項)
+cd backend  && python tests/test_analytics.py                 (101 項)
 cd backend  && python tests/test_zipcode.py                    (66 項)
 cd frontend && node tests/cart-stock-and-map.test.mjs         (94 項)
 cd frontend && node tests/edit-mode.test.mjs                  (90 項)
@@ -797,7 +819,7 @@ cd frontend && node tests/layout-css.test.mjs                 (18 項)
 ```
 
 十五份都不需要資料庫或瀏覽器，改完程式可以直接跑確認沒弄壞東西。
-共 1421 項。
+共 1453 項。
 
 ---
 

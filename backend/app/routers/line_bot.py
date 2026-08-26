@@ -115,6 +115,37 @@ def send_test(db: Session = Depends(get_db)):
             "送出失敗。多半是 token 填錯或已被 Reissue，也可能是你還沒加官方帳號好友。"}
 
 
+@router.post("/daily-report", dependencies=[Depends(require_staff)])
+def send_daily_report_now(day: str | None = None, db: Session = Depends(get_db)):
+    """立刻推一次流量摘要，不用等到半夜。
+
+    預設是「昨天」。做這支是因為排程功能最難的地方不是寫，
+    是**確認它真的會動** —— 不然要等到隔天早上才知道自己寫錯了。
+    """
+    from datetime import date, timedelta
+
+    from .. import analytics
+
+    target = (day or (date.today() - timedelta(days=1)).isoformat()).strip()
+    try:
+        date.fromisoformat(target)
+    except ValueError:
+        raise HTTPException(status_code=422,
+                            detail="日期格式要像 2026-08-25") from None
+
+    if not line.is_configured():
+        return {"ok": False, "message": "還沒設定 LINE_CHANNEL_ACCESS_TOKEN。"}
+    if not line.admin_ids(db):
+        return {"ok": False, "message": "還沒有人配對。請先按上面的「取得配對碼」。"}
+
+    report = analytics.day_report(db, target)
+    if line.notify_daily_stats(report, db):
+        return {"ok": True, "day": target,
+                "message": f"已送出 {target} 的流量摘要"
+                           f"（{report['views']} 次瀏覽、{report['visitors']} 人）。"}
+    return {"ok": False, "message": "送出失敗，多半是 token 填錯或已被 Reissue。"}
+
+
 @router.post("/webhook")
 async def webhook(
     request: Request,

@@ -7,6 +7,17 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     TZ=Asia/Taipei
 
+# TZ=Asia/Taipei 要真的生效，容器裡必須有時區資料。
+#
+# python:3.12-slim **沒有內建 tzdata** —— 少了它，設 TZ 不會報錯，
+# 只會安靜地退回 UTC。症狀是所有時間差 8 小時：
+# 訂單成立時間不對、每天 00:00 的流量報告變成早上 8 點才送，
+# 而且統計的「今天」是從台灣時間早上 8 點才換日。
+# 全部都是「看起來有在動、數字就是怪」的那種問題。
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends tzdata \
+ && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # 先只複製 requirements，讓 Docker 能快取這層，之後改程式碼不用重裝套件

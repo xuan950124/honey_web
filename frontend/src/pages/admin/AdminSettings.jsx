@@ -532,8 +532,34 @@ export default function AdminSettings() {
                       }}>
                 傳一則測試訊息
               </button>
+              {/*
+                排程功能最難的不是寫，是確認它真的會動。
+                沒有這顆按鈕的話，寫完要等到隔天早上才知道自己有沒有寫錯。
+              */}
+              <button type="button" className="btn btn--outline btn--sm"
+                      onClick={async () => {
+                        setLineTest('傳送中…')
+                        try {
+                          const res = await api.lineDailyReport()
+                          setLineTest(res.message)
+                        } catch (e) {
+                          setLineTest(e.message)
+                        }
+                      }}>
+                現在推一次昨天的流量
+              </button>
               {lineTest && <span className="small">{lineTest}</span>}
             </div>
+
+            <p className="small muted" style={{ margin: '12px 0 0', lineHeight: 1.9 }}>
+              每天 <strong>00:00</strong> 會自動把前一天的流量推到這裡 ——
+              幾次瀏覽、幾個人、最多人看哪一頁、客人從哪裡來，
+              並且跟前一天比。
+              <br />
+              <strong>沒有人來的日子也會送。</strong>
+              零瀏覽就不吵你的話，「沒收到訊息」會變成兩種意思：
+              真的沒人來，或是系統壞了 —— 而這兩件事要做的處理完全相反。
+            </p>
           </>
         )}
       </div>

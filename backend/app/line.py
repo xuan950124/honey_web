@@ -347,6 +347,95 @@ def notify_new_order(order: Order, db) -> None:
         log.warning("LINE 訂單通知失敗：%s", exc)
 
 
+def daily_stats_card(report: dict, front_url: str) -> dict:
+    """每日流量摘要卡片。
+
+    ## 為什麼一定要跟前一天比
+
+    「昨天 40 人」單獨看沒有意義 —— 是好是壞完全不知道。
+    看到「前天 12 人」才讀得出那是三倍。
+    只給一個數字的日報，看兩天就沒人看了。
+    """
+    day = report["day"]
+    views, visitors = report["views"], report["visitors"]
+    prev_views = report["prev_views"]
+
+    if not prev_views:
+        trend, colour = "（前一天沒有紀錄）", "#6d6053"
+    else:
+        diff = views - prev_views
+        pct = round(diff / prev_views * 100)
+        if diff > 0:
+            trend, colour = f"比前一天多 {diff} 次（+{pct}%）", "#2f7a4d"
+        elif diff < 0:
+            trend, colour = f"比前一天少 {-diff} 次（{pct}%）", "#a8482f"
+        else:
+            trend, colour = "跟前一天一樣", "#6d6053"
+
+    rows = [
+        _row("不重複訪客", f"{visitors} 人"),
+        _row("前一天", f"{prev_views} 次　{report['prev_visitors']} 人"),
+    ]
+    if report["top_pages"]:
+        rows.append(_row("最多人看", "　".join(
+            f"{p['path']}（{p['views']}）" for p in report["top_pages"]
+        )))
+    if report["sources"]:
+        rows.append(_row("主要來源", "　".join(
+            f"{s['host']}（{s['views']}）" for s in report["sources"]
+        )))
+
+    body = [
+        {"type": "text", "text": f"{day} 流量", "weight": "bold", "size": "sm",
+         "color": "#c8952b"},
+        {"type": "text", "text": f"{views} 次瀏覽", "weight": "bold", "size": "xxl",
+         "margin": "sm"},
+        {"type": "text", "text": trend, "size": "sm", "color": colour, "margin": "sm",
+         "wrap": True},
+        {"type": "separator", "margin": "lg"},
+        {"type": "box", "layout": "vertical", "margin": "lg", "spacing": "sm",
+         "contents": rows},
+    ]
+
+    return {
+        "type": "flex",
+        "altText": f"{day} 流量：{views} 次瀏覽、{visitors} 人",
+        "contents": {
+            "type": "bubble",
+            "body": {"type": "box", "layout": "vertical", "contents": body},
+            "footer": {"type": "box", "layout": "vertical", "contents": [{
+                "type": "button", "style": "link", "height": "sm",
+                "action": {"type": "uri", "label": "看完整統計",
+                           "uri": f"{front_url.rstrip('/')}/admin/stats"},
+            }]},
+        },
+    }
+
+
+def notify_daily_stats(report: dict, db) -> bool:
+    """把前一天的流量推給老闆。回傳有沒有真的送出去。
+
+    **沒有人來的日子也照送。** 本來想「零瀏覽就別吵他」，
+    但那樣一來「沒收到訊息」會有兩種意思：真的沒人來，
+    或是系統壞了 —— 而這兩件事要採取的行動完全相反。
+    每天都收得到，才知道系統還活著。
+    """
+    if not is_configured():
+        log.info("略過每日流量推播：沒有設定 LINE_CHANNEL_ACCESS_TOKEN")
+        return False
+    if not admin_ids(db):
+        log.info("略過每日流量推播：還沒有人配對")
+        return False
+    try:
+        sent = push_to_admins(
+            [daily_stats_card(report, settings.FRONTEND_BASE_URL)], db
+        )
+        return sent > 0
+    except Exception as exc:  # noqa: BLE001
+        log.warning("每日流量推播失敗：%s", exc)
+        return False
+
+
 # ---------------------------------------------------------------- 配對碼
 
 PAIR_CODE_KEY = "line_pair_code"

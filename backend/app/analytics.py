@@ -210,3 +210,49 @@ def summary(db: Session, days: int = 30) -> dict:
         "total_rows": int(base.count()),
         "generated_at": datetime.now(),
     }
+
+
+def day_report(db: Session, day: str) -> dict:
+    """某一天的流量摘要。給每日 LINE 推播用。
+
+    跟 `summary()` 分開是因為要看的東西不一樣：
+    後台是看趨勢（一整段期間、可以慢慢捲），
+    LINE 是看「昨天過得如何」—— 一則訊息看完，所以只挑最重要的幾項。
+    """
+    rows = db.query(
+        func.count(PageView.id),
+        func.count(func.distinct(PageView.visitor_hash)),
+    ).filter(PageView.day == day).one()
+    views, visitors = int(rows[0] or 0), int(rows[1] or 0)
+
+    top_pages = [
+        {"path": path, "views": int(n)}
+        for path, n in db.query(PageView.path, func.count(PageView.id))
+        .filter(PageView.day == day).group_by(PageView.path)
+        .order_by(func.count(PageView.id).desc()).limit(3).all()
+    ]
+
+    sources = [
+        {"host": host or "直接輸入或書籤", "views": int(n)}
+        for host, n in db.query(PageView.referrer_host, func.count(PageView.id))
+        .filter(PageView.day == day).group_by(PageView.referrer_host)
+        .order_by(func.count(PageView.id).desc()).limit(3).all()
+    ]
+
+    # 跟前一天比。單獨一個數字沒有意義 ——
+    # 「昨天 40 人」要看到「前天 12 人」才知道那是好消息。
+    previous_day = (date.fromisoformat(day) - timedelta(days=1)).isoformat()
+    prev = db.query(
+        func.count(PageView.id),
+        func.count(func.distinct(PageView.visitor_hash)),
+    ).filter(PageView.day == previous_day).one()
+
+    return {
+        "day": day,
+        "views": views,
+        "visitors": visitors,
+        "prev_views": int(prev[0] or 0),
+        "prev_visitors": int(prev[1] or 0),
+        "top_pages": top_pages,
+        "sources": sources,
+    }

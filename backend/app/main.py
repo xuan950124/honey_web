@@ -214,6 +214,75 @@ def _sweep_expired_once() -> int:
         db.close()
 
 
+# ------------------------------------------------------------- 每日流量推播
+
+DAILY_REPORT_KEY = "analytics_report_sent_day"   # 最後推播的是哪一天的資料
+
+
+def _send_daily_report_once(force_day: str | None = None) -> str | None:
+    """把「剛結束的那一天」的流量推到 LINE。回傳推了哪一天，沒推回 None。
+
+    ## 為什麼要記錄推過哪一天
+
+    容器隨時可能重啟（部署、當機、平台搬遷）。重啟後迴圈從頭開始跑，
+    如果只看時間就送，同一天的報告會被送好幾次。
+
+    把「最後推播的日期」存進 site_settings，同一天就不再送 ——
+    這也順便解決了「半夜剛好在部署，結果那天的報告漏掉」：
+    容器起來發現還沒推，就補送。
+    """
+    from datetime import date, timedelta
+
+    from . import line
+    from .models import SiteSetting
+
+    db = _session()
+    try:
+        target = force_day or (date.today() - timedelta(days=1)).isoformat()
+
+        row = db.get(SiteSetting, DAILY_REPORT_KEY)
+        if not force_day and row and (row.value or "") >= target:
+            return None      # 這一天已經推過了
+
+        report = analytics.day_report(db, target)
+        if not line.notify_daily_stats(report, db):
+            return None
+
+        if row:
+            row.value = target
+        else:
+            db.add(SiteSetting(key=DAILY_REPORT_KEY, value=target))
+        db.commit()
+        return target
+    finally:
+        db.close()
+
+
+async def _daily_report_loop() -> None:
+    """每天 00:00 推前一天的流量。
+
+    ## 為什麼是「算到下一個午夜還有幾秒」而不是每小時檢查
+
+    `asyncio.sleep` 的誤差會累積，而且每小時醒來一次只為了看時間很浪費。
+    直接睡到下一個整點午夜，醒來就是該做事的時候。
+
+    多睡 30 秒是為了確保已經跨過午夜 —— 剛好卡在 23:59:59.9 醒來的話，
+    算出來的「昨天」會是前天。
+    """
+    from datetime import datetime, time as time_of_day, timedelta
+
+    while True:
+        now = datetime.now()
+        midnight = datetime.combine(now.date() + timedelta(days=1), time_of_day.min)
+        await asyncio.sleep(max(30.0, (midnight - now).total_seconds() + 30))
+        try:
+            day = await asyncio.to_thread(_send_daily_report_once)
+            if day:
+                log.info("已推播 %s 的流量摘要到 LINE", day)
+        except Exception:  # noqa: BLE001 - 背景工作不能因為單次失敗就停掉
+            log.exception("推播每日流量摘要時發生錯誤")
+
+
 async def _expire_unpaid_loop() -> None:
     """定期把逾期未付款的訂單取消並回補庫存。
 
@@ -318,8 +387,15 @@ async def _init_database_with_retry() -> None:
 
 @app.on_event("startup")
 async def on_startup() -> None:
+    from datetime import datetime as _dt
+
     say(f"[啟動] 蜂蜜商城 API 啟動中．環境 ={settings.APP_ENV}"
         f"．允許的來源 ={settings.cors_list}")
+    # 時區錯了不會有任何錯誤訊息，只會讓所有時間差 8 小時。
+    # 印出來，部署完看一眼日誌就知道對不對。
+    say(f"[啟動] 目前時間 {_dt.now():%Y-%m-%d %H:%M:%S}"
+        f"（時區 {_dt.now().astimezone().tzname()}）"
+        "．如果跟台灣時間差 8 小時，代表容器少了 tzdata")
 
     if not settings.ENABLE_BACKGROUND_JOBS:
         say("[啟動] ENABLE_BACKGROUND_JOBS=false，略過資料表初始化與逾期訂單清理")
@@ -329,6 +405,7 @@ async def on_startup() -> None:
     # 這樣 /api/health 立刻就能回應，平台的健康檢查才不會判定失敗把容器殺掉。
     asyncio.create_task(_init_database_with_retry())
     asyncio.create_task(_expire_unpaid_loop())
+    asyncio.create_task(_daily_report_loop())
     say("[啟動] HTTP 服務已就緒（資料庫在背景初始化）")
 
 
