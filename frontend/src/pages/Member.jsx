@@ -7,6 +7,7 @@ import {
 } from '../api/client'
 import CouponCard from '../components/CouponCard'
 import PasswordField from '../components/PasswordField'
+import { PageHero } from '../components/sections/Common'
 import { useAuth } from '../context/AuthContext'
 
 export default function Member() {
@@ -117,20 +118,18 @@ export default function Member() {
 
   return (
     <>
-      <section className="page-hero">
-        <div className="container">
-          <h1 className="page-hero__title">會員中心</h1>
-          <p className="page-hero__desc">
-            {user?.name}　
-            <span className={`tag tag--${isStaff ? 'staff' : 'member'}`}>
-              {isStaff ? '工作人員' : '一般會員'}
-            </span>
-          </p>
-        </div>
-      </section>
+      <PageHero title="會員中心" compact>
+        <p className="page-hero__desc">
+          {user?.name}　
+          <span className={`tag tag--${isStaff ? 'staff' : 'member'}`}>
+            {isStaff ? '工作人員' : '一般會員'}
+          </span>
+        </p>
+      </PageHero>
 
       <section className="section">
-        <div className="container">
+        {/* account：會員中心的各區塊跟結帳頁一樣，不加外框，用標題＋藍線分段 */}
+        <div className="container account">
           {user && !user.email_verified && (
             <div className="alert alert--error" style={{ marginBottom: 24 }}>
               <strong>你的 Email 還沒完成驗證</strong>
@@ -162,13 +161,13 @@ export default function Member() {
               <div className="unpaid-box__title">
                 有 {unpaid.length} 筆訂單還沒完成付款
               </div>
-              <p className="small" style={{ margin: '0 0 14px', color: 'var(--honey-800)' }}>
+              <p className="unpaid-box__lead">
                 我們會先幫你保留商品，完成付款後才會安排出貨。
               </p>
               {unpaid.map((o) => (
                 <div className="unpaid-row" key={o.id}>
                   <div>
-                    <Link to={orderUrl(o)} style={{ fontFamily: 'monospace' }}>
+                    <Link to={orderUrl(o)} className="order-no">
                       {o.order_no}
                     </Link>
                     <div className="small muted">
@@ -202,7 +201,6 @@ export default function Member() {
             <>
               <div className="cart-layout" style={{ marginBottom: 22 }}>
                 <div className="tier-card">
-                  <div className="tier-card__label">MEMBERSHIP</div>
                   <div className="tier-card__name">{membership.tier?.name || '一般會員'}</div>
                   <div className="tier-card__perk">
                     {Number(membership.tier?.discount_percent) > 0
@@ -317,8 +315,8 @@ export default function Member() {
                   <tbody>
                     {orders.map((o) => (
                       <tr key={o.id}>
-                        <td style={{ fontFamily: 'monospace' }}>
-                          <Link to={orderUrl(o)}>{o.order_no}</Link>
+                        <td>
+                          <Link to={orderUrl(o)} className="order-no">{o.order_no}</Link>
                         </td>
                         <td>{formatDate(o.created_at)}</td>
                         <td>
@@ -379,7 +377,7 @@ export default function Member() {
             ) : (
               <div className="empty-state" style={{ padding: '36px 20px' }}>
                 <div className="empty-state__title">還沒有訂單紀錄</div>
-                <Link to="/products" className="btn btn--outline" style={{ marginTop: 14 }}>去逛逛</Link>
+                <Link to="/products" className="btn btn--outline">去逛逛</Link>
               </div>
             )}
           </div>

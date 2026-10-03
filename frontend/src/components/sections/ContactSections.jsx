@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
+import Icon from '../Icon'
 import Placeholder from '../Placeholder'
+import { PageHero, SectionHead } from './Common'
 import { setStructuredData } from '../SiteMeta'
 import { buildMapSrc, directionsUrl, hasExactLocation, placeUrl } from '../../lib/maps'
 import { useAuth } from '../../context/AuthContext'
 import { editable } from '../../context/EditModeContext'
 import { useSettings } from '../../context/SettingsContext'
+import { prose } from '../../lib/text'
 
 /**
  * 聯絡我們的每一區，拆成可以單獨擺放的元件。理由同 HomeSections。
@@ -16,10 +19,10 @@ import { useSettings } from '../../context/SettingsContext'
 const SETTINGS = '/admin/settings'
 
 /**
- * 「（待補上）」是給工作人員的提醒，客人看到只會覺得這家店沒做完。
+ * 「待填」是給工作人員的提醒，客人看到只會覺得這家店沒做完。
  * 所以沒填的欄位對客人是整列隱藏，只有工作人員才看得到提醒。
  */
-const Empty = ({ text = '（待補上）' }) => <span className="empty">{text}</span>
+const Empty = ({ text = '待填' }) => <span className="empty">{text}</span>
 
 export function ContactChannels() {
   const { settings } = useSettings()
@@ -98,7 +101,7 @@ export function ContactChannels() {
              target="_blank" rel="noreferrer">
             {settings.traceability_code}
           </a>
-          <div className="small muted" style={{ marginTop: 2 }}>
+          <div className="contact-row__note">
             農業部農糧署溯源農糧產品追溯系統
             {settings.producer_name ? `．生產者 ${settings.producer_name}` : ''}
           </div>
@@ -125,9 +128,9 @@ export function ContactChannels() {
 
   return (
     <>
-      <h2 className="story-row__title" style={{ fontSize: 24, marginBottom: 20 }}>聯絡資訊</h2>
+      <h2 className="block-title">聯絡資訊</h2>
       <div className="contact-list">
-        {/* 沒填的欄位對客人整列隱藏，工作人員才看得到「（待補上）」的提醒 */}
+        {/* 沒填的欄位對客人整列隱藏，工作人員才看得到「待填」的提醒 */}
         {rows.filter((r) => r.filled || isStaff).map((r) => (
           <div className="contact-row" key={r.label}
                {...editable(r.label, SETTINGS, r.field, r.hint)}>
@@ -139,10 +142,10 @@ export function ContactChannels() {
 
       {/* 這是給自己人看的操作提示，客人不需要知道網站是怎麼維護的 */}
       {isStaff && (
-        <p className="small muted" style={{ marginTop: 22 }}>
+        <p className="staff-note">
           以上聯絡資訊由工作人員於後台「網站設定」維護，更新後前台會立即同步。
           <br />
-          （這一行與「（待補上）」只有工作人員看得到，客人不會看到。）
+          （這一行與「待填」只有工作人員看得到，客人不會看到。）
         </p>
       )}
     </>
@@ -153,19 +156,21 @@ export function ContactLine() {
   const { settings } = useSettings()
   return (
     <div className="line-box">
-      <h3 className="line-box__title">用 LINE 聯絡最快</h3>
-      <p className="small muted" style={{ margin: 0 }}>
-        加入官方帳號，可直接詢問商品、團購報價與出貨進度
-      </p>
-      <div className="line-box__id">{settings.line_id || '（LINE ID 待補上）'}</div>
-      {settings.line_url ? (
-        <a href={settings.line_url} target="_blank" rel="noreferrer" className="btn btn--primary">
-          加入 LINE 好友
-        </a>
-      ) : (
-        <button type="button" className="btn btn--primary" disabled>加入 LINE 好友</button>
-      )}
-      <div style={{ maxWidth: 180, margin: '22px auto 0' }}
+      <div className="line-box__text">
+        <h3 className="line-box__title">用 LINE 聯絡最快</h3>
+        <p className="line-box__desc">
+          加入官方帳號，可直接詢問商品、團購報價與出貨進度
+        </p>
+        <div className="line-box__id">{settings.line_id || '待填'}</div>
+        {settings.line_url ? (
+          <a href={settings.line_url} target="_blank" rel="noreferrer" className="btn btn--primary">
+            加入 LINE 好友
+          </a>
+        ) : (
+          <button type="button" className="btn btn--primary" disabled>加入 LINE 好友</button>
+        )}
+      </div>
+      <div className="line-box__qr"
            {...editable('LINE QR Code', SETTINGS, 'line_qr_url', '正方形圖檔。從 LINE 官方帳號後台可以下載自己的 QR Code。')}>
         <Placeholder src={settings.line_qr_url} ratio="1x1" alt="LINE QR Code"
                      hint={'LINE QR Code\n（後台「網站設定 → 圖片」上傳）'} />
@@ -183,9 +188,9 @@ export function ContactMap() {
 
   return (
     <>
-      <h3 className="line-box__title" style={{ marginBottom: 14 }}>位置地圖</h3>
+      <h3 className="block-title block-title--sm">位置地圖</h3>
       {mapSrc ? (
-        <div style={{ border: '1px solid var(--line)', borderRadius: 'var(--radius)', overflow: 'hidden' }}
+        <div className="map-frame"
              {...editable('位置地圖', SETTINGS, 'map_embed_url', '要讓地圖上的點完全精準，填座標：Google 地圖 → 對著自家門口按右鍵 → 點最上面那組數字 → 貼上。')}>
           <iframe
             title="位置地圖"
@@ -204,12 +209,14 @@ export function ContactMap() {
           {settings.contact_address && (
             <div className="map-caption">
               <strong>{settings.contact_address}</strong>
-              <a href={directionsUrl(settings)} target="_blank" rel="noreferrer">規劃路線</a>
+              <a href={directionsUrl(settings)} target="_blank" rel="noreferrer">
+                規劃路線<Icon name="external" size={16} />
+              </a>
             </div>
           )}
         </div>
       ) : (
-        <Placeholder ratio="16x9" hint={'地圖\n（後台填入地址後會自動顯示）'} alt="位置地圖" />
+        <Placeholder ratio="16x9" art="apiary" hint={'地圖\n（後台填入地址後會自動顯示）'} alt="位置地圖" />
       )}
 
       {/*
@@ -217,7 +224,7 @@ export function ContactMap() {
         沒座標時才提醒客人以文字地址為準。
       */}
       {!hasPoint && (
-        <p className="small muted" style={{ marginTop: 10, marginBottom: 0 }}>
+        <p className="map-note">
           地圖上的位置由 Google 依地址推算，可能與實際門牌略有落差，請以上方地址為準。
         </p>
       )}
@@ -271,22 +278,15 @@ export function ContactFaq() {
 
   return (
     <>
-      <div className="section-head">
-        <div className="section-head__eyebrow">FAQ</div>
-        <h2 className="section-head__title">常見問題</h2>
-      </div>
-      <div style={{ maxWidth: 760, margin: '0 auto' }}>
+      <SectionHead title="常見問題" />
+      <dl className="faq">
         {items.map((item) => (
-          <div key={item.name} style={{ padding: '20px 0', borderBottom: '1px solid var(--line)' }}>
-            <h3 style={{ fontSize: 16, color: 'var(--honey-800)', marginBottom: 8 }}>
-              Q．{item.name}
-            </h3>
-            <p className="muted" style={{ margin: 0, fontSize: 14, lineHeight: 1.9 }}>
-              {item.acceptedAnswer?.text}
-            </p>
+          <div className="faq__item" key={item.name}>
+            <dt className="faq__q"><span className="faq__mark">Q．</span>{prose(item.name)}</dt>
+            <dd className="faq__a">{prose(item.acceptedAnswer?.text)}</dd>
           </div>
         ))}
-      </div>
+      </dl>
     </>
   )
 }
@@ -304,27 +304,19 @@ const NOTICE = [
 export function ContactNotice() {
   return (
     <>
-      <div className="section-head">
-        <div className="section-head__eyebrow">Notice</div>
-        <h2 className="section-head__title">訂購須知</h2>
-      </div>
-      <div className="grid grid--2" style={{ maxWidth: 960, margin: '0 auto' }}>
+      <SectionHead title="訂購須知" />
+      <dl className="notice-grid">
         {NOTICE.map(([t, d]) => (
-          <div className="panel" key={t}>
-            <h3 style={{ fontSize: 16, color: 'var(--honey-800)', marginBottom: 10 }}>{t}</h3>
-            <p className="muted" style={{ margin: 0, fontSize: 14 }}>{d}</p>
+          <div className="notice" key={t}>
+            <dt className="notice__title">{t}</dt>
+            <dd className="notice__text">{prose(d)}</dd>
           </div>
         ))}
-      </div>
+      </dl>
     </>
   )
 }
 
 export function ContactHeader() {
-  return (
-    <>
-      <h1 className="page-hero__title">聯絡我們</h1>
-      <p className="page-hero__desc">訂購、團購洽談或任何問題，都歡迎透過以下方式聯絡</p>
-    </>
-  )
+  return <PageHero tone="coral" title="聯絡我們" desc="訂購、團購洽談或任何問題，都歡迎透過以下方式聯絡" />
 }

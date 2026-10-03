@@ -31,9 +31,9 @@ export default function Login() {
   return (
     <section className="section">
       <div className="container form-page">
-        <div className="text-center" style={{ marginBottom: 28 }}>
-          <h1 style={{ fontSize: 27, color: 'var(--honey-900)' }}>會員登入</h1>
-          <p className="muted small" style={{ marginTop: 8 }}>登入後可查詢訂單、快速填入收件資料</p>
+        <div className="form-head">
+          <h1 className="form-head__title">會員登入</h1>
+          <p className="form-head__desc">登入後可查詢訂單、快速填入收件資料</p>
         </div>
 
         <form className="form-card" onSubmit={submit}>
@@ -50,9 +50,8 @@ export default function Login() {
             autoComplete="current-password" value={form.password} onChange={change}
           />
 
-          <div style={{ textAlign: 'right', marginBottom: 16 }}>
-            <Link to="/forgot-password" className="small"
-                  style={{ color: 'var(--honey-600)', textDecoration: 'underline' }}>
+          <div className="form-card__aside">
+            <Link to="/forgot-password" className="text-link small">
               忘記密碼？
             </Link>
           </div>
@@ -61,14 +60,10 @@ export default function Login() {
             {loading ? '登入中…' : '登入'}
           </button>
 
-          <p className="text-center small muted" style={{ marginTop: 18, marginBottom: 0 }}>
-            還沒有帳號？<Link to="/register" style={{ color: 'var(--honey-600)', textDecoration: 'underline' }}>立即註冊</Link>
+          <p className="form-card__foot">
+            還沒有帳號？<Link to="/register" className="text-link">立即註冊</Link>
           </p>
         </form>
-
-        <div className="alert alert--info" style={{ marginTop: 20 }}>
-          工作人員帳號請由管理員於資料庫建立（role 設為 staff），登入後會自動出現「後台管理」選單。
-        </div>
       </div>
     </section>
   )

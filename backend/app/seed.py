@@ -219,12 +219,19 @@ def run() -> None:
                 email_verified=True,
                 email_verified_at=datetime.now(),
             ))
-            print(f"[建立] 工作人員帳號 {settings.ADMIN_EMAIL} / {settings.ADMIN_PASSWORD}")
+            # 密碼不印出來：部署平台的記錄看得到的人比你想的多（2026-08 Zeabur 的環境變數外洩就是例子）
+            print(f"[建立] 工作人員帳號 {settings.ADMIN_EMAIL}（密碼是 ADMIN_PASSWORD 的值，登入後請到會員中心改掉）")
         else:
             print(f"[略過] 工作人員帳號 {settings.ADMIN_EMAIL} 已存在")
 
-        # 示範會員
-        if not db.query(User).filter(User.email == "member@honeyshop.com").first():
+        # 示範會員：只在本機開發建立。它的密碼寫在公開的程式碼裡，
+        # 正式網站上留著它等於任何人都能登入這個帳號，所以正式環境一律停用。
+        demo = db.query(User).filter(User.email == "member@honeyshop.com").first()
+        if settings.is_production:
+            if demo and demo.is_active:
+                demo.is_active = False
+                print("[停用] 示範會員 member@honeyshop.com（正式環境不留公開密碼的帳號）")
+        elif not demo:
             db.add(User(
                 email="member@honeyshop.com",
                 hashed_password=hash_password("member1234"),

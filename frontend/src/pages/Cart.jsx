@@ -4,10 +4,12 @@ import { TEMPERATURE_TEXT, api, formatPrice, orderUrl } from '../api/client'
 import CouponCard from '../components/CouponCard'
 import GroupBuyShippingNotice from '../components/GroupBuyShippingNotice'
 import Placeholder from '../components/Placeholder'
+import { PageHero } from '../components/sections/Common'
 import StorePicker from '../components/StorePicker'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { useSettings } from '../context/SettingsContext'
+import { prose } from '../lib/text'
 import { isOutlying, lookupZip } from '../lib/zipcode'
 
 const TEMPERATURES = ['0001', '0002', '0003']
@@ -286,15 +288,13 @@ export default function Cart() {
   if (!items.length) {
     return (
       <>
-        <section className="page-hero">
-          <div className="container"><h1 className="page-hero__title">購物車</h1></div>
-        </section>
+        <PageHero title="購物車" compact />
         <section className="section">
           <div className="container">
             <div className="empty-state">
               <div className="empty-state__title">購物車還是空的</div>
               <p>去看看有哪些蜂蜜吧</p>
-              <Link to="/products" className="btn btn--primary" style={{ marginTop: 18 }}>開始選購</Link>
+              <Link to="/products" className="btn btn--primary">開始選購</Link>
             </div>
           </div>
         </section>
@@ -304,13 +304,12 @@ export default function Cart() {
 
   return (
     <>
-      <section className="page-hero">
-        <div className="container"><h1 className="page-hero__title">購物車與結帳</h1></div>
-      </section>
+      <PageHero title="購物車與結帳" compact />
 
       <section className="section">
         <div className="container">
-          <div className="cart-layout">
+          {/* checkout：結帳頁的各區塊不再加外框，用標題＋藍線分段，框只留給可以點選的選項 */}
+          <div className="cart-layout checkout">
             <div>
               {/* 商品明細 */}
               <div className="panel">
@@ -333,24 +332,25 @@ export default function Cart() {
                     <div className="cart-line" key={i.id}>
                       <Placeholder src={i.image_url} ratio="1x1" alt={i.name} hint="" />
                       <div>
-                        <Link to={`/products/${i.id}`} style={{ fontWeight: 500, color: 'var(--honey-900)' }}>
-                          {i.name}
+                        <Link to={`/products/${i.id}`} className="cart-line__name">
+                          {prose(i.name)}
                         </Link>
                         {i.spec && <div className="small muted">{i.spec}</div>}
-                        <div className="price" style={{ fontSize: 16, marginTop: 6 }}>
+                        <div className="price cart-line__unit">
                           <span className="price__cur">NT$</span>{formatPrice(i.price)}
                         </div>
-                        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 10 }}>
-                          <div className="qty">
-                            <button type="button" disabled={i.quantity <= 1}
+                        <div className="cart-line__controls">
+                          <div className="qty qty--sm">
+                            <button type="button" disabled={i.quantity <= 1} aria-label="減少數量"
                                     onClick={() => updateQty(i.id, i.quantity - 1)}>−</button>
                             <input
                               type="number" min="1"
                               max={Number.isFinite(limit) ? limit : undefined}
                               value={i.quantity}
+                              aria-label={`${i.name} 數量`}
                               onChange={(e) => updateQty(i.id, Number(e.target.value) || 1)}
                             />
-                            <button type="button" disabled={capped}
+                            <button type="button" disabled={capped} aria-label="增加數量"
                                     onClick={() => updateQty(i.id, i.quantity + 1)}>＋</button>
                           </div>
                           <button type="button" className="btn btn--ghost btn--sm" onClick={() => remove(i.id)}>
@@ -367,7 +367,7 @@ export default function Cart() {
                           </div>
                         )}
                       </div>
-                      <div className="price" style={{ fontSize: 18 }}>
+                      <div className="price cart-line__total">
                         <span className="price__cur">NT$</span>{formatPrice(i.price * i.quantity)}
                       </div>
                     </div>
@@ -397,9 +397,9 @@ export default function Cart() {
                                 {s.is_cheapest && <span className="option__flag">最省運費</span>}
                               </div>
                               <div className="option__meta">
-                                {s.disabled
+                                {prose(s.disabled
                                   ? s.disabled_reason
-                                  : `運費 NT$${formatPrice(s.fee)}${s.note ? `．${s.note}` : ''}`}
+                                  : `運費 NT$${formatPrice(s.fee)}${s.note ? `．${s.note}` : ''}`)}
                               </div>
                             </div>
                           </label>
@@ -460,7 +460,7 @@ export default function Cart() {
                           <div>
                             <div className="option__title">{p.label}</div>
                             <div className="option__meta">
-                              {unsupported ? '此送貨方式不支援' : (p.disabled_reason || p.note)}
+                              {prose(unsupported ? '此送貨方式不支援' : (p.disabled_reason || p.note))}
                             </div>
                           </div>
                         </label>

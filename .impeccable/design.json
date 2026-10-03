@@ -1,0 +1,685 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-02T14:07:59Z",
+  "title": "Design System: 黃家基蜜",
+  "extensions": {
+    "colorMeta": {
+      "coral": {
+        "role": "primary",
+        "displayName": "紅淡比珊瑚紅 Cleyera Coral",
+        "canonical": "#ED715A",
+        "oklch": "oklch(69.1% 0.158 32.1)",
+        "tonalRamp": [
+          "#1D0100",
+          "#4A0801",
+          "#7C1201",
+          "#A8321E",
+          "#D05741",
+          "#F87B63",
+          "#FEB4A4",
+          "#FEE9E4"
+        ]
+      },
+      "coral-text": {
+        "role": "primary",
+        "displayName": "小字珊瑚 Coral Text",
+        "canonical": "#B8402A",
+        "oklch": "oklch(53.8% 0.159 32.6)",
+        "tonalRamp": [
+          "#1D0100",
+          "#4A0801",
+          "#7B1502",
+          "#A9311B",
+          "#D0563F",
+          "#F87A62",
+          "#FFB4A3",
+          "#FFE9E4"
+        ]
+      },
+      "honey": {
+        "role": "primary",
+        "displayName": "蜂蜜黃 Honey",
+        "canonical": "#FAC23E",
+        "oklch": "oklch(84.3% 0.154 84.4)",
+        "tonalRamp": [
+          "#110A00",
+          "#312200",
+          "#553E03",
+          "#7C5B03",
+          "#A57B03",
+          "#D09C00",
+          "#F8C03B",
+          "#FFECC8"
+        ]
+      },
+      "honey-deep": {
+        "role": "primary",
+        "displayName": "深蜂蜜黃 Deep Honey",
+        "canonical": "#F0AE1E",
+        "oklch": "oklch(79.3% 0.158 79.9)",
+        "tonalRamp": [
+          "#120900",
+          "#332100",
+          "#583C00",
+          "#7F5A05",
+          "#A97807",
+          "#D59907",
+          "#FFBC36",
+          "#FEECCE"
+        ]
+      },
+      "sky": {
+        "role": "secondary",
+        "displayName": "鴨腳木天空藍 Schefflera Sky",
+        "canonical": "#9AD6E7",
+        "oklch": "oklch(84.1% 0.065 217.3)",
+        "tonalRamp": [
+          "#010E12",
+          "#022A33",
+          "#054A59",
+          "#2F6A7A",
+          "#528C9C",
+          "#75B0C0",
+          "#98D4E5",
+          "#D5F5FE"
+        ],
+        "note": "只給鴨腳木花系（The Series Color Rule）。"
+      },
+      "lime": {
+        "role": "secondary",
+        "displayName": "檸檬黃綠 Lime",
+        "canonical": "#E9EA6D",
+        "oklch": "oklch(91.2% 0.147 109.4)",
+        "tonalRamp": [
+          "#0C0C00",
+          "#272700",
+          "#454502",
+          "#666605",
+          "#898803",
+          "#ACAC23",
+          "#D0D152",
+          "#F6F77A"
+        ],
+        "note": "只給鴨腳木花系（The Series Color Rule）。"
+      },
+      "bloom": {
+        "role": "tertiary",
+        "displayName": "花白 Bloom",
+        "canonical": "#F8F6B6",
+        "oklch": "oklch(96.0% 0.082 106.3)",
+        "tonalRamp": [
+          "#0D0C00",
+          "#292601",
+          "#484402",
+          "#676428",
+          "#88864A",
+          "#ABA96C",
+          "#CFCD8F",
+          "#F5F3B3"
+        ]
+      },
+      "stamen": {
+        "role": "tertiary",
+        "displayName": "花蕊橘 Stamen",
+        "canonical": "#EA551A",
+        "oklch": "oklch(64.3% 0.195 38.8)",
+        "tonalRamp": [
+          "#1B0300",
+          "#451101",
+          "#742201",
+          "#A73502",
+          "#DD4900",
+          "#FF7649",
+          "#FFB59C",
+          "#FFE9E2"
+        ]
+      },
+      "leaf": {
+        "role": "tertiary",
+        "displayName": "葉綠 Leaf",
+        "canonical": "#72BC4A",
+        "oklch": "oklch(72.2% 0.166 136.2)",
+        "tonalRamp": [
+          "#030F00",
+          "#112D00",
+          "#224E01",
+          "#357202",
+          "#4F971F",
+          "#72BC4A",
+          "#95E16F",
+          "#D0FFBA"
+        ]
+      },
+      "forest": {
+        "role": "tertiary",
+        "displayName": "深綠 Forest",
+        "canonical": "#318653",
+        "oklch": "oklch(55.5% 0.114 153.8)",
+        "tonalRamp": [
+          "#010F05",
+          "#012E15",
+          "#035029",
+          "#197342",
+          "#429662",
+          "#67BA84",
+          "#8CDFA7",
+          "#C5FFD6"
+        ]
+      },
+      "olive": {
+        "role": "tertiary",
+        "displayName": "橄欖 Olive",
+        "canonical": "#A29921",
+        "oklch": "oklch(67.0% 0.132 104.9)",
+        "tonalRamp": [
+          "#0D0C00",
+          "#292601",
+          "#494403",
+          "#6B6400",
+          "#8E8602",
+          "#B2A937",
+          "#D6CE5F",
+          "#FCF486"
+        ]
+      },
+      "bark": {
+        "role": "tertiary",
+        "displayName": "枝幹 Bark",
+        "canonical": "#7F6929",
+        "oklch": "oklch(52.9% 0.087 90.0)",
+        "tonalRamp": [
+          "#100A00",
+          "#2F2301",
+          "#523F01",
+          "#745F1D",
+          "#968041",
+          "#BAA364",
+          "#DFC787",
+          "#FFEDBF"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "墨 Ink",
+        "canonical": "#241916",
+        "oklch": "oklch(22.6% 0.019 35.8)",
+        "tonalRamp": [
+          "#120806",
+          "#2D221F",
+          "#4B3F3B",
+          "#6B5E5A",
+          "#8D7F7B",
+          "#B0A19D",
+          "#D5C5C1",
+          "#FBEAE6"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "次要墨 Ink 2",
+        "canonical": "#5C4D45",
+        "oklch": "oklch(43.3% 0.024 49.8)",
+        "tonalRamp": [
+          "#130804",
+          "#2F221B",
+          "#4D3E37",
+          "#6D5E55",
+          "#8F7E76",
+          "#B2A198",
+          "#D7C5BC",
+          "#FDEAE1"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "紙白 Paper",
+        "canonical": "#FFFDF8",
+        "oklch": "oklch(99.4% 0.007 88.6)",
+        "tonalRamp": [
+          "#0C0B08",
+          "#262521",
+          "#43423E",
+          "#63615D",
+          "#84827E",
+          "#A7A5A0",
+          "#CBC9C4",
+          "#F0EEE9"
+        ]
+      },
+      "tint": {
+        "role": "neutral",
+        "displayName": "花白淡 Tint",
+        "canonical": "#FCFADE",
+        "oklch": "oklch(97.9% 0.037 103.7)",
+        "tonalRamp": [
+          "#0D0C00",
+          "#282610",
+          "#45432C",
+          "#64624A",
+          "#86846B",
+          "#A9A78C",
+          "#CDCBB0",
+          "#F2F0D4"
+        ]
+      },
+      "rule-soft": {
+        "role": "neutral",
+        "displayName": "淡線 Soft Rule",
+        "canonical": "rgba(36, 25, 22, 0.16)",
+        "oklch": "oklch(88.6% 0.008 80.7)",
+        "tonalRamp": [
+          "#0D0B08",
+          "#272521",
+          "#44423E",
+          "#63615C",
+          "#85827D",
+          "#A7A5A0",
+          "#CCC9C4",
+          "#F1EEE9"
+        ],
+        "note": "半透明的墨（16%）；疊在紙白上約為 #DCD9D4，疊在色面上仍是淡一點的墨。色階以紙白上的顏色計算。"
+      },
+      "field-border": {
+        "role": "neutral",
+        "displayName": "欄框 Field Border",
+        "canonical": "#8C7D73",
+        "oklch": "oklch(60.0% 0.024 55.9)",
+        "tonalRamp": [
+          "#130803",
+          "#2E221A",
+          "#4C3F36",
+          "#6C5E54",
+          "#8E7F75",
+          "#B1A297",
+          "#D6C6BB",
+          "#FCEBE0"
+        ]
+      },
+      "red": {
+        "role": "neutral",
+        "displayName": "警示紅 Alert Red",
+        "canonical": "#C8303A",
+        "oklch": "oklch(55.1% 0.188 22.8)",
+        "tonalRamp": [
+          "#1E0002",
+          "#4C010A",
+          "#800117",
+          "#B31529",
+          "#DC454A",
+          "#FE7271",
+          "#FFB2AE",
+          "#FEE9E7"
+        ]
+      },
+      "red-deep": {
+        "role": "neutral",
+        "displayName": "深紅 Deep Red",
+        "canonical": "#9F1F28",
+        "oklch": "oklch(46.0% 0.163 23.3)",
+        "tonalRamp": [
+          "#1E0002",
+          "#4C0109",
+          "#7F0316",
+          "#AA2C31",
+          "#D25252",
+          "#FA7673",
+          "#FEB3AE",
+          "#FFE8E7"
+        ]
+      },
+      "red-tint": {
+        "role": "neutral",
+        "displayName": "淡紅 Red Tint",
+        "canonical": "#FBE8E9",
+        "oklch": "oklch(94.6% 0.021 13.9)",
+        "tonalRamp": [
+          "#130809",
+          "#2E2122",
+          "#4C3E3F",
+          "#6D5D5E",
+          "#8E7E7E",
+          "#B2A0A1",
+          "#D6C4C5",
+          "#FCE9EA"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display 主視覺大標",
+        "purpose": "只給首頁主視覺兩行大標（每行不斷）；手機 min(10.6vw, 3.25rem)。"
+      },
+      "headline": {
+        "displayName": "Headline 頁名",
+        "purpose": "內頁頁名，放在標籤色的整片頁名區。"
+      },
+      "title": {
+        "displayName": "Title 區段標題",
+        "purpose": "區段標題、團購帶與聯絡帶標題、故事章名；「森林野花蜜」字距 0.16em。"
+      },
+      "title-sm": {
+        "displayName": "Title Small 小標",
+        "purpose": "◎ 承諾標題、步驟標題、訂購須知小標。"
+      },
+      "product-name": {
+        "displayName": "Product Name 品名",
+        "purpose": "商品卡品名；商品頁品名 clamp(1.75rem, 1rem + 1.5vw, 2.5rem)。"
+      },
+      "lead": {
+        "displayName": "Lead 說明文",
+        "purpose": "標題下的說明文。"
+      },
+      "body": {
+        "displayName": "Body 內文",
+        "purpose": "內文；故事與商品介紹 1.0625rem、行高 1.9。"
+      },
+      "label": {
+        "displayName": "Label 標籤字",
+        "purpose": "貼紙、溯源標籤抬頭；表格項目名用 700。"
+      },
+      "button": {
+        "displayName": "Button 按鈕字",
+        "purpose": "所有按鈕：700、字距 0.06em。"
+      },
+      "price": {
+        "displayName": "Price 價格",
+        "purpose": "價格、數量、日期、追溯編號一律等寬數字；商品頁價格 2.375rem。"
+      }
+    },
+    "shadows": [
+      {
+        "name": "sticker",
+        "value": "0 6px 14px -8px rgba(36, 25, 22, 0.55)",
+        "purpose": "模切貼紙與商品卡徽章：貼在面上的東西才有影子。"
+      },
+      {
+        "name": "seal",
+        "value": "drop-shadow(0 10px 14px rgba(36, 25, 22, 0.32))",
+        "purpose": "主視覺上的圓形溯源貼紙（filter，不是 box-shadow）。"
+      },
+      {
+        "name": "label-on-ink",
+        "value": "0 26px 44px -24px rgba(0, 0, 0, 0.75)",
+        "purpose": "森林野花蜜那兩張斜放在墨色桌面上的標籤。"
+      },
+      {
+        "name": "header-scrolled",
+        "value": "0 10px 24px -18px rgba(36, 25, 22, 0.5)",
+        "purpose": "捲動之後的頁首。"
+      },
+      {
+        "name": "float",
+        "value": "0 18px 48px -12px rgba(36, 25, 22, 0.5)",
+        "purpose": "提示訊息、工作人員的編輯視窗。"
+      },
+      {
+        "name": "focus-field",
+        "value": "0 0 0 3px rgba(250, 194, 62, 0.55)",
+        "purpose": "輸入框 focus 的蜂蜜黃光暈（框線同時換成墨）。"
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.23, 1, 0.32, 1)",
+        "purpose": "預設：按下縮放、箭頭位移、選單底線、枝幹長出來、蜜蜂水平飛行、購買列滑上來。"
+      },
+      {
+        "name": "ease-in-out",
+        "value": "cubic-bezier(0.77, 0, 0.175, 1)",
+        "purpose": "蜜蜂的垂直飛行（跟水平的 ease-out 疊成弧線）。"
+      },
+      {
+        "name": "ease-drawer",
+        "value": "cubic-bezier(0.32, 0.72, 0, 1)",
+        "purpose": "手機抽屜選單滑入。"
+      },
+      {
+        "name": "ease-spring",
+        "value": "cubic-bezier(0.34, 1.36, 0.64, 1)",
+        "purpose": "只給插畫動作：花開、花苞冒出、貼紙貼上，輕輕超過一點再回來。"
+      },
+      {
+        "name": "hero-bloom",
+        "value": "branch 900ms → leaves 700ms (260ms + i×90ms) → buds 420ms (640ms + i×70ms) → flowers 640ms (720ms + i×110ms) → bee 1300ms (1250ms) → bob ×2 → seal 420ms (2350ms)",
+        "purpose": "首頁開場，每次開網站一次、字體載入之後開始。換花系時再播一次，時間乘上 --t（0.55），溯源貼紙不重貼。"
+      },
+      {
+        "name": "hero-switch",
+        "value": "View Transition：舊畫面定格，新畫面 clip-path inset(0 100% 0 0) → inset(0) 從左緣蓋過去，640ms ease-drawer",
+        "purpose": "主視覺換花系（紅淡比／鴨腳木），像貼上一張新標籤。不做底色漸變（中間會變灰）、不用圓形擴散；瀏覽器不支援或減少動態時直接換。"
+      },
+      {
+        "name": "label-stick",
+        "value": "860ms ease-out; clip-path inset(100% 0 0 0) → 全露出、translateY(28px) → 0；第二張晚 140ms；即將推出貼紙 420ms ease-spring（820ms）",
+        "purpose": "森林野花蜜兩張標籤捲到時由下往上貼上（一開始就在畫面裡就不做）。"
+      },
+      {
+        "name": "press",
+        "value": "scale(0.97) 160ms ease-out",
+        "purpose": "按鈕、圖示按鈕、篩選、輪播箭頭按下的回饋（溯源標籤 0.98）。"
+      },
+      {
+        "name": "color-change",
+        "value": "150ms ease",
+        "purpose": "顏色、底色、框線變化。"
+      },
+      {
+        "name": "nav-underline",
+        "value": "200ms ease-out（scaleX）",
+        "purpose": "選單字底下的珊瑚紅線從中間長出來。"
+      },
+      {
+        "name": "gallery-fade",
+        "value": "260ms ease-out",
+        "purpose": "商品照片換張。"
+      },
+      {
+        "name": "buy-bar",
+        "value": "260ms ease-out（translateY）",
+        "purpose": "商品頁捲過購買區後，底部購買列滑上來。"
+      },
+      {
+        "name": "drawer",
+        "value": "300ms ease-drawer",
+        "purpose": "抽屜選單。"
+      },
+      {
+        "name": "reduced-motion",
+        "value": "prefers-reduced-motion: reduce",
+        "purpose": "不做位移、縮放與開場動畫，只保留顏色與透明度變化；開場直接顯示完成的畫面。"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "laptop",
+        "value": "max-width: 1100px"
+      },
+      {
+        "name": "tablet",
+        "value": "max-width: 1000px"
+      },
+      {
+        "name": "phone-lg",
+        "value": "max-width: 820px"
+      },
+      {
+        "name": "phone",
+        "value": "max-width: 620px"
+      },
+      {
+        "name": "spec-stack",
+        "value": "max-width: 560px"
+      },
+      {
+        "name": "phone-sm",
+        "value": "max-width: 380px"
+      },
+      {
+        "name": "hover-capable",
+        "value": "(hover: hover) and (pointer: fine)"
+      },
+      {
+        "name": "parallax",
+        "value": "(min-width: 1001px) and (pointer: fine) and (prefers-reduced-motion: no-preference)"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button 主要按鈕",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "蜂蜜黃膠囊、墨字墨框；每個畫面唯一的主要動作（選購蜂蜜、加入購物車、前往付款）。",
+      "html": "<button class=\"ds-btn-primary\">選購蜂蜜<svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"ds-btn-primary__icon\"><path d=\"M4 12h15m-6-6 6 6-6 6\"/></svg></button>",
+      "css": ".ds-btn-primary { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 48px; padding: 0 24px; border: 2px solid transparent; border-radius: 999px; background: none; font-family: \"Noto Sans TC\", \"Noto Sans CJK TC\", \"Source Han Sans TC\", \"PingFang TC\", \"Microsoft JhengHei\", sans-serif; font-size: 1rem; font-weight: 700; line-height: 1.2; letter-spacing: 0.06em; white-space: nowrap; cursor: pointer; transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1), background-color 150ms ease, color 150ms ease, border-color 150ms ease; } .ds-btn-primary__icon { flex-shrink: 0; transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1); } .ds-btn-primary:active { transform: scale(0.97); } .ds-btn-primary:focus-visible { outline: 2px solid var(--ink, #241916); outline-offset: 3px; } @media (prefers-reduced-motion: reduce) { .ds-btn-primary { transition-property: background-color, color, border-color, opacity; } .ds-btn-primary:active, .ds-btn-primary:hover .ds-btn-primary__icon { transform: none; } } .ds-btn-primary { background: var(--honey, #FAC23E); border-color: var(--ink, #241916); color: var(--ink, #241916); } @media (hover: hover) and (pointer: fine) { .ds-btn-primary:hover { background: var(--honey-deep, #F0AE1E); } .ds-btn-primary:hover .ds-btn-primary__icon { transform: translateX(3px); } }"
+    },
+    {
+      "name": "Buttons on the Honey Face 蜂蜜黃面上的按鈕",
+      "kind": "button",
+      "refersTo": "button-primary-on-honey",
+      "description": "放在蜂蜜黃面上（資訊帶、團購帶、商品資訊面）的主要按鈕改成墨底蜂蜜黃字；框線按鈕維持墨框。",
+      "html": "<div class=\"ds-honey-face\"><button class=\"ds-btn-onhoney\">了解團購方案<svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"ds-btn-onhoney__icon\"><path d=\"M4 12h15m-6-6 6 6-6 6\"/></svg></button><button class=\"ds-btn-outline\">團購方案</button></div>",
+      "css": ".ds-honey-face { display: inline-flex; flex-wrap: wrap; gap: 12px; padding: 28px; background: var(--honey, #FAC23E); } .ds-btn-onhoney { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 48px; padding: 0 24px; border: 2px solid transparent; border-radius: 999px; background: none; font-family: \"Noto Sans TC\", \"Noto Sans CJK TC\", \"Source Han Sans TC\", \"PingFang TC\", \"Microsoft JhengHei\", sans-serif; font-size: 1rem; font-weight: 700; line-height: 1.2; letter-spacing: 0.06em; white-space: nowrap; cursor: pointer; transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1), background-color 150ms ease, color 150ms ease, border-color 150ms ease; } .ds-btn-onhoney__icon { flex-shrink: 0; transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1); } .ds-btn-onhoney:active { transform: scale(0.97); } .ds-btn-onhoney:focus-visible { outline: 2px solid var(--ink, #241916); outline-offset: 3px; } @media (prefers-reduced-motion: reduce) { .ds-btn-onhoney { transition-property: background-color, color, border-color, opacity; } .ds-btn-onhoney:active, .ds-btn-onhoney:hover .ds-btn-onhoney__icon { transform: none; } } .ds-btn-outline { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 48px; padding: 0 24px; border: 2px solid transparent; border-radius: 999px; background: none; font-family: \"Noto Sans TC\", \"Noto Sans CJK TC\", \"Source Han Sans TC\", \"PingFang TC\", \"Microsoft JhengHei\", sans-serif; font-size: 1rem; font-weight: 700; line-height: 1.2; letter-spacing: 0.06em; white-space: nowrap; cursor: pointer; transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1), background-color 150ms ease, color 150ms ease, border-color 150ms ease; } .ds-btn-outline__icon { flex-shrink: 0; transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1); } .ds-btn-outline:active { transform: scale(0.97); } .ds-btn-outline:focus-visible { outline: 2px solid var(--ink, #241916); outline-offset: 3px; } @media (prefers-reduced-motion: reduce) { .ds-btn-outline { transition-property: background-color, color, border-color, opacity; } .ds-btn-outline:active, .ds-btn-outline:hover .ds-btn-outline__icon { transform: none; } } .ds-btn-onhoney { background: var(--ink, #241916); border-color: var(--ink, #241916); color: var(--honey, #FAC23E); } .ds-btn-outline { border-color: var(--ink, #241916); color: var(--ink, #241916); } @media (hover: hover) and (pointer: fine) { .ds-btn-onhoney:hover { background: var(--coral-text, #B8402A); border-color: var(--coral-text, #B8402A); color: var(--paper, #FFFDF8); } .ds-btn-onhoney:hover .ds-btn-onhoney__icon { transform: translateX(3px); } .ds-btn-outline:hover { background: var(--ink, #241916); color: var(--paper, #FFFDF8); } }"
+    },
+    {
+      "name": "Text Field 輸入框",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "紙白底、1.5px 欄框、6px 圓角；focus 時框線換墨色、外加 3px 蜂蜜黃光暈，必填星號用警示紅。",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field__label\">收件人姓名<span class=\"ds-field__req\">*</span></span><input class=\"ds-input\" type=\"text\" placeholder=\"請填真實姓名\"><span class=\"ds-field__hint\">超商取貨需與證件相符</span></label>",
+      "css": ".ds-field { display: block; max-width: 360px; font-family: \"Noto Sans TC\", \"Noto Sans CJK TC\", \"Source Han Sans TC\", \"PingFang TC\", \"Microsoft JhengHei\", sans-serif; } .ds-field__label { display: block; margin-bottom: 7px; font-size: 0.9375rem; font-weight: 700; color: var(--ink, #241916); } .ds-field__req { margin-left: 3px; color: var(--red, #C8303A); } .ds-input { box-sizing: border-box; width: 100%; min-height: 48px; padding: 11px 14px; border: 1.5px solid var(--field-border, #8C7D73); border-radius: 6px; background: var(--paper, #FFFDF8); color: var(--ink, #241916); font: inherit; font-size: 1rem; transition: border-color 150ms ease, box-shadow 150ms ease; } .ds-input::placeholder { color: #7A6A61; } .ds-input:hover { border-color: var(--ink-2, #5C4D45); } .ds-input:focus { outline: none; border-color: var(--ink, #241916); box-shadow: 0 0 0 3px rgba(250, 194, 62, 0.55); } .ds-field__hint { display: block; margin-top: 6px; font-size: 0.875rem; line-height: 1.6; color: var(--ink-2, #5C4D45); }"
+    },
+    {
+      "name": "Filter Chips 分類篩選",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "商品與新聞的分類篩選：膠囊、1.5px 欄框；選中是墨底紙白字，滑過換花白底。",
+      "html": "<div class=\"ds-chip-row\"><button class=\"ds-chip is-active\" aria-pressed=\"true\">全部商品</button><button class=\"ds-chip\" aria-pressed=\"false\">純蜂蜜</button><button class=\"ds-chip\" aria-pressed=\"false\">禮盒組</button></div>",
+      "css": ".ds-chip-row { display: flex; flex-wrap: wrap; gap: 8px; } .ds-chip { box-sizing: border-box; min-height: 40px; padding: 0 18px; border: 1.5px solid var(--field-border, #8C7D73); border-radius: 999px; background: var(--paper, #FFFDF8); font-family: \"Noto Sans TC\", \"Noto Sans CJK TC\", \"Source Han Sans TC\", \"PingFang TC\", \"Microsoft JhengHei\", sans-serif; font-size: 0.9375rem; font-weight: 700; letter-spacing: 0.04em; color: var(--ink, #241916); cursor: pointer; transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease, transform 160ms cubic-bezier(0.23, 1, 0.32, 1); } .ds-chip:active { transform: scale(0.97); } .ds-chip:focus-visible { outline: 2px solid var(--ink, #241916); outline-offset: 3px; } .ds-chip.is-active { background: var(--ink, #241916); border-color: var(--ink, #241916); color: var(--paper, #FFFDF8); } @media (hover: hover) and (pointer: fine) { .ds-chip:not(.is-active):hover { border-color: var(--ink, #241916); background: var(--bloom, #F8F6B6); } } @media (prefers-reduced-motion: reduce) { .ds-chip { transition-property: background-color, color, border-color, opacity; } .ds-chip:active { transform: none; } }"
+    },
+    {
+      "name": "Navigation 主選單",
+      "kind": "nav",
+      "refersTo": "header",
+      "description": "紙白頁首的主選單：思源黑體；所在頁是小字珊瑚 700，底下一條 2px 珊瑚紅線，滑過時線從中間長出來。",
+      "html": "<nav class=\"ds-nav\" aria-label=\"主選單\"><a href=\"#\" class=\"is-active\" aria-current=\"page\">首頁</a><a href=\"#\">蜂蜜商品</a><a href=\"#\">團購專區</a><a href=\"#\">新聞報導</a><a href=\"#\">品牌故事</a></nav>",
+      "css": ".ds-nav { display: flex; align-items: center; gap: 2px; padding: 16px; background: var(--paper, #FFFDF8); font-family: \"Noto Sans TC\", \"Noto Sans CJK TC\", \"Source Han Sans TC\", \"PingFang TC\", \"Microsoft JhengHei\", sans-serif; } .ds-nav a { position: relative; padding: 10px 13px; font-size: 1rem; font-weight: 500; letter-spacing: 0.04em; color: var(--ink, #241916); text-decoration: none; white-space: nowrap; transition: color 150ms ease; } .ds-nav a::after { content: \"\"; position: absolute; left: 13px; right: 13px; bottom: 3px; height: 2px; border-radius: 2px; background: var(--coral, #ED715A); transform: scaleX(0); transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1); } .ds-nav a.is-active { color: var(--coral-text, #B8402A); font-weight: 700; } .ds-nav a.is-active::after { transform: scaleX(1); } .ds-nav a:focus-visible { outline: 2px solid var(--ink, #241916); outline-offset: 3px; } @media (hover: hover) and (pointer: fine) { .ds-nav a:hover { color: var(--coral-text, #B8402A); } .ds-nav a:hover::after { transform: scaleX(1); } } @media (prefers-reduced-motion: reduce) { .ds-nav a, .ds-nav a::after { transition: none; } }"
+    },
+    {
+      "name": "Info Face 資訊面（營養標示表＋◎ 注意事項）",
+      "kind": "custom",
+      "refersTo": "info-face",
+      "description": "蜂蜜黃的資訊面：三項事實排成有框的營養標示表（項目｜數值、細線分列），承諾用標籤的 ◎ 開頭。",
+      "html": "<div class=\"ds-info\"><dl class=\"ds-table\"><div><dt>七堵自家蜂場</dt><dd>基隆</dd></div><div><dt>人工添加物</dt><dd>0</dd></div><div><dt>農業部追溯編號</dt><dd>可溯源</dd></div></dl><ul class=\"ds-notes\"><li class=\"ds-note\"><svg class=\"ds-note__mark\" viewBox=\"0 0 20 20\" aria-hidden=\"true\"><circle cx=\"10\" cy=\"10\" r=\"8.3\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"/><circle cx=\"10\" cy=\"10\" r=\"4.1\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"/></svg><h3 class=\"ds-note__title\">自家蜂場直送</h3><p class=\"ds-note__desc\">蜂場就在基隆七堵，採收後就近裝瓶出貨，不經過中盤。</p></li><li class=\"ds-note\"><svg class=\"ds-note__mark\" viewBox=\"0 0 20 20\" aria-hidden=\"true\"><circle cx=\"10\" cy=\"10\" r=\"8.3\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"/><circle cx=\"10\" cy=\"10\" r=\"4.1\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"/></svg><h3 class=\"ds-note__title\">熟成才採收</h3><p class=\"ds-note__desc\">等蜜在巢裡封蓋熟成才採，裝瓶前不加水、不加糖、不調味。</p></li></ul></div>",
+      "css": ".ds-info { display: grid; gap: 32px; max-width: 520px; padding: 32px; background: var(--honey, #FAC23E); color: var(--ink, #241916); font-family: \"Noto Sans TC\", \"Noto Sans CJK TC\", \"Source Han Sans TC\", \"PingFang TC\", \"Microsoft JhengHei\", sans-serif; } .ds-table { margin: 0; border: 1.5px solid var(--ink, #241916); } .ds-table > div { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 11px 16px; border-top: 1px solid var(--ink, #241916); } .ds-table > div:first-child { border-top: 0; } .ds-table dt { font-size: 1.0625rem; font-weight: 700; letter-spacing: 0.06em; } .ds-table dd { margin: 0; text-align: right; font-family: \"Noto Serif TC\", \"Noto Serif CJK TC\", \"Source Han Serif TC\", \"PMingLiU\", serif; font-size: 1.5rem; font-weight: 900; line-height: 1.3; letter-spacing: 0.08em; font-variant-numeric: tabular-nums; } .ds-notes { display: grid; gap: 20px; margin: 0; padding: 0; list-style: none; } .ds-note { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 4px 12px; align-items: start; } .ds-note__mark { grid-row: span 2; width: 20px; height: 20px; margin-top: 0.42em; } .ds-note__title { margin: 0; font-family: \"Noto Serif TC\", \"Noto Serif CJK TC\", \"Source Han Serif TC\", \"PMingLiU\", serif; font-size: 1.375rem; font-weight: 900; line-height: 1.4; letter-spacing: 0.08em; } .ds-note__desc { margin: 0; grid-column: 2; font-size: 1rem; line-height: 1.8; }"
+    },
+    {
+      "name": "Two-Face Label 標籤兩面（商品頁）",
+      "kind": "card",
+      "refersTo": "front-face",
+      "description": "圖的一面（花系正面色＋照片）與字的一面（資訊面）接在一起、等高：商品頁、故事每一章、首頁資訊帶都是這個結構。",
+      "html": "<div class=\"ds-label\"><div class=\"ds-label__front\"><div class=\"ds-label__photo\" role=\"img\" aria-label=\"商品照片\"></div></div><div class=\"ds-label__info\"><h1 class=\"ds-label__title\">台灣森林紅淡蜜<wbr>（700g&nbsp;經典大瓶裝）</h1><p class=\"ds-label__price\"><small>NT$</small>800</p><button class=\"ds-label__buy\">加入購物車</button></div></div>",
+      "css": ".ds-label { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); max-width: 760px; align-items: stretch; } .ds-label__front { background: var(--coral, #ED715A); padding: 28px; } .ds-label__photo { aspect-ratio: 1 / 1; background: linear-gradient(160deg, #8a5a2b, #d99a3a 55%, #6b3f1d); } .ds-label__info { background: var(--honey, #FAC23E); color: var(--ink, #241916); padding: 32px; display: flex; flex-direction: column; gap: 16px; font-family: \"Noto Sans TC\", \"Noto Sans CJK TC\", \"Source Han Sans TC\", \"PingFang TC\", \"Microsoft JhengHei\", sans-serif; } .ds-label__title { margin: 0; font-family: \"Noto Serif TC\", \"Noto Serif CJK TC\", \"Source Han Serif TC\", \"PMingLiU\", serif; font-size: 1.875rem; font-weight: 900; line-height: 1.3; letter-spacing: 0.05em; word-break: keep-all; } .ds-label__price { margin: 0; padding-top: 16px; border-top: 1px solid var(--ink, #241916); font-size: 2.375rem; font-weight: 900; line-height: 1.1; font-variant-numeric: tabular-nums; } .ds-label__price small { margin-right: 2px; font-size: 1rem; font-weight: 700; } .ds-label__buy { min-height: 56px; border: 2px solid var(--ink, #241916); border-radius: 999px; background: var(--ink, #241916); color: var(--honey, #FAC23E); font-family: \"Noto Sans TC\", \"Noto Sans CJK TC\", \"Source Han Sans TC\", \"PingFang TC\", \"Microsoft JhengHei\", sans-serif; font-size: 1.0625rem; font-weight: 700; letter-spacing: 0.06em; cursor: pointer; transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1), background-color 150ms ease; } .ds-label__buy:active { transform: scale(0.97); } .ds-label__buy:focus-visible { outline: 2px solid var(--ink, #241916); outline-offset: 3px; } @media (hover: hover) and (pointer: fine) { .ds-label__buy:hover { background: var(--coral-text, #B8402A); border-color: var(--coral-text, #B8402A); color: var(--paper, #FFFDF8); } } @media (max-width: 1000px) { .ds-label { grid-template-columns: minmax(0, 1fr); } }"
+    },
+    {
+      "name": "Trace Seal 溯源圓貼紙",
+      "kind": "custom",
+      "refersTo": "trace-tag",
+      "description": "主視覺上斜貼的圓形貼紙：蜂蜜黃圓、外圈環狀文字、內圈墨線、中間是真實的追溯編號，點了開農業部查詢頁。",
+      "html": "<a class=\"ds-seal\" href=\"#\" aria-label=\"農業部溯源追溯編號 1801000072（開啟農業部查詢頁）\"><svg viewBox=\"0 0 200 200\" aria-hidden=\"true\"><circle class=\"ds-seal__disk\" cx=\"100\" cy=\"100\" r=\"99\"/><path id=\"ds-seal-ring\" d=\"M 100 100 m -77 0 a 77 77 0 1 1 154 0 a 77 77 0 1 1 -154 0\" fill=\"none\"/><text class=\"ds-seal__ring\"><textPath href=\"#ds-seal-ring\" textLength=\"476\">農業部溯源追溯編號・每一瓶都查得到生產者是誰・</textPath></text><circle class=\"ds-seal__rule\" cx=\"100\" cy=\"100\" r=\"61\"/><text class=\"ds-seal__code\" x=\"100\" y=\"106\" text-anchor=\"middle\" textLength=\"112\">1801000072</text><path class=\"ds-seal__go\" d=\"M93 133 104 122m-8 0h8v8\"/></svg></a>",
+      "css": ".ds-seal { display: block; width: 160px; aspect-ratio: 1; border-radius: 50%; transform: rotate(-10deg); transition: transform 220ms cubic-bezier(0.23, 1, 0.32, 1); filter: drop-shadow(0 10px 14px rgba(36, 25, 22, 0.32)); } .ds-seal svg { display: block; width: 100%; height: 100%; } .ds-seal__disk { fill: var(--honey, #FAC23E); } .ds-seal__ring { font-family: \"Noto Sans TC\", \"Noto Sans CJK TC\", \"Source Han Sans TC\", \"PingFang TC\", \"Microsoft JhengHei\", sans-serif; font-size: 14.5px; font-weight: 700; fill: var(--ink, #241916); } .ds-seal__rule { fill: none; stroke: var(--ink, #241916); stroke-width: 1.4; } .ds-seal__code { font-family: \"Noto Sans TC\", \"Noto Sans CJK TC\", \"Source Han Sans TC\", \"PingFang TC\", \"Microsoft JhengHei\", sans-serif; font-size: 23px; font-weight: 900; fill: var(--ink, #241916); } .ds-seal__go { fill: none; stroke: var(--ink, #241916); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; } .ds-seal:active { transform: rotate(-10deg) scale(0.97); } .ds-seal:focus-visible { outline: 2px solid var(--ink, #241916); outline-offset: 3px; } @media (hover: hover) and (pointer: fine) { .ds-seal:hover { transform: rotate(-4deg) scale(1.03); } } @media (prefers-reduced-motion: reduce) { .ds-seal, .ds-seal:hover, .ds-seal:active { transform: rotate(-10deg); } }"
+    },
+    {
+      "name": "Series Switch 花系切換",
+      "kind": "button",
+      "refersTo": "series-switch",
+      "description": "主視覺大標上方的兩顆膠囊：圓點是那個花系標籤正面的顏色；選中的是墨底花白字（aria-pressed）；插畫下載中圓點轉圈（aria-busy）。切到鴨腳木時整片換天空藍、花再長一次。",
+      "html": "<div class=\"ds-series\" role=\"group\" aria-label=\"切換花系\"><button class=\"ds-series__btn\" aria-pressed=\"true\"><span class=\"ds-series__dot\" style=\"background:var(--coral, #ED715A)\"></span>紅淡比</button><button class=\"ds-series__btn\" aria-pressed=\"false\"><span class=\"ds-series__dot\" style=\"background:var(--sky, #9AD6E7)\"></span>鴨腳木</button></div>",
+      "css": ".ds-series { display: inline-flex; flex-wrap: wrap; gap: 8px; padding: 24px; background: var(--coral, #ED715A); } .ds-series__btn { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 16px 0 11px; border: 1.5px solid var(--ink, #241916); border-radius: 999px; background: transparent; color: var(--ink, #241916); font-family: \"Noto Sans TC\", \"Noto Sans CJK TC\", \"Source Han Sans TC\", \"PingFang TC\", \"Microsoft JhengHei\", sans-serif; font-size: 0.9375rem; font-weight: 700; letter-spacing: 0.1em; cursor: pointer; transition: background-color 150ms ease, color 150ms ease, transform 160ms cubic-bezier(0.23, 1, 0.32, 1); } .ds-series__btn:active { transform: scale(0.97); } .ds-series__btn:focus-visible { outline: 2px solid var(--ink, #241916); outline-offset: 3px; } .ds-series__btn[aria-pressed=\"true\"] { background: var(--ink, #241916); color: var(--bloom, #F8F6B6); cursor: default; } .ds-series__dot { flex-shrink: 0; width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid currentColor; } @media (hover: hover) and (pointer: fine) { .ds-series__btn[aria-pressed=\"false\"]:hover { background: rgba(36, 25, 22, 0.1); } } @media (prefers-reduced-motion: reduce) { .ds-series__btn { transition-property: background-color, color; } .ds-series__btn:active { transform: none; } }"
+    },
+    {
+      "name": "Sticker 貼紙",
+      "kind": "chip",
+      "refersTo": "sticker",
+      "description": "模切的膠囊貼紙，斜斜貼上去：團購、優惠、補貨中、最省運費（-6°）；即將推出（+8°、2px 墨框）。資訊面上換珊瑚紅。",
+      "html": "<div class=\"ds-stickers\"><span class=\"ds-sticker\">團購</span><span class=\"ds-sticker ds-sticker--coral\">團購商品</span><span class=\"ds-sticker ds-sticker--soon\">即將推出</span></div>",
+      "css": ".ds-stickers { display: flex; flex-wrap: wrap; gap: 16px; padding: 20px; } .ds-sticker { display: inline-flex; align-items: center; padding: 5px 14px; border-radius: 999px; transform: rotate(-6deg); font-family: \"Noto Sans TC\", \"Noto Sans CJK TC\", \"Source Han Sans TC\", \"PingFang TC\", \"Microsoft JhengHei\", sans-serif; font-size: 0.8125rem; font-weight: 900; line-height: 1.25; letter-spacing: 0.08em; white-space: nowrap; background: var(--honey, #FAC23E); color: var(--ink, #241916); box-shadow: 0 6px 14px -8px rgba(36, 25, 22, 0.55); } .ds-sticker--coral { background: var(--coral, #ED715A); } .ds-sticker--soon { padding: 8px 18px; font-size: 1rem; transform: rotate(8deg); border: 2px solid var(--ink, #241916); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "攤開的蜂蜜標籤",
+    "overview": "前台的世界就是店家自己的瓶身標籤。紅淡比花系的標籤正面是珊瑚紅，上面有放大的開花枝條、一隻蜜蜂、直排的「KEELUNG SPECIALTY」；右邊的資訊面是蜂蜜黃，印著品名、注意事項的 ◎ 和一張有框的營養標示。網站把這張標籤攤開：主視覺是正面，資訊帶是資訊面，商品頁、故事每一章都是「圖的一面＋字的一面」接在一起的標籤。插畫、Logo（基隆地圖開成的花＋蜜蜂）、品牌字全部從店家的 Illustrator 完稿拆出來，用向量原檔，不另外畫、不找替代字體。\n\n畫面是平塗的印刷品：整片鋪滿的色面、直角的面與照片、墨色細線、膠囊形的模切貼紙。唯一的立體感來自「貼上去的東西」——溯源圓貼紙、即將推出貼紙、斜放在墨色桌面上的兩張標籤。動態集中在一個時刻：首頁開場時枝幹由下往上長出來、花一朵朵開、蜜蜂沿弧線飛進來、溯源貼紙貼上。客人也可以把主視覺換成另一張標籤（鴨腳木）：新的那一面像貼上一張新標籤，從左緣一路蓋過去，花再長一次。商品照與蜂場照保持原色，不加濾鏡。\n\n拒絕：奶油底＋明體＋金色＋六角蜂巢的模板（GitHub 原版）、自己另配顏色的風格（第一版產地紙箱、第二版孔版印刷）、白底精品風、任何不是標籤上的米色或灰色底。",
+    "keyCharacteristics": [
+      "顏色全部來自標籤完稿；整段鋪滿，一段就是標籤的一個面",
+      "紅淡比＝珊瑚紅＋蜂蜜黃；鴨腳木＝天空藍＋檸檬黃綠，花系的顏色有意義",
+      "中文標題思源明體 900、字距拉開；品牌字是標籤上的向量字",
+      "面、照片、表格是直角；按鈕、篩選、貼紙是膠囊",
+      "資訊照標籤的樣子排：有框的營養標示表、◎ 開頭的注意事項",
+      "一個招牌動態（開花＋蜜蜂飛進來＋貼紙貼上；主視覺換花系時新標籤從左緣蓋過去、花再長一次），其餘只有按下回饋與淡入"
+    ],
+    "rules": [
+      {
+        "name": "The Series Color Rule",
+        "body": "紅淡比＝珊瑚紅正面＋蜂蜜黃資訊面；鴨腳木＝天空藍正面＋檸檬黃綠資訊面。講某一種蜜的地方就用那個花系的兩個顏色和那個花系的花；現在賣的都是紅淡蜜，所以天空藍與檸檬黃綠只出現在鴨腳木標籤上，和客人自己切到鴨腳木的主視覺。主視覺預設是紅淡比；切換只換主視覺，其他段落與頁面照各自內容的花系。",
+        "section": "colors"
+      },
+      {
+        "name": "The No-Cream Rule",
+        "body": "標籤上沒有米色也沒有灰底。淺色一律從花白來（花白、花白淡），整段的底只能是紙白或標籤上的顏色。",
+        "section": "colors"
+      },
+      {
+        "name": "The Ink-On-Faces Rule",
+        "body": "色面上的字一律是墨（墨色面上是花白）；次要文字也不換成灰。黃色按鈕放在蜂蜜黃面上時改成墨底黃字。",
+        "section": "colors"
+      },
+      {
+        "name": "The Label Lettering Rule",
+        "body": "品牌字只用標籤完稿拆出來的向量檔，不用任何字體重打；要換顏色就換 mask 的底色。",
+        "section": "typography"
+      },
+      {
+        "name": "The Spaced Serif Rule",
+        "body": "中文標題用思源明體 900，字距 0.06em–0.16em，越短的標題拉得越開。",
+        "section": "typography"
+      },
+      {
+        "name": "The Phrase Break Rule",
+        "body": "全站 word-break: keep-all，中文以分句換行；後台來的文字經過 prose()：超過 12 個字的長分句在詞與詞之間放換行點，全形左括號前也放，「（700g 經典大瓶裝）」整段一起換行，句尾標點不會被擠到行首。",
+        "section": "typography"
+      },
+      {
+        "name": "The Two-Face Rule",
+        "body": "圖的一面和字的一面要接在一起、等高，像同一張標籤；不在兩面之間留縫，也不把它們做成兩張分開的卡片。",
+        "section": "layout"
+      },
+      {
+        "name": "The Stuck-On Rule",
+        "body": "只有貼上去的東西有陰影；面、照片、表格、卡片永遠是平的。",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do 用標籤上的顏色整段鋪滿，一段就是標籤的一個面；閱讀與操作的頁面用紙白 (#FFFDF8)。",
+      "Do 講哪一種蜜，就用那個花系的兩個顏色和那個花系的花（紅淡比：#ED715A＋#FAC23E；鴨腳木：#9AD6E7＋#E9EA6D）。",
+      "Do 把圖的一面和字的一面接在一起、等高，做成一張標籤。",
+      "Do 用有框的營養標示表排事實與規格（1.5px 墨框、1px 細線分列）。",
+      "Do 色面上的字一律用墨 (#241916)；蜂蜜黃面上的主要按鈕改成墨底黃字。",
+      "Do 品牌字、Logo、插畫只用標籤完稿拆出來的向量檔。",
+      "Do 商品照與蜂場照保持原色。",
+      "Do 缺的資料寫「待填」，只讓工作人員看到；客人看到的永遠是完整的畫面。"
+    ],
+    "donts": [
+      "Don't 用米色、灰色或任何標籤上沒有的底色當整段的底。",
+      "Don't 用天空藍或鴨腳木的花去框紅淡蜜的商品或團購。",
+      "Don't 在珊瑚紅上放白字（只有 2.95:1）。",
+      "Don't 給面、照片、表格或卡片加陰影；陰影只屬於貼上去的貼紙與標籤。",
+      "Don't 在標題上方放英文小字，或把事實排成「大數字＋小標籤」的數據條。",
+      "Don't 用文字符號或表情符號當圖示（◎、箭頭都用 SVG 畫）。",
+      "Don't 加第二個開場動畫；招牌動作只有主視覺開花與標籤貼上。換花系是同一段開花再播一次，加上新標籤從左緣蓋過去的換面。",
+      "Don't 用底色漸變或圓形擴散在兩個花系之間轉場（漸變中間會變灰；圓形是一般 App 的效果）；新的一面用直的邊從左緣蓋過去。",
+      "Don't 寫「產銷履歷」（用「溯源」）、「開立發票」（用「農民收據」）、「第幾代養蜂」、「定期送驗」。"
+    ]
+  }
+}

@@ -38,7 +38,7 @@ export default function ResetPassword() {
       <section className="section">
         <div className="container form-page">
           <div className="form-card text-center">
-            <h1 style={{ fontSize: 21, color: 'var(--honey-900)', marginBottom: 12 }}>連結不完整</h1>
+            <h1 className="form-card__title">連結不完整</h1>
             <p className="muted">請直接點擊信件中的按鈕，或重新申請一次。</p>
             <Link to="/forgot-password" className="btn btn--primary" style={{ marginTop: 16 }}>
               重新申請
@@ -52,8 +52,8 @@ export default function ResetPassword() {
   return (
     <section className="section">
       <div className="container form-page">
-        <div className="text-center" style={{ marginBottom: 28 }}>
-          <h1 style={{ fontSize: 27, color: 'var(--honey-900)' }}>設定新密碼</h1>
+        <div className="form-head">
+          <h1 className="form-head__title">設定新密碼</h1>
         </div>
 
         {done ? (

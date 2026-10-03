@@ -44,9 +44,9 @@ export default function Register() {
       <section className="section">
         <div className="container form-page">
           <div className="form-card text-center">
-            <h1 style={{ fontSize: 24, color: 'var(--honey-900)', marginBottom: 12 }}>註冊完成</h1>
+            <h1 className="form-card__title">註冊完成</h1>
             <p className="muted">
-              我們寄了一封驗證信到 <strong style={{ color: 'var(--honey-700)' }}>{form.email}</strong>，
+              我們寄了一封驗證信到 <strong className="text-strong">{form.email}</strong>，
               請點信中的連結完成驗證。
             </p>
             <p className="small muted">沒收到的話，請檢查垃圾郵件匣，或稍後到會員中心重寄。</p>
@@ -60,7 +60,7 @@ export default function Register() {
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 22, flexWrap: 'wrap' }}>
+            <div className="form-card__actions">
               <button type="button" className="btn btn--primary" onClick={() => navigate('/member')}>
                 前往會員中心
               </button>
@@ -77,9 +77,9 @@ export default function Register() {
   return (
     <section className="section">
       <div className="container form-page">
-        <div className="text-center" style={{ marginBottom: 28 }}>
-          <h1 style={{ fontSize: 27, color: 'var(--honey-900)' }}>加入會員</h1>
-          <p className="muted small" style={{ marginTop: 8 }}>免費註冊，訂單紀錄一目了然</p>
+        <div className="form-head">
+          <h1 className="form-head__title">加入會員</h1>
+          <p className="form-head__desc">免費註冊，訂單紀錄一目了然</p>
         </div>
 
         <form className="form-card" onSubmit={submit}>
@@ -124,8 +124,8 @@ export default function Register() {
             {loading ? '註冊中…' : '註冊'}
           </button>
 
-          <p className="text-center small muted" style={{ marginTop: 18, marginBottom: 0 }}>
-            已經有帳號了？<Link to="/login" style={{ color: 'var(--honey-600)', textDecoration: 'underline' }}>前往登入</Link>
+          <p className="form-card__foot">
+            已經有帳號了？<Link to="/login" className="text-link">前往登入</Link>
           </p>
         </form>
       </div>

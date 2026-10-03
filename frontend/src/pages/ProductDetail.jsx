@@ -1,21 +1,27 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, formatPrice, mediaUrl } from '../api/client'
+import Gallery from '../components/Gallery'
 import GroupBuyShippingNotice from '../components/GroupBuyShippingNotice'
+import Icon from '../components/Icon'
 import Placeholder from '../components/Placeholder'
+import TraceStamp from '../components/TraceStamp'
 import { setMetaTag, setStructuredData } from '../components/SiteMeta'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { editable } from '../context/EditModeContext'
 import { useSettings } from '../context/SettingsContext'
-import { stripEditorNotes } from '../lib/text'
+import { prose, stripEditorNotes } from '../lib/text'
 
 export default function ProductDetail() {
   const { id } = useParams()
   const [product, setProduct] = useState(null)
   const [error, setError] = useState('')
   const [qty, setQty] = useState(1)
-  const [mainImage, setMainImage] = useState(null)
+  // 手機底部的購買列：等頁面上那一排（數量＋加入購物車）捲過去了才出現。
+  // 一進來就出現的話，客人還沒看到上面的嬰兒警語就能直接按下去。
+  const buyRow = useRef(null)
+  const [pastBuyRow, setPastBuyRow] = useState(false)
   const { add, items } = useCart()
   const { isStaff } = useAuth()
   const { settings } = useSettings()
@@ -26,7 +32,6 @@ export default function ProductDetail() {
       .getProduct(id)
       .then((p) => {
         setProduct(p)
-        setMainImage(p.image_url)
         setQty(1)
       })
       .catch((e) => setError(e.message))
@@ -73,12 +78,33 @@ export default function ProductDetail() {
     return () => setStructuredData('product', null)
   }, [product, settings])
 
+  useEffect(() => {
+    if (!product) return undefined
+    // 用捲動事件而不是 IntersectionObserver：一次跳很遠（點錨點、快速甩動）時，
+    // 那一排可能從「在畫面下方」直接變成「在畫面上方」，觀察器不會通知
+    let frame = 0
+    const check = () => {
+      frame = 0
+      const el = buyRow.current
+      if (el) setPastBuyRow(el.getBoundingClientRect().bottom < 0)
+    }
+    const onScroll = () => { if (!frame) frame = requestAnimationFrame(check) }
+    check()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+    }
+  }, [product])
+
   if (error) {
     return (
       <div className="container section">
         <div className="empty-state">
           <div className="empty-state__title">{error}</div>
-          <Link to="/products" className="btn btn--outline" style={{ marginTop: 16 }}>回到商品列表</Link>
+          <Link to="/products" className="btn btn--outline">回到商品列表</Link>
         </div>
       </div>
     )
@@ -141,6 +167,13 @@ export default function ProductDetail() {
     ['食品業者登錄字號', settings.food_registration_no],
   ].filter(([, v]) => !(v || '').trim()).map(([k]) => k)
 
+  /*
+    商品頁做成一張攤開的標籤：左邊照片放在花系的正面色上、右邊購買區是資訊面。
+    現在上架的都是紅淡蜜（紅淡比花系：珊瑚紅＋蜂蜜黃）；
+    之後鴨腳木花系上架，品名裡有「鴨腳木」的商品會自動換成鴨腳木標籤的顏色（天空藍＋檸檬黃綠）。
+  */
+  const series = /鴨腳木/.test(product.name || '') ? 'schefflera' : 'cleyera'
+
   return (
     <section className="section has-buy-bar">
       <div className="container">
@@ -152,83 +185,30 @@ export default function ProductDetail() {
           {product.name}
         </div>
 
-        <div className="pd" {...editable(`商品：${product.name}`, `/admin/products/${product.id}`)}>
-          <div>
-            <Placeholder
-              src={mainImage}
-              ratio="1x1"
-              alt={product.name}
-              hint={`商品主圖\nproduct-${product.id}.jpg`}
-              emptyText="照片準備中"
-            />
-            {/* 沒有其他照片時，對客人整排隱藏 —— 四個空框看起來像壞掉 */}
-            {(gallery.length > 1 || isStaff) && (
-              <div className="pd__thumbs">
-                {gallery.length ? (
-                  gallery.map((url, i) => (
-                    <button
-                      key={url + i}
-                      type="button"
-                      onClick={() => setMainImage(url)}
-                      style={{ padding: 0, border: 'none', background: 'none' }}
-                    >
-                      <Placeholder src={url} ratio="1x1" alt={`${product.name} 圖 ${i + 1}`} />
-                    </button>
-                  ))
-                ) : (
-                  [1, 2, 3, 4].map((n) => (
-                    <Placeholder key={n} ratio="1x1" hint={`圖 ${n}`} alt="待補上照片" />
-                  ))
-                )}
-              </div>
+        <div className={`pd pd--${series}`} {...editable(`商品：${product.name}`, `/admin/products/${product.id}`)}>
+          <div className="pd__gallery">
+            <Gallery images={gallery} alt={product.name} hint={`商品主圖\nproduct-${product.id}.jpg`} />
+            {/* 工作人員才看得到：只有一張照片時提醒可以再加 */}
+            {isStaff && gallery.length < 2 && (
+              <p className="staff-note">這項商品只有 {gallery.length} 張照片。到商品管理多傳幾張，客人就能左右滑著看。（這行只有工作人員看得到）</p>
             )}
           </div>
 
-          <div>
-            {product.is_group_buy && (
-              <span className="news-tag news-tag--media" style={{ marginBottom: 14, display: 'inline-block' }}>
-                團購商品
-              </span>
-            )}
-            <h1 className="pd__title">{product.name}</h1>
-            {product.subtitle && <p className="pd__sub">{product.subtitle}</p>}
+          <div className="pd__info">
+            <h1 className="pd__title">{prose(product.name)}</h1>
+            {product.subtitle && <p className="pd__sub">{prose(product.subtitle)}</p>}
 
             <div className="pd__price">
-              <span style={{ fontSize: 16 }}>NT$</span> {formatPrice(product.price)}
+              <span className="pd__price-now"><span className="price__cur">NT$</span>{formatPrice(product.price)}</span>
               {product.original_price && Number(product.original_price) > Number(product.price) && (
-                <span className="price__old" style={{ fontSize: 15 }}>
-                  NT${formatPrice(product.original_price)}
-                </span>
+                <span className="price__old">NT${formatPrice(product.original_price)}</span>
               )}
+              {product.is_group_buy && <span className="sticker pd__chip">團購商品</span>}
+              <TraceStamp variant="inline" className="pd__trace" />
             </div>
 
-            <div className="pd__divider" />
-
-            <table className="spec-table">
-              <tbody>
-                {product.spec && <tr><th>規格</th><td>{product.spec}</td></tr>}
-                {netWeight && <tr><th>淨重／內容量</th><td>{netWeight}</td></tr>}
-                {ingredients && <tr><th>內容物</th><td>{ingredients}</td></tr>}
-                {product.origin && <tr><th>原產地</th><td>{product.origin}</td></tr>}
-                {product.shelf_life && <tr><th>保存期限</th><td>{product.shelf_life}</td></tr>}
-                <tr>
-                  <th>庫存</th>
-                  <td>
-                    {soldOut ? '補貨中' : Number.isFinite(stock) ? `尚有 ${stock} 組` : '供應中'}
-                    {inCart > 0 && (
-                      <span className="small muted">　（購物車裡已有 {inCart} 組）</span>
-                    )}
-                  </td>
-                </tr>
-                {product.category?.name && <tr><th>分類</th><td>{product.category.name}</td></tr>}
-                {product.is_group_buy && product.group_buy_min_qty && (
-                  <tr><th>成團數量</th><td>{product.group_buy_min_qty} 組起</td></tr>
-                )}
-              </tbody>
-            </table>
-
             {product.group_buy_note && (
-              <div className="alert alert--info" style={{ marginTop: 20 }}>
+              <div className="alert alert--info pd__note">
                 {product.group_buy_note}
               </div>
             )}
@@ -241,14 +221,12 @@ export default function ProductDetail() {
             */}
             {product.is_group_buy && <GroupBuyShippingNotice compact />}
 
-            <div className="pd__divider" />
-
             {/* 還沒開放購買時，把原因講在按鈕上面，不要只給一顆按不動的灰按鈕 */}
             {notForSale && (
-              <div className="alert alert--info" style={{ marginBottom: 14 }}>
+              <div className="alert alert--info pd__note">
                 <strong>{notForSaleNote}</strong>
                 {settings.line_id && (
-                  <p className="small" style={{ margin: '6px 0 0' }}>
+                  <p className="alert__more">
                     想先預訂或想知道開賣時間，歡迎加 LINE {settings.line_id} 問我們。
                   </p>
                 )}
@@ -256,31 +234,39 @@ export default function ProductDetail() {
             )}
 
             {product.is_purchasable === false && isStaff && (
-              <div className="alert alert--error" style={{ marginBottom: 14 }}>
+              <div className="alert alert--error pd__note">
                 <strong>這項商品目前設定為「不開放購買」</strong>
-                <p className="small" style={{ margin: '6px 0 0' }}>
+                <p className="alert__more">
                   客人看得到但買不了。你是工作人員所以仍可下單測試。
                   要開賣請到商品編輯頁把「開放購買」打勾。（這段只有工作人員看得到。）
                 </p>
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* 嬰兒警語。這是安全性資訊，要在按「加入購物車」之前就看到，所以放在按鈕上面 */}
+            {infantWarning && (
+              <div className="warn-box">
+                <strong>食用注意</strong>
+                <span>{infantWarning}</span>
+              </div>
+            )}
+
+            <div className="pd__buy" ref={buyRow}>
               <div className="qty">
                 <button type="button" disabled={cannotBuy || qty <= 1}
-                        onClick={() => setQty((q) => clampQty(q - 1))}>−</button>
+                        onClick={() => setQty((q) => clampQty(q - 1))} aria-label="減少數量">−</button>
                 <input
                   type="number" min="1" max={maxQty} value={qty}
                   onChange={(e) => setQty(clampQty(e.target.value))}
                   disabled={cannotBuy}
+                  aria-label="數量"
                 />
                 <button type="button" disabled={cannotBuy || qty >= room}
-                        onClick={() => setQty((q) => clampQty(q + 1))}>＋</button>
+                        onClick={() => setQty((q) => clampQty(q + 1))} aria-label="增加數量">＋</button>
               </div>
               <button
                 type="button"
-                className="btn btn--primary"
-                style={{ flex: 1, minWidth: 180 }}
+                className="btn btn--primary btn--lg pd__add"
                 disabled={cannotBuy}
                 onClick={() => { add(product, qty); setQty(1) }}
               >
@@ -292,113 +278,144 @@ export default function ProductDetail() {
             </div>
 
             {cartFull && (
-              <p className="small" style={{ marginTop: 12, color: 'var(--danger)' }}>
+              <p className="pd__warn">
                 庫存共 {stock} 組，已全部在你的購物車裡了。
-                <Link to="/cart" style={{ textDecoration: 'underline', fontWeight: 500 }}>　前往結帳</Link>
-              </p>
-            )}
-
-            {/* 嬰兒警語。這是安全性資訊，要在買之前就看到，不能埋在頁面最下面 */}
-            {infantWarning && (
-              <div className="warn-box">
-                <strong>食用注意</strong>
-                <span>{infantWarning}</span>
-              </div>
-            )}
-
-            {settings.line_id && (
-              <p className="small muted" style={{ marginTop: 18 }}>
-                大量訂購或需要客製包裝，歡迎加 LINE：{settings.line_id}
-                {settings.contact_phone ? `，或來電 ${settings.contact_phone}` : ''}
+                <Link to="/cart">　前往結帳</Link>
               </p>
             )}
           </div>
-        </div>
 
-        {/*
-          食品標示。網路販售包裝食品，這些資訊在「購買前」就要揭露，
-          所以放在商品頁而不是只印在瓶身上。
-        */}
-        <div style={{ marginTop: 64, maxWidth: 760 }}
-             {...editable('食品標示', `/admin/products/${product.id}`, null,
-               '共用的內容物、保存方式在「政策條款 → 食品標示預設值」，個別商品可以覆寫。')}>
-          <h2 className="section-head__title" style={{ fontSize: 22, marginBottom: 6 }}>
-            食品標示
-          </h2>
-          <p className="small muted" style={{ marginBottom: 18 }}>
-            依食品安全衛生管理法，網路販售包裝食品應於購買前揭露下列資訊。
-          </p>
+          {/*
+            規格、商品介紹與食品標示：排在標籤（照片＋購買區）底下。
+            捲過購買區之後，底部會出現固定的購買列（電腦與手機都有），讀到哪都能直接買。
 
-          {isStaff && missing.length > 0 && (
-            <div className="alert alert--error">
-              <strong>上線前要補齊：{missing.join('、')}</strong>
-              <p className="small" style={{ margin: '6px 0 0' }}>
-                商品自己的欄位在「商品管理 → 編輯」；
-                共用的內容物、保存方式與廠商資訊在「政策條款」。
-                （這段只有工作人員看得到。）
+            食品標示：網路販售包裝食品，這些資訊在「購買前」就要揭露，
+            所以放在商品頁而不是只印在瓶身上。
+          */}
+          <div className="pd__more">
+            {/*
+              規格表、大量訂購的說明與商品介紹放在左欄，食品標示在右欄；
+              購買區只留標題到「加入購物車」，筆電螢幕一眼看得完。
+              規格表放最前面、商品介紹放在規格表和食品標示中間 ——
+              兩張表有幾列一樣（淨重、內容物、原產地、保存期限），不要讓它們上下連在一起。
+            */}
+            <div className="pd__about">
+              <div className="pd__spec">
+                <table className="spec-table">
+                  <tbody>
+                    {product.spec && <tr><th>規格</th><td>{product.spec}</td></tr>}
+                    {netWeight && <tr><th>淨重／內容量</th><td>{netWeight}</td></tr>}
+                    {ingredients && <tr><th>內容物</th><td>{ingredients}</td></tr>}
+                    {product.origin && <tr><th>原產地</th><td>{product.origin}</td></tr>}
+                    {product.shelf_life && <tr><th>保存期限</th><td>{product.shelf_life}</td></tr>}
+                    <tr>
+                      <th>庫存</th>
+                      <td>
+                        {soldOut ? '補貨中' : Number.isFinite(stock) ? `尚有 ${stock} 組` : '供應中'}
+                        {inCart > 0 && (
+                          <span className="spec-table__aside">（購物車裡已有 {inCart} 組）</span>
+                        )}
+                      </td>
+                    </tr>
+                    {product.category?.name && <tr><th>分類</th><td>{product.category.name}</td></tr>}
+                    {product.is_group_buy && product.group_buy_min_qty && (
+                      <tr><th>成團數量</th><td>{product.group_buy_min_qty} 組起</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {settings.line_id && (
+                <p className="pd__contact">
+                  大量訂購或需要客製包裝，歡迎加 LINE：{settings.line_id}
+                  {settings.contact_phone ? `，或來電 ${settings.contact_phone}` : ''}
+                </p>
+              )}
+
+              {product.description && (
+                <div className="pd__desc">
+                  <h2 className="block-title">商品介紹</h2>
+                  <p className="pd__desc-text">
+                    {prose(stripEditorNotes(product.description))}
+                  </p>
+                  {/* 情境照沒上傳時整塊不顯示，不要留一個空框給客人看 */}
+                  {(product.images?.[1]?.image_url || isStaff) && (
+                    <div className="pd__scene">
+                      <Placeholder
+                        src={product.images?.[1]?.image_url}
+                        fit="auto"
+                        art="jar"
+                        hint={`商品情境照\nproduct-${product.id}-detail.jpg`}
+                        alt="商品情境照"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="food-label"
+                 {...editable('食品標示', `/admin/products/${product.id}`, null,
+                   '共用的內容物、保存方式在「政策條款 → 食品標示預設值」，個別商品可以覆寫。')}>
+              <div className="food-label__head">
+                <h2 className="food-label__title">食品標示</h2>
+                <p className="food-label__law">
+                  依食品安全衛生管理法，網路販售包裝食品應於購買前揭露下列資訊。
+                </p>
+              </div>
+
+              {isStaff && missing.length > 0 && (
+                <div className="alert alert--error">
+                  <strong>上線前要補齊：{missing.join('、')}</strong>
+                  <p className="alert__more">
+                    商品自己的欄位在「商品管理 → 編輯」；
+                    共用的內容物、保存方式與廠商資訊在「政策條款」。
+                    （這段只有工作人員看得到。）
+                  </p>
+                </div>
+              )}
+
+              {labelRows.length ? (
+                // --wide：這張表的欄位名長很多（「有效日期／保存期限」），
+                // 用規格表那個 100px 的標籤欄會折行，看起來像壞掉
+                <table className="spec-table spec-table--wide">
+                  <tbody>
+                    {labelRows.map(([label, value]) => (
+                      <tr key={label}>
+                        <th>{label}</th>
+                        <td style={{ whiteSpace: 'pre-line' }}>{value}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="food-label__empty">標示資訊整理中，如需詳細資料歡迎與我們聯繫。</p>
+              )}
+
+              {settings.traceability_code && (
+                <p className="food-label__trace">
+                  生產者可查證：
+                  <a
+                    href={`https://qrc.afa.gov.tw/blog/${settings.traceability_code}`}
+                    target="_blank" rel="noreferrer"
+                  >
+                    農業部溯源追溯編號 {settings.traceability_code}
+                    <Icon name="external" size={16} />
+                  </a>
+                </p>
+              )}
+
+              <p className="food-label__foot">
+                {'蜂蜜為天然農產品，顏色、風味與結晶狀態會因花期與氣候而不同，屬正常現象。'}
+                {'退換貨規則請見 '}<Link to="/refund">退換貨政策</Link>。
               </p>
             </div>
-          )}
-
-          {labelRows.length ? (
-            // --wide：這張表的欄位名長很多（「有效日期／保存期限」），
-            // 用規格表那個 100px 的標籤欄會折行，看起來像壞掉
-            <table className="spec-table spec-table--wide">
-              <tbody>
-                {labelRows.map(([label, value]) => (
-                  <tr key={label}>
-                    <th>{label}</th>
-                    <td style={{ whiteSpace: 'pre-line' }}>{value}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p className="muted small">標示資訊整理中，如需詳細資料歡迎與我們聯繫。</p>
-          )}
-
-          {settings.traceability_code && (
-            <p className="small" style={{ marginTop: 14 }}>
-              生產者可查證：
-              <a
-                href={`https://qrc.afa.gov.tw/blog/${settings.traceability_code}`}
-                target="_blank" rel="noreferrer"
-                style={{ color: 'var(--honey-600)', textDecoration: 'underline' }}
-              >
-                農業部溯源追溯編號 {settings.traceability_code}
-              </a>
-            </p>
-          )}
-
-          <p className="small muted" style={{ marginTop: 14 }}>
-            蜂蜜為天然農產品，顏色、風味與結晶狀態會因花期與氣候而不同，屬正常現象。
-            退換貨規則請見 <Link to="/refund" style={{ textDecoration: 'underline' }}>退換貨政策</Link>。
-          </p>
-        </div>
-
-        {product.description && (
-          <div style={{ marginTop: 56, maxWidth: 760 }}>
-            <h2 className="section-head__title" style={{ fontSize: 22, marginBottom: 18 }}>商品介紹</h2>
-            <p style={{ whiteSpace: 'pre-line', color: 'var(--ink-soft)' }}>
-              {stripEditorNotes(product.description)}
-            </p>
-            {/* 情境照沒上傳時整塊不顯示，不要留一個空框給客人看 */}
-            {(product.images?.[1]?.image_url || isStaff) && (
-              <div style={{ marginTop: 28 }}>
-                <Placeholder
-                  src={product.images?.[1]?.image_url}
-                  fit="auto"
-                  hint={`商品情境照\nproduct-${product.id}-detail.jpg`}
-                  alt="商品情境照"
-                />
-              </div>
-            )}
           </div>
-        )}
+        </div>
       </div>
 
-      {/* 手機版固定在底部的購買列，捲到哪都能直接買 */}
-      <div className="buy-bar">
+      {/* 捲過購買區之後固定在底部的購買列（電腦與手機都有），捲到哪都能直接買 */}
+      <div className={`buy-bar${pastBuyRow ? ' is-visible' : ''}`} aria-hidden={!pastBuyRow}>
         <div className="buy-bar__price">
           <div className="buy-bar__label">{product.spec || '售價'}</div>
           <div className="price">

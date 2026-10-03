@@ -102,7 +102,7 @@ const IMAGE_FIELDS = [
     key: 'hero_image_url',
     label: '首頁主視覺',
     ratio: '4x3',
-    hint: '首頁最上方的大圖。建議橫式、約 1200×900，蜂場或蜂箱的實景照最有說服力。',
+    hint: '首頁「四個承諾」旁邊那張照片（首頁最上方現在是標籤上的插畫）。建議橫式、約 1200×900，蜂場或蜂箱的實景照最有說服力；分享到 LINE、Facebook 時的預覽大圖也是這張。',
   },
   {
     key: 'group_buy_image_url',
@@ -120,7 +120,9 @@ const IMAGE_FIELDS = [
     key: 'favicon_url',
     label: '網站 icon',
     ratio: '1x1',
-    hint: '瀏覽器分頁上的小圖示。正方形、建議 512×512，簡單的圖案才看得清楚（尺寸很小）。留空會用預設的蜂巢圖示。',
+    // Google 搜尋結果旁邊的小圖示也是這張（首頁的 /favicon.ico 由後端直接給這張圖）。
+    // Google 只吃 BMP、GIF、ICO、PNG、JPEG 這類格式，SVG、WebP 不會顯示，所以提示寫明用 PNG。
+    hint: '瀏覽器分頁和 Google 搜尋結果旁邊的小圖示都是這張。請用 PNG、正方形，建議 512×512（Google 至少要 48×48，不支援 SVG 和 WebP），圖案簡單才看得清楚。換了之後 Google 要等下次檢索首頁才會更新，通常要幾天到幾週。',
   },
 ]
 
@@ -183,7 +185,7 @@ const HERO_FIELDS = [
   },
   {
     key: 'hero_highlight',
-    label: '首頁大標（第二行，會變成金色）',
+    label: '首頁大標（第二行）',
     hint: '例：等熟成才採的蜜。這是整個網站最先被看到的一句話，寫具體、可以被查證的事最有說服力。',
   },
   {
@@ -191,6 +193,29 @@ const HERO_FIELDS = [
     label: '首頁大標下的說明',
     hint: '兩到三句話。頁尾的品牌介紹也會用這一段。建議寫「別人做不到或不願意做的事」，而不是形容詞。',
     textarea: true,
+  },
+]
+
+// 首頁「森林野花蜜」那一段：標籤上的兩個花系。
+// 紅淡比花系就是網站上在賣的森林紅淡蜜；鴨腳木花系還沒上架，前台標「即將推出」。
+// 這幾格留空時客人看不到空白（介紹那段整段不顯示），只有工作人員看得到「待填」。
+const SERIES_FIELDS = [
+  {
+    key: 'series_cleyera_desc',
+    label: '紅淡比花系介紹',
+    hint: '兩三句話介紹紅淡比花系的蜜（花期、顏色、香氣）。留空時這一段不顯示。',
+    textarea: true,
+  },
+  {
+    key: 'series_schefflera_desc',
+    label: '鴨腳木花系介紹',
+    hint: '兩三句話介紹鴨腳木花系的蜜。留空時這一段不顯示，客人只看到「即將推出」。',
+    textarea: true,
+  },
+  {
+    key: 'series_schefflera_launch',
+    label: '鴨腳木花系上市時間',
+    hint: '寫月份或季節就好。留空時客人只看到「即將推出」。',
   },
 ]
 
@@ -290,7 +315,7 @@ export default function AdminSettings() {
     setErr(''); setMsg(''); setSaving(true)
     try {
       const payload = {}
-      ;[...FIELDS, ...HERO_FIELDS, ...IMAGE_FIELDS, ...GROUP_BUY_FIELDS,
+      ;[...FIELDS, ...HERO_FIELDS, ...SERIES_FIELDS, ...IMAGE_FIELDS, ...GROUP_BUY_FIELDS,
         ...SHIPPING_FIELDS, ...SENDER_FIELDS]
         .forEach((f) => { payload[f.key] = values[f.key] || '' })
       payload.payment_methods_enabled = values.payment_methods_enabled || ''
@@ -348,6 +373,26 @@ export default function AdminSettings() {
           首頁最上方的大標與說明。改完按最下方的「儲存全部設定」。
         </p>
         {HERO_FIELDS.map((f) => (
+          <div className="field" key={f.key}>
+            <label htmlFor={f.key}>{f.label}</label>
+            {f.textarea ? (
+              <textarea id={f.key} className="input" name={f.key} rows={3}
+                        value={values[f.key] || ''} onChange={change} />
+            ) : (
+              <input id={f.key} className="input" name={f.key}
+                     value={values[f.key] || ''} onChange={change} />
+            )}
+            {f.hint && <div className="field__hint">{f.hint}</div>}
+          </div>
+        ))}
+      </form>
+
+      <form className="panel" onSubmit={submit}>
+        <h2 className="panel__title">首頁花系介紹</h2>
+        <p className="small muted" style={{ marginTop: -8 }}>
+          首頁「森林野花蜜」那一段，標籤上的兩個花系。改完按最下方的「儲存全部設定」。
+        </p>
+        {SERIES_FIELDS.map((f) => (
           <div className="field" key={f.key}>
             <label htmlFor={f.key}>{f.label}</label>
             {f.textarea ? (

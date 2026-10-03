@@ -3,9 +3,7 @@ import { ProductsGrid, ProductsHeader } from '../components/sections/PageSection
 export default function Products() {
   return (
     <>
-      <section className="page-hero">
-        <div className="container"><ProductsHeader /></div>
-      </section>
+      <ProductsHeader />
 
       <section className="section">
         <div className="container"><ProductsGrid /></div>

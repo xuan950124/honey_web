@@ -34,19 +34,19 @@ export default function VerifyEmail() {
         <div className="form-card text-center">
           {state === 'checking' && (
             <>
-              <h1 style={{ fontSize: 21, color: 'var(--honey-900)', marginBottom: 10 }}>驗證中…</h1>
+              <h1 className="form-card__title">驗證中…</h1>
               <p className="muted">請稍候</p>
             </>
           )}
 
           {state === 'ok' && (
             <>
-              <h1 style={{ fontSize: 23, color: 'var(--honey-900)', marginBottom: 12 }}>
+              <h1 className="form-card__title">
                 Email 驗證成功
               </h1>
               <p className="muted">{message}</p>
               <p className="small muted">之後的訂單與到貨通知都會寄到這個信箱。</p>
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20, flexWrap: 'wrap' }}>
+              <div className="form-card__actions">
                 <Link to={user ? '/member' : '/login'} className="btn btn--primary">
                   {user ? '前往會員中心' : '前往登入'}
                 </Link>
@@ -57,9 +57,9 @@ export default function VerifyEmail() {
 
           {(state === 'error' || state === 'missing') && (
             <>
-              <h1 style={{ fontSize: 21, color: 'var(--honey-900)', marginBottom: 12 }}>無法完成驗證</h1>
+              <h1 className="form-card__title">無法完成驗證</h1>
               <p className="muted">{message || '連結不完整，請直接點擊信件中的按鈕。'}</p>
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20, flexWrap: 'wrap' }}>
+              <div className="form-card__actions">
                 {user ? (
                   <Link to="/member" className="btn btn--primary">到會員中心重寄驗證信</Link>
                 ) : (

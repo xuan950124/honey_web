@@ -3,15 +3,13 @@ import { StoryChapters, StoryCta, StoryHeader } from '../components/sections/Pag
 export default function Story() {
   return (
     <>
-      <section className="page-hero">
-        <div className="container"><StoryHeader /></div>
-      </section>
+      <StoryHeader />
 
       <section className="section">
         <div className="container"><StoryChapters /></div>
       </section>
 
-      <section className="section section--dark">
+      <section className="cta-band">
         <div className="container"><StoryCta /></div>
       </section>
     </>

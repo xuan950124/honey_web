@@ -18,3 +18,7 @@ frontend/.env
 .idea/
 .DS_Store
 Thumbs.db
+
+# 設計檢查的截圖（本機檢查用，不上線）
+frontend/_site-check/
+.impeccable/review/

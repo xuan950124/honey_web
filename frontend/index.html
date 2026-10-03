@@ -49,7 +49,13 @@
     <link rel="apple-touch-icon" href="/site-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Noto+Serif+TC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <meta name="theme-color" content="#FFFDF8" />
+    <!--
+      字體（店家指定）：標題用思源明體（Noto Serif TC）700／900，內文用思源黑體（Noto Sans TC）。
+      首頁開場的插畫動畫會等 document.fonts.ready 之後才開始，所以用 swap 不會播到一半換字。
+      品牌字（KEELUNG SPECIALTY、Huang's Keelung Honey、花系標題）不是字體，是從標籤完稿拆出來的向量檔（public/brand）。
+    -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@700;900&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="root"></div>

@@ -27,7 +27,7 @@ export default function OrderDetail() {
       <div className="container section">
         <div className="empty-state">
           <div className="empty-state__title">{error}</div>
-          <Link to="/" className="btn btn--outline" style={{ marginTop: 16 }}>回到首頁</Link>
+          <Link to="/" className="btn btn--outline">回到首頁</Link>
         </div>
       </div>
     )
@@ -60,16 +60,16 @@ export default function OrderDetail() {
                 : '訂單已成立，等待付款'
 
   return (
-    <section className="section">
-      <div className="container" style={{ maxWidth: 760 }}>
-        <div className="panel text-center" style={{ marginBottom: 22 }}>
-          <h1 style={{ fontSize: 26, color: 'var(--honey-900)', marginBottom: 10 }}>
+    <section className="section section--top-tight">
+      <div className="container container--read">
+        <div className="order-head">
+          <h1 className="order-head__title">
             {heading}
           </h1>
-          <p className="muted" style={{ marginBottom: 6 }}>
-            訂單編號 <strong style={{ color: 'var(--honey-700)', fontFamily: 'monospace' }}>{order.order_no}</strong>
+          <p className="order-head__no">
+            訂單編號 <strong className="order-no">{order.order_no}</strong>
           </p>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginTop: 12 }}>
+          <div className="order-head__tags">
             <span className={`tag tag--${order.status}`}>{ORDER_STATUS_TEXT[order.status]}</span>
             <span className={`tag tag--${paymentToneFor(order)}`}>
               {paymentTextFor(order)}
@@ -89,11 +89,11 @@ export default function OrderDetail() {
             <table className="spec-table">
               <tbody>
                 {order.payment_bank_code && (
-                  <tr><th>銀行代碼</th><td style={{ fontFamily: 'monospace', fontSize: 16 }}>{order.payment_bank_code}</td></tr>
+                  <tr><th>銀行代碼</th><td className="pay-code pay-code--sm">{order.payment_bank_code}</td></tr>
                 )}
                 <tr>
                   <th>{order.payment_method === 'atm' ? '虛擬帳號' : '繳費代碼'}</th>
-                  <td style={{ fontFamily: 'monospace', fontSize: 18, color: 'var(--honey-700)', fontWeight: 600 }}>
+                  <td className="pay-code">
                     {order.payment_no}
                   </td>
                 </tr>
@@ -179,13 +179,13 @@ export default function OrderDetail() {
           </table>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+        <div className="order-actions">
           <Link to="/products" className="btn btn--outline">繼續選購</Link>
           <Link to="/member" className="btn btn--ghost">我的訂單</Link>
         </div>
 
         {settings.line_id && (
-          <p className="small muted text-center" style={{ marginTop: 22 }}>
+          <p className="order-help">
             訂單有任何問題，歡迎加 LINE {settings.line_id}
             {settings.contact_phone ? ` 或來電 ${settings.contact_phone}` : ''}
           </p>

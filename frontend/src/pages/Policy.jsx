@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { api } from '../api/client'
+import { PageHero } from '../components/sections/Common'
 import { editable } from '../context/EditModeContext'
 import { useSettings } from '../context/SettingsContext'
 
@@ -56,7 +57,7 @@ function renderMarkdown(source) {
         i += 1
       }
       blocks.push(
-        <div className="table-wrap" key={`t${i}`} style={{ margin: '18px 0' }}>
+        <div className="table-wrap policy__table" key={`t${i}`}>
           <table className="table">
             <thead><tr>{head.map((h, n) => <th key={n}>{inline(h, `h${n}`)}</th>)}</tr></thead>
             <tbody>
@@ -133,15 +134,10 @@ export default function Policy({ page }) {
 
   return (
     <>
-      <section className="page-hero">
-        <div className="container">
-          <h1 className="page-hero__title">{meta.title}</h1>
-          <p className="page-hero__desc">{meta.desc}</p>
-        </div>
-      </section>
+      <PageHero title={meta.title} desc={meta.desc} />
 
       <section className="section">
-        <div className="container" style={{ maxWidth: 780 }}>
+        <div className="container container--read">
           {error && <div className="alert alert--error">{error}</div>}
           {content === null && !error && <div className="loading">載入中…</div>}
 
@@ -154,7 +150,7 @@ export default function Policy({ page }) {
           )}
 
           <div className="policy__foot">
-            <div className="small muted">
+            <div className="policy__updated">
               最後更新：本頁內容如有調整會直接於此公告。
               {settings.contact_email && <>　有疑問請來信 {settings.contact_email}</>}
             </div>

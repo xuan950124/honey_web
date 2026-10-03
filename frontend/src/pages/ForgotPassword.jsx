@@ -24,16 +24,16 @@ export default function ForgotPassword() {
   return (
     <section className="section">
       <div className="container form-page">
-        <div className="text-center" style={{ marginBottom: 28 }}>
-          <h1 style={{ fontSize: 27, color: 'var(--honey-900)' }}>忘記密碼</h1>
-          <p className="muted small" style={{ marginTop: 8 }}>
+        <div className="form-head">
+          <h1 className="form-head__title">忘記密碼</h1>
+          <p className="form-head__desc">
             輸入註冊時使用的 Email，我們會寄一封重設密碼的信給你
           </p>
         </div>
 
         {sent ? (
           <div className="form-card text-center">
-            <h2 style={{ fontSize: 19, color: 'var(--honey-800)', marginBottom: 12 }}>信件已寄出</h2>
+            <h2 className="form-card__title">信件已寄出</h2>
             <p className="muted" style={{ fontSize: 14.5 }}>{sent.message}</p>
             <p className="small muted">
               沒收到的話，請檢查垃圾郵件匣。連結有效時間為 1 小時。
@@ -66,8 +66,8 @@ export default function ForgotPassword() {
               {loading ? '寄送中…' : '寄出重設密碼的信'}
             </button>
 
-            <p className="text-center small muted" style={{ marginTop: 18, marginBottom: 0 }}>
-              想起來了？<Link to="/login" style={{ color: 'var(--honey-600)', textDecoration: 'underline' }}>回到登入</Link>
+            <p className="form-card__foot">
+              想起來了？<Link to="/login" className="text-link">回到登入</Link>
             </p>
           </form>
         )}

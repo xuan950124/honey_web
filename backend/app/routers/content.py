@@ -163,6 +163,11 @@ DEFAULT_SETTINGS = {
     "hero_title": "",
     "hero_highlight": "",
     "hero_desc": "",
+    # 首頁「森林野花蜜」：標籤上的兩個花系。紅淡比花系是網站上在賣的森林紅淡蜜；
+    # 鴨腳木花系還沒上架，前台標「即將推出」。留空時前台那一段不顯示（客人看不到空白）。
+    "series_cleyera_desc": "",
+    "series_schefflera_desc": "",
+    "series_schefflera_launch": "",
     # 各頁面的固定圖片（後台可直接上傳，不用改程式碼）
     "hero_image_url": "",
     "group_buy_image_url": "",

@@ -1,8 +1,12 @@
 import { Link } from 'react-router-dom'
 import { editable } from '../context/EditModeContext'
 import { useSettings } from '../context/SettingsContext'
+import { Lettering } from './Brand'
+import TraceStamp from './TraceStamp'
+import { prose } from '../lib/text'
 
-const Empty = () => <span className="footer__empty">（待補）</span>
+// 後台還沒填的欄位。不自己編內容，照實寫「待填」
+const Empty = () => <span className="footer__empty">待填</span>
 const SETTINGS = '/admin/settings'
 
 export default function Footer() {
@@ -23,7 +27,9 @@ export default function Footer() {
     <footer className="footer">
       <div className="container">
         <div className="footer__grid">
-          <div>
+          <div className="footer__about">
+            {/* 店家的圓形 Logo 貼紙（Huang's Keelung Honey・100% Natural Forest Product） */}
+            <Lettering name="seal" className="footer__seal" label="黃家基蜜 Huang's Keelung Honey" />
             <div className={`footer__brand${loaded ? '' : ' is-pending'}`}
                  {...editable('網站名稱', SETTINGS, 'shop_name')}>
               {settings.shop_name || '蜂蜜工坊'}
@@ -35,27 +41,16 @@ export default function Footer() {
             */}
             <p className={`footer__desc${loaded ? '' : ' is-pending'}`}
                {...editable('品牌介紹', SETTINGS, 'hero_desc', '這一段跟首頁大標下的說明是同一個欄位。')}>
-              {settings.hero_desc ||
-                '基隆七堵的自家蜂場。等蜜在巢裡封蓋熟成才採收，裝瓶前不加水、不加糖，每一瓶都查得到生產者。'}
+              {prose(settings.hero_desc ||
+                '基隆七堵的自家蜂場。等蜜在巢裡封蓋熟成才採收，裝瓶前不加水、不加糖，每一瓶都查得到生產者。')}
             </p>
-            {settings.traceability_code && (
-              <a
-                {...editable('溯源追溯編號', SETTINGS, 'traceability_code')}
-                className="trace-badge"
-                href={`https://qrc.afa.gov.tw/blog/${settings.traceability_code}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <span className="trace-badge__label">農業部溯源追溯編號</span>
-                <span className="trace-badge__code">{settings.traceability_code}</span>
-              </a>
-            )}
+            <TraceStamp variant="footer" />
           </div>
 
           {/* data-edit-skip：編輯模式下這兩欄還是純導覽，點了要真的換頁 */}
           <div data-edit-skip>
-            <h4>網站導覽</h4>
-            <ul>
+            <h2 className="footer__heading">網站導覽</h2>
+            <ul className="footer__links">
               <li><Link to="/products">蜂蜜商品</Link></li>
               <li><Link to="/group-buy">團購專區</Link></li>
               <li><Link to="/news">新聞報導</Link></li>
@@ -65,8 +60,8 @@ export default function Footer() {
           </div>
 
           <div data-edit-skip>
-            <h4>會員與條款</h4>
-            <ul>
+            <h2 className="footer__heading">會員與條款</h2>
+            <ul className="footer__links">
               <li><Link to="/login">會員登入</Link></li>
               <li><Link to="/member">訂單查詢</Link></li>
               <li><Link to="/refund">退換貨政策</Link></li>
@@ -76,21 +71,23 @@ export default function Footer() {
           </div>
 
           <div {...editable('聯絡資訊', SETTINGS, 'contact_phone', '電話、LINE、地址、Email、營業時間都在「網站設定 → 聯絡資訊與基本設定」。')}>
-            <h4>聯絡資訊</h4>
-            <ul>
-              <li>
-                電話：
-                {settings.contact_phone ? (
-                  <a href={`tel:${settings.contact_phone}`}>{settings.contact_phone}</a>
-                ) : (
-                  <Empty />
-                )}
-              </li>
-              <li>LINE：{settings.line_id || <Empty />}</li>
-              <li>地址：{settings.contact_address || <Empty />}</li>
-              <li>Email：{settings.contact_email || <Empty />}</li>
-              <li>營業時間：{settings.business_hours || <Empty />}</li>
-            </ul>
+            <h2 className="footer__heading">聯絡資訊</h2>
+            <dl className="footer__contact">
+              <div>
+                <dt>電話</dt>
+                <dd>
+                  {settings.contact_phone ? (
+                    <a href={`tel:${settings.contact_phone}`}>{settings.contact_phone}</a>
+                  ) : (
+                    <Empty />
+                  )}
+                </dd>
+              </div>
+              <div><dt>LINE</dt><dd>{settings.line_id || <Empty />}</dd></div>
+              <div><dt>地址</dt><dd>{settings.contact_address || <Empty />}</dd></div>
+              <div><dt>Email</dt><dd>{settings.contact_email || <Empty />}</dd></div>
+              <div><dt>營業時間</dt><dd>{settings.business_hours || <Empty />}</dd></div>
+            </dl>
           </div>
         </div>
 
