@@ -324,6 +324,14 @@ _MIME = {
 }
 
 
+# 網站 icon 與分享大圖的快取時間：5 分鐘。
+#
+# 前端網域（huanglong-honey.com）前面有 Cloudflare，它會照這裡的 max-age 把圖存在節點上。
+# 原本給一天，結果在後台換了 icon，Cloudflare 跟瀏覽器還是繼續給舊圖，要隔一天才看得到。
+# 這幾張圖很少被請求，5 分鐘一次回源完全不成問題，換圖後幾分鐘內就會生效。
+_ICON_CACHE = "public, max-age=300"
+
+
 def _serve_upload(path_value: str) -> Response | None:
     """把 /uploads/xxx.png 這種設定值變成真的圖片位元組。
 
@@ -348,8 +356,7 @@ def _serve_upload(path_value: str) -> Response | None:
     return Response(
         content=target.read_bytes(),
         media_type=media,
-        # 一天。改圖之後最多隔一天生效，但省下大量重複請求。
-        headers={"Cache-Control": "public, max-age=86400"},
+        headers={"Cache-Control": _ICON_CACHE},
     )
 
 
@@ -371,7 +378,7 @@ def site_icon(db: Session = Depends(get_db)) -> Response:
     if served:
         return served
     return Response(content=_FALLBACK_ICON, media_type="image/svg+xml",
-                    headers={"Cache-Control": "public, max-age=3600"})
+                    headers={"Cache-Control": _ICON_CACHE})
 
 
 @router.get("/og-cover.jpg", response_class=Response)
@@ -389,4 +396,4 @@ def og_cover(db: Session = Depends(get_db)) -> Response:
         if served:
             return served
     return Response(content=_FALLBACK_ICON, media_type="image/svg+xml",
-                    headers={"Cache-Control": "public, max-age=3600"})
+                    headers={"Cache-Control": _ICON_CACHE})
