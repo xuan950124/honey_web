@@ -11,6 +11,24 @@ cat > /usr/share/nginx/html/config.js <<CONFIG
 window.__APP_CONFIG__ = { apiBase: "${API_BASE}" };
 CONFIG
 
+# 舊版網頁 HTML 被瀏覽器存著時，自動重新整理一次。
+#
+# 2026-10 以前的 index.html 沒有 Cache-Control，瀏覽器會自己猜要存多久（可能好幾天），
+# 改版後客人一直看到舊畫面。config.js 每次都會重新下載（nginx.conf 對它設了 no-store），
+# 所以由它來檢查：載入的 HTML 沒有 html-cache 標記，就是舊版，重新整理一次就會拿到新版。
+# 瀏覽器是一個網址存一份，所以每個網址在同一個分頁只試一次（sessionStorage），不會無限重新整理。
+cat >> /usr/share/nginx/html/config.js <<'RELOAD'
+(function () {
+  try {
+    if (document.querySelector('meta[name="html-cache"]')) return;
+    var key = 'html-refresh:' + location.pathname + location.search;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, '1');
+    location.reload();
+  } catch (e) { /* 拿不到 sessionStorage 就不動，避免一直重新整理 */ }
+})();
+RELOAD
+
 # robots.txt 也在這裡產生，因為 Sitemap 那一行要指到後端網址。
 # 後台、購物車、訂單頁一律不收錄 ——
 # 訂單頁的網址帶存取碼，被搜尋引擎收錄等於外流。

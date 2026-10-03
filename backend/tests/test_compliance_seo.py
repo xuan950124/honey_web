@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import sys
 from pathlib import Path
 from xml.etree import ElementTree
@@ -666,6 +667,32 @@ def test_site_icon():
     check("後端網址沒設定時有備援", "favicon.svg" in entry)
 
 
+def test_html_not_stale():
+    """2026-10 改版後客人一直看到舊畫面：舊的 index.html 沒有 Cache-Control，
+    瀏覽器照檔案日期自己猜可以存好幾天。"""
+    print("\n[網頁 HTML 不會被瀏覽器存成舊版]")
+    conf = (ROOT / "frontend/nginx.conf").read_text("utf-8")
+    block = re.search(r"location = /index\.html \{([^}]*)\}", conf)
+    check("nginx 對 index.html 設 no-cache（每次先問有沒有新版）",
+          block is not None and 'Cache-Control "no-cache"' in block.group(1),
+          "沒設的話瀏覽器會自己猜要存多久")
+    check("config.js 仍然完全不快取（舊 HTML 靠它自動更新）",
+          re.search(r'location = /config\.js \{[^}]*no-store', conf) is not None)
+
+    index = (ROOT / "frontend/index.html").read_text("utf-8")
+    check("index.html 有 html-cache 標記", 'name="html-cache"' in index)
+    check("標記在 config.js 之前（config.js 執行時要看得到）",
+          'name="html-cache"' in index and 'src="/config.js"' in index
+          and index.index('name="html-cache"') < index.index('src="/config.js"'))
+
+    entry = (ROOT / "frontend/docker-entrypoint.d/40-app-config.sh").read_text("utf-8")
+    reload_part = entry[entry.find("<<'RELOAD'"):entry.find("\nRELOAD\n")]
+    check("config.js 會檢查 html-cache 標記", 'meta[name="html-cache"]' in reload_part)
+    check("每個網址只重新整理一次（不會無限重新整理）",
+          "sessionStorage" in reload_part and "location.pathname" in reload_part)
+    check("重新整理那段不會被 shell 展開（heredoc 有加引號）", "<<'RELOAD'" in entry)
+
+
 def test_frontend_wiring():
     print("\n[前端真的有用到這些東西]")
     src = ROOT / "frontend/src"
@@ -725,7 +752,7 @@ if __name__ == "__main__":
         test_no_ecpay_invoice_params,
         test_sitemap, test_sitemap_survives_broken_db, test_robots, test_structured_data,
         test_local_seo_signals, test_faq_structured_data, test_site_icon,
-        test_frontend_wiring,
+        test_html_not_stale, test_frontend_wiring,
     ):
         fn()
 

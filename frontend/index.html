@@ -51,6 +51,12 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <meta name="theme-color" content="#FFFDF8" />
     <!--
+      這份 HTML 由 nginx 加上 Cache-Control: no-cache，瀏覽器每次都會先問伺服器有沒有新版。
+      在那之前的版本沒有這個設定，瀏覽器會自己猜要存多久（可能好幾天），改版後還一直看到舊畫面。
+      /config.js 每次都會重新下載，它看到沒有這個標記的舊 HTML，就會自動重新整理一次。
+    -->
+    <meta name="html-cache" content="no-cache" />
+    <!--
       字體（店家指定）：標題用思源明體（Noto Serif TC）700／900，內文用思源黑體（Noto Sans TC）。
       首頁開場的插畫動畫會等 document.fonts.ready 之後才開始，所以用 swap 不會播到一半換字。
       品牌字（KEELUNG SPECIALTY、Huang's Keelung Honey、花系標題）不是字體，是從標籤完稿拆出來的向量檔（public/brand）。
