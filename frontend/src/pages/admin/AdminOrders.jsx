@@ -283,7 +283,7 @@ export default function AdminOrders() {
     Authorization 標頭** —— 登入權杖存在 localStorage，只有 fetch 會幫忙加。
     所以直接開一定會看到「登入憑證無效或已過期」。
 
-    也不能把登入權杖塞進網址：它有七天效期，而網址會留在瀏覽器紀錄、
+    也不能把登入權杖塞進網址：它有三十天效期還會自動延長，而網址會留在瀏覽器紀錄、
     Referer 與伺服器日誌裡。
 
     視窗要**先開再填網址** —— 等 await 回來才 window.open 會被瀏覽器

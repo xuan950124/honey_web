@@ -113,6 +113,8 @@ export const api = {
   register: (payload) => request('/api/auth/register', { method: 'POST', body: payload }),
   login: (payload) => request('/api/auth/login', { method: 'POST', body: payload }),
   me: () => request('/api/auth/me'),
+  // 換一張新的登入權杖（效期重新起算），見 AuthContext 的 renewIfOld
+  refresh: () => request('/api/auth/refresh', { method: 'POST' }),
   updateMe: (payload) => request('/api/auth/me', { method: 'PATCH', body: payload }),
 
   // 信箱驗證與密碼

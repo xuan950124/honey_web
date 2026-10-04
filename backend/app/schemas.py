@@ -80,6 +80,12 @@ class SimpleMessage(BaseModel):
     dev_url: str | None = None
 
 
+class PasswordChanged(SimpleMessage):
+    # 改密碼會讓所有舊的登入權杖失效（包括這台裝置的），這台裝置要換成這一張
+    access_token: str
+    token_type: str = "bearer"
+
+
 # ---------- 分類 ----------
 class CategoryIn(BaseModel):
     name: str

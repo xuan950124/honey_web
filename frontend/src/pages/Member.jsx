@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import {
   LOGISTICS_STATUS_TEXT, ORDER_STATUS_TEXT,
   api, checkoutUrl, formatDate, formatPrice, orderUrl,
-  paymentTextFor, paymentToneFor,
+  paymentTextFor, paymentToneFor, setToken,
 } from '../api/client'
 import CouponCard from '../components/CouponCard'
 import PasswordField from '../components/PasswordField'
@@ -62,6 +62,8 @@ export default function Member() {
     setPwSaving(true)
     try {
       const res = await api.changePassword(pw.current_password, pw.new_password)
+      // 改密碼後所有舊的登入權杖都失效了（包括這台的），換成後端給的新權杖才不會被登出
+      if (res.access_token) setToken(res.access_token)
       setPwMsg(res.message)
       setPw({ current_password: '', new_password: '', confirm: '' })
     } catch (e) {

@@ -34,7 +34,9 @@ class Settings(BaseSettings):
 
     SECRET_KEY: str = "dev-secret-change-me"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
+    # 登入權杖的效期。前端每天第一次打開網站會自動換一張新的（POST /api/auth/refresh），
+    # 效期重新起算，所以這其實是「連續多久沒來才要重新登入」。
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 30
 
     CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
 

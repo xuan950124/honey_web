@@ -292,7 +292,7 @@ def test_upload_endpoint():
     print("\n[上傳 API 的實際行為]")
     from fastapi.testclient import TestClient
     from app import database, main
-    from app.security import create_access_token
+    from app.security import access_token_for
 
     db_engine = create_engine("sqlite://", connect_args={"check_same_thread": False},
                               poolclass=StaticPool)
@@ -308,8 +308,8 @@ def test_upload_endpoint():
     member = User(email="m@x.com", hashed_password="x", name="會員", role=UserRole.member)
     db.add_all([staff, member])
     db.commit()
-    staff_token = create_access_token(staff.id)
-    member_token = create_access_token(member.id)
+    staff_token = access_token_for(staff)
+    member_token = access_token_for(member)
     db.close()
 
     JPG = bytes.fromhex("ffd8ffe000104a464946") + b"\x00" * 100
@@ -520,6 +520,154 @@ def test_docs_never_tell_you_to_open_a_staff_url():
           "那支刻意公開，網站掛掉時要能直接開來看")
 
 
+# ------------------------------------------------- 保持登入
+
+def test_session_renewal():
+    """有在用就一直保持登入（2026-10 店家：「過一晚就被登出了」）。
+
+    登入原本固定七天，有在用也不會延長，時間一到就在半夜過期。
+    改成每天自動換一張新權杖之後，重點變成：**被偷走的權杖不能跟著一直延長**。
+    所以權杖綁著密碼指紋，改密碼或重設密碼後全部失效。
+    """
+    print("\n[保持登入：自動延長，但偷走的權杖延長不了]")
+    import time
+
+    import jwt as pyjwt
+    from fastapi.testclient import TestClient
+
+    from app import database, main
+    from app.config import settings
+    from app.models import TokenPurpose
+    from app.security import create_access_token, create_action_token
+    from app.tokens import issue_token
+
+    throttle.reset()
+    db_engine = create_engine("sqlite://", connect_args={"check_same_thread": False},
+                              poolclass=StaticPool)
+    Base.metadata.create_all(db_engine)
+    Session = sessionmaker(bind=db_engine)
+    original_engine = database.engine
+    original_session = database.SessionLocal
+    database.engine = db_engine
+    database.SessionLocal = Session
+
+    db = Session()
+    keep = User(email="keep@x.com", hashed_password=hash_password("old-password-1"),
+                name="會員", role=UserRole.member)
+    gone = User(email="gone@x.com", hashed_password=hash_password("whatever-1"),
+                name="停用的", role=UserRole.member, is_active=False)
+    db.add_all([keep, gone])
+    db.commit()
+    keep_id, gone_id, gone_hash = keep.id, gone.id, gone.hashed_password
+    db.close()
+
+    def claims(t):
+        return pyjwt.decode(t, options={"verify_signature": False})
+
+    def bearer(t):
+        return {"Authorization": f"Bearer {t}"}
+
+    def raw_token(payload, key=None):
+        return pyjwt.encode(payload, key or settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+    now = int(time.time())
+    try:
+        with TestClient(main.app, raise_server_exceptions=False) as client:
+            def me(t):
+                return client.get("/api/auth/me", headers=bearer(t)).status_code
+
+            def refresh(t):
+                return client.post("/api/auth/refresh", headers=bearer(t))
+
+            r = client.post("/api/auth/login",
+                            json={"email": "keep@x.com", "password": "old-password-1"})
+            check("登入成功", r.status_code == 200, r.text[:200])
+            t1 = r.json()["access_token"]
+            c1 = claims(t1)
+            days = (c1["exp"] - c1.get("iat", c1["exp"])) / 86400
+            check("登入權杖效期 30 天", abs(days - 30) < 0.01, str(days))
+            check("權杖裡有密碼指紋", len(str(c1.get("pv", ""))) == 16, str(c1))
+
+            r = refresh(t1)
+            check("有效的權杖可以換新的", r.status_code == 200, r.text[:200])
+            t2 = r.json().get("access_token", "")
+            check("換到的新權杖可以用", me(t2) == 200)
+            check("換的時候也回傳會員資料", r.json().get("user", {}).get("email") == "keep@x.com")
+
+            check("沒帶權杖不能換", client.post("/api/auth/refresh").status_code == 401)
+            expired = raw_token({"sub": str(keep_id), "iat": now - 40 * 86400,
+                                 "exp": now - 60})
+            check("過期的權杖不能換（30 天沒來就要重新登入）", refresh(expired).status_code == 401)
+            forged = raw_token({"sub": str(keep_id), "exp": now + 3600}, key="attacker-guessed-key-long-enough-for-hs256")
+            check("簽章不對的權杖不能換", refresh(forged).status_code == 401)
+            check("亂寫的權杖不能換", refresh("not-a-token").status_code == 401)
+            junk_sub = raw_token({"sub": "abc", "exp": now + 3600})
+            check("sub 不是數字回 401 而不是 500", me(junk_sub) == 401, str(me(junk_sub)))
+
+            # 列印通行證會出現在網址上；以前它在五分鐘內等於登入
+            act = create_action_token("print-label", keep_id, minutes=5)
+            check("列印通行證不能當登入權杖用", me(act) == 401,
+                  "以前會通過：通行證有 sub，五分鐘內等於登入")
+            check("列印通行證不能換成三十天的登入權杖", refresh(act).status_code == 401)
+
+            # 沒有密碼指紋的權杖：改版前發的，或拿外洩的 SECRET_KEY 自己做的（長得一模一樣）。
+            # 曾經想放行改版前的權杖，審查時被抓到：它改密碼趕不走，
+            # 還能換成綁新密碼的新權杖，等於偷走一次就永遠有效。
+            legacy = raw_token({"sub": str(keep_id), "exp": now + 7 * 86400})
+            check("沒有密碼指紋的權杖不認（改版前的要重新登入一次）", me(legacy) == 401)
+            check("沒有密碼指紋的權杖換不到新的", refresh(legacy).status_code == 401)
+            forged = raw_token({"sub": str(keep_id), "iat": now, "exp": now + 30 * 86400})
+            check("光有 SECRET_KEY 做不出能用的登入權杖", me(forged) == 401,
+                  "指紋要用資料庫裡的密碼雜湊才算得出來")
+            guessed = raw_token({"sub": str(keep_id), "iat": now, "exp": now + 3600,
+                                 "pv": "0123456789abcdef"})
+            check("亂猜的指紋不認", me(guessed) == 401)
+
+            check("停用的帳號不能換",
+                  refresh(create_access_token(gone_id, gone_hash)).status_code == 401)
+
+            # ---- 改密碼：其他裝置登出、這台換新的
+            r = client.post("/api/auth/password/change", headers=bearer(t2),
+                            json={"current_password": "old-password-1",
+                                  "new_password": "new-password-2"})
+            check("改密碼成功", r.status_code == 200, r.text[:200])
+            t3 = r.json().get("access_token", "")
+            check("改密碼會給這台裝置一張新權杖，不會連自己也登出", me(t3) == 200)
+            check("改密碼後，其他裝置的舊權杖全部失效", me(t1) == 401 and me(t2) == 401)
+            check("改密碼後，偷走的舊權杖也換不到新的", refresh(t1).status_code == 401)
+            check("訊息告訴使用者其他裝置已登出", "其他裝置" in r.json().get("message", ""))
+
+            # ---- 忘記密碼重設：所有裝置都登出
+            db = Session()
+            raw = issue_token(db, db.get(User, keep_id), TokenPurpose.reset_password)
+            db.commit()
+            db.close()
+            r = client.post("/api/auth/password/reset",
+                            json={"token": raw, "password": "reset-password-3"})
+            check("重設密碼成功", r.status_code == 200, r.text[:200])
+            check("重設密碼後，原本的登入全部失效", me(t3) == 401)
+            r = client.post("/api/auth/login",
+                            json={"email": "keep@x.com", "password": "reset-password-3"})
+            check("用新密碼可以重新登入", r.status_code == 200 and me(r.json()["access_token"]) == 200)
+    finally:
+        throttle.reset()
+        database.engine = original_engine
+        database.SessionLocal = original_session
+        main.DB_STATE.update({"ready": False, "error": None, "attempts": 0})
+
+    # 發登入權杖的地方都要綁密碼指紋，漏一個就有一種權杖改密碼趕不走
+    import re
+    auth_src = (ROOT / "backend/app/routers/auth.py").read_text("utf-8")
+    calls = re.findall(r"create_access_token\(([^)]*)\)", auth_src)
+    check("發登入權杖的地方都有綁密碼指紋",
+          calls and all("hashed_password" in c for c in calls), str(calls))
+
+    front = (ROOT / "frontend/src/context/AuthContext.jsx").read_text("utf-8")
+    check("前端會自動換新權杖", "api.refresh" in front or ".refresh()" in front)
+    member = (ROOT / "frontend/src/pages/Member.jsx").read_text("utf-8")
+    check("前端改密碼後會存新權杖", "setToken(res.access_token)" in member)
+
+
 if __name__ == "__main__":
     print("=" * 60)
     print("安全性測試（攻擊者視角）")
@@ -532,6 +680,7 @@ if __name__ == "__main__":
         test_upload_signature_check, test_upload_endpoint,
         test_amount_is_server_side, test_duplicate_lines_merged,
         test_payment_trust_boundary, test_docs_never_tell_you_to_open_a_staff_url,
+        test_session_renewal,
     ):
         fn()
 

@@ -519,7 +519,7 @@ def print_token(order_id: int, user: User = Depends(require_staff)):
     只有 fetch 才會幫忙加上去。所以直接開會被權限檢查擋下來，
     顯示「登入憑證無效或已過期」。
 
-    也不能把登入權杖塞進網址：它有七天效期，而網址會留在瀏覽器紀錄、
+    也不能把登入權杖塞進網址：它有三十天效期還會自動延長，而網址會留在瀏覽器紀錄、
     Referer 與伺服器日誌裡。這張通行證只能列印、只活五分鐘。
     """
     return {"token": create_action_token(PRINT_PURPOSE, user.id, minutes=5)}

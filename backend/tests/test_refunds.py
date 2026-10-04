@@ -36,7 +36,7 @@ from app.models import (  # noqa: E402
     Base, Order, OrderItem, OrderStatus, PaymentMethod, PaymentStatus, Product,
     User, UserRole,
 )
-from app.security import create_access_token, hash_password  # noqa: E402
+from app.security import access_token_for, hash_password  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -66,6 +66,15 @@ def make_order(method=PaymentMethod.credit, paid_days_ago=0, amount=1000,
     )
 
 
+def login_header(Session, user_id: int) -> dict:
+    """登入權杖綁著密碼指紋，所以要從資料庫拿這個人現在的密碼雜湊來發。"""
+    db = Session()
+    try:
+        return {"Authorization": f"Bearer {access_token_for(db.get(User, user_id))}"}
+    finally:
+        db.close()
+
+
 def make_app():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False},
                            poolclass=StaticPool)
@@ -85,8 +94,8 @@ def make_app():
 
     from fastapi.testclient import TestClient
     client = TestClient(main.app, raise_server_exceptions=False)
-    staff = {"Authorization": f"Bearer {create_access_token(1)}"}
-    member = {"Authorization": f"Bearer {create_access_token(2)}"}
+    staff = login_header(Session, 1)
+    member = login_header(Session, 2)
     return client, Session, staff, member
 
 
@@ -328,7 +337,7 @@ def test_print_label_auth():
     而登入權杖存在 localStorage、只有 fetch 會幫忙加上去 ——
     所以那一頁一定被權限檢查擋下來，顯示「登入憑證無效或已過期」。
 
-    解法不是把登入權杖放進網址（它有七天效期，而網址會留在瀏覽器紀錄、
+    解法不是把登入權杖放進網址（它有三十天效期還會自動延長，而網址會留在瀏覽器紀錄、
     Referer 與伺服器日誌裡），而是發一張只能列印、只活五分鐘的通行證。
     """
     print("\n[列印託運單的授權]")
@@ -340,8 +349,8 @@ def test_print_label_auth():
     check("換一個用途就不認", verify_action_token(token, "other") is None,
           "少了用途比對的話，這張通行證等於萬用鑰匙")
     check("登入權杖不能當通行證用",
-          verify_action_token(login_token(1), "print-label") is None,
-          "登入權杖有七天效期，不該能拿來開網址")
+          verify_action_token(login_token(1, "x"), "print-label") is None,
+          "登入權杖有三十天效期，不該能拿來開網址")
     check("亂寫的擋掉", verify_action_token("not-a-token", "print-label") is None)
     check("空字串擋掉", verify_action_token("", "print-label") is None)
 

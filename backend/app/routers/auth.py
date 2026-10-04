@@ -5,6 +5,8 @@
   - 權杖只存雜湊，且一次性、有期限
   - 重設密碼後讓所有舊的重設連結失效
   - 登入連續失敗會暫時鎖住，擋掉自動化猜密碼
+  - 有在用就一直保持登入（/refresh 每天換新權杖，30 天沒來才要重新登入）；
+    權杖綁著密碼指紋，改密碼或重設密碼後所有舊的登入一起失效
 """
 from datetime import datetime
 
@@ -18,8 +20,8 @@ from .. import membership, throttle
 from ..mailer import render_email, send_email
 from ..models import TokenPurpose, User, UserRole
 from ..schemas import (
-    EmailIn, PasswordChangeIn, PasswordResetIn, SimpleMessage, Token, TokenIn,
-    UserLogin, UserOut, UserRegister, UserUpdate,
+    EmailIn, PasswordChanged, PasswordChangeIn, PasswordResetIn, SimpleMessage, Token,
+    TokenIn, UserLogin, UserOut, UserRegister, UserUpdate,
 )
 from ..security import create_access_token, hash_password, verify_password
 from ..tokens import consume_token, issue_token, purge_expired, recently_sent
@@ -102,7 +104,7 @@ def register(payload: UserRegister, db: Session = Depends(get_db)):
     db.refresh(user)
 
     return Token(
-        access_token=create_access_token(user.id),
+        access_token=create_access_token(user.id, user.hashed_password),
         user=UserOut.model_validate(user),
         dev_verify_url=_dev_url(url),
     )
@@ -145,7 +147,27 @@ def login(payload: UserLogin, request: Request, db: Session = Depends(get_db)):
 
     for k in keys:
         throttle.record_success(k)
-    return Token(access_token=create_access_token(user.id), user=UserOut.model_validate(user))
+    return Token(
+        access_token=create_access_token(user.id, user.hashed_password),
+        user=UserOut.model_validate(user),
+    )
+
+
+@router.post("/refresh", response_model=Token)
+def refresh(user: User = Depends(get_current_user)):
+    """換一張新的登入權杖，效期重新起算。
+
+    前端每天第一次打開網站時會自動呼叫，所以只要有在用就一直保持登入，
+    連續 ACCESS_TOKEN_EXPIRE_MINUTES（預設 30 天）沒來才要重新登入。
+
+    換得到的前提跟其他 API 一樣（get_current_user）：
+    簽章對、沒過期、帳號沒停用、密碼沒改過。改過密碼的舊權杖在那裡就被擋了，
+    所以被偷走的權杖不能靠這裡一直延長下去。
+    """
+    return Token(
+        access_token=create_access_token(user.id, user.hashed_password),
+        user=UserOut.model_validate(user),
+    )
 
 
 @router.get("/me", response_model=UserOut)
@@ -237,6 +259,8 @@ def reset_password(payload: PasswordResetIn, db: Session = Depends(get_db)):
         db.commit()
         raise HTTPException(status_code=400, detail=error)
 
+    # 密碼一換，所有裝置上的登入都會失效（權杖綁著密碼指紋，見 security.password_stamp）。
+    # 會走到重設密碼，常常就是懷疑帳號被別人用了，這正是要的效果。
     user.hashed_password = hash_password(payload.password)
 
     # 能收到重設信代表信箱是本人的，順便完成驗證
@@ -249,7 +273,7 @@ def reset_password(payload: PasswordResetIn, db: Session = Depends(get_db)):
     return SimpleMessage(message="密碼已更新，請用新密碼登入")
 
 
-@router.post("/password/change", response_model=SimpleMessage)
+@router.post("/password/change", response_model=PasswordChanged)
 def change_password(
     payload: PasswordChangeIn,
     user: User = Depends(get_current_user),
@@ -262,4 +286,9 @@ def change_password(
 
     user.hashed_password = hash_password(payload.new_password)
     db.commit()
-    return SimpleMessage(message="密碼已更新")
+    # 其他裝置上的登入（包括被偷走的權杖）從這一刻起全部失效；
+    # 這台裝置換一張新的，才不會改完密碼連自己也被登出。
+    return PasswordChanged(
+        message="密碼已更新，其他裝置上的登入都已經登出",
+        access_token=create_access_token(user.id, user.hashed_password),
+    )

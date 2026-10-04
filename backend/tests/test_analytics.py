@@ -33,7 +33,7 @@ from sqlalchemy.pool import StaticPool  # noqa: E402
 
 from app import analytics, database, main  # noqa: E402
 from app.models import Base, PageView, SiteSetting, User, UserRole  # noqa: E402
-from app.security import create_access_token, hash_password  # noqa: E402
+from app.security import access_token_for, hash_password  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -54,6 +54,15 @@ def check(name: str, condition: bool, detail: str = "") -> None:
         print(f"  FAIL {name}{f' — {detail}' if detail else ''}")
 
 
+def login_header(Session, user_id: int) -> dict:
+    """登入權杖綁著密碼指紋，所以要從資料庫拿這個人現在的密碼雜湊來發。"""
+    db = Session()
+    try:
+        return {"Authorization": f"Bearer {access_token_for(db.get(User, user_id))}"}
+    finally:
+        db.close()
+
+
 def make_app():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False},
                            poolclass=StaticPool)
@@ -72,8 +81,8 @@ def make_app():
 
     from fastapi.testclient import TestClient
     return (TestClient(main.app, raise_server_exceptions=False), Session,
-            {"Authorization": f"Bearer {create_access_token(1)}"},
-            {"Authorization": f"Bearer {create_access_token(2)}"})
+            login_header(Session, 1),
+            login_header(Session, 2))
 
 
 # ---------------------------------------------------------------- 隱私

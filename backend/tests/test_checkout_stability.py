@@ -35,7 +35,7 @@ from sqlalchemy.pool import StaticPool  # noqa: E402
 from app import database, main  # noqa: E402
 from app.config import settings as live  # noqa: E402
 from app.models import Base, Product, User, UserRole  # noqa: E402
-from app.security import create_access_token, hash_password  # noqa: E402
+from app.security import access_token_for, hash_password  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -244,8 +244,8 @@ def test_purchasable_flag():
                   name="會員", role=UserRole.member)
     db.add_all([staff, member])
     db.commit()
-    staff_token = create_access_token(staff.id)
-    member_token = create_access_token(member.id)
+    staff_token = access_token_for(staff)
+    member_token = access_token_for(member)
     db.close()
 
     order = {

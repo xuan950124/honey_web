@@ -39,7 +39,7 @@ from app.models import (  # noqa: E402
     PaymentStatus, Product, ShippingMethod, User, UserRole,
 )
 from app.routers.orders import _decorate, new_access_token  # noqa: E402
-from app.security import create_access_token, hash_password  # noqa: E402
+from app.security import access_token_for, hash_password  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 passed = 0
@@ -67,6 +67,15 @@ def make_app():
     return TestClient(main.app, raise_server_exceptions=False), Session
 
 
+def login_header(Session, user_id: int) -> dict:
+    """登入權杖綁著密碼指紋，所以要從資料庫拿這個人現在的密碼雜湊來發。"""
+    db = Session()
+    try:
+        return {"Authorization": f"Bearer {access_token_for(db.get(User, user_id))}"}
+    finally:
+        db.close()
+
+
 def make_app_with_users():
     """帶好工作人員與一般會員的測試環境（權限測試用）。"""
     client, Session = make_app()
@@ -78,8 +87,8 @@ def make_app_with_users():
     db.commit()
     db.close()
     return (client, Session,
-            {"Authorization": f"Bearer {create_access_token(1)}"},
-            {"Authorization": f"Bearer {create_access_token(2)}"})
+            login_header(Session, 1),
+            login_header(Session, 2))
 
 
 def make_order(**kw) -> Order:
@@ -167,7 +176,7 @@ def test_mark_paid_is_opt_in():
     db.add(staff)
     db.add(Product(id=1, name="龍眼蜜", price=680, stock=10))
     db.commit()
-    token = create_access_token(staff.id)
+    token = access_token_for(staff)
 
     a = make_order(order_no="A0000000000000001")
     b = make_order(order_no="B0000000000000001")
@@ -204,7 +213,7 @@ def test_cancel_permissions():
     db.add_all([alice, bob])
     db.add(Product(id=1, name="龍眼蜜", price=680, stock=10))
     db.commit()
-    a_token, b_token = create_access_token(alice.id), create_access_token(bob.id)
+    a_token, b_token = access_token_for(alice), access_token_for(bob)
 
     mine = make_order(order_no="MINE000000000001", user_id=alice.id)
     paid = make_order(order_no="PAID000000000001", user_id=alice.id,
@@ -251,7 +260,7 @@ def test_cancel_restores_stock():
     db.add(user)
     db.add(Product(id=1, name="龍眼蜜", price=680, stock=5))
     db.commit()
-    token = create_access_token(user.id)
+    token = access_token_for(user)
     db.close()
 
     head = {"Authorization": f"Bearer {token}"}
@@ -291,8 +300,8 @@ def test_cart_sync():
     db.add(Product(id=3, name="已下架", price=300, stock=10, is_active=False))
     db.add(Product(id=4, name="已售完", price=300, stock=0))
     db.commit()
-    token = create_access_token(user.id)
-    other_token = create_access_token(other.id)
+    token = access_token_for(user)
+    other_token = access_token_for(other)
     db.close()
 
     head = {"Authorization": f"Bearer {token}"}
@@ -380,7 +389,7 @@ def test_cart_rejects_bad_input():
     db.add(user)
     db.add(Product(id=1, name="龍眼蜜", price=680, stock=10))
     db.commit()
-    token = create_access_token(user.id)
+    token = access_token_for(user)
     db.close()
 
     head = {"Authorization": f"Bearer {token}"}
