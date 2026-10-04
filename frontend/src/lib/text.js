@@ -40,6 +40,62 @@ export function tidyBreaks(text) {
   return text
     .replace(/(\d[a-zA-Z]{0,2})\s+(?=[\u3400-\u9fff])/g, '$1\u00a0')
     .replace(/\s+([x×＊*])\s+(?=\d)/g, '\u00a0$1\u00a0')
+    // 「2026 K STAR」這種英數專有名詞也不要從中間斷（報導標題曾經斷成行尾「2026 K」、下一行「STAR」）。
+    // 只綁「兩邊都是英數、而且有一邊只有一兩個字」的空白，一般的英文句子照常換行。
+    // 不用 lookbehind：舊版 iPhone Safari 不支援，整個網站的程式會載入失敗。
+    .replace(/([A-Za-z0-9]) (?=[A-Za-z0-9]{1,2}(?![A-Za-z0-9]))/g, '$1\u00a0')
+    .replace(/(^|[^A-Za-z0-9'’])([A-Za-z0-9]{1,2}) (?=[A-Za-z0-9])/g, '$1$2\u00a0')   // Huang's 的 s 不算
+}
+
+/**
+ * 報導內文（後台的純文字）切成一段一段，認出小標題。
+ *
+ * 店家貼的報導都是這種寫法：段落之間空一行；一段的第一行很短、沒有句尾標點，
+ * 下面又接著一整段文字，那一行就是小標（「品牌及包裝設計輔導」「📍 參訪資訊」）。
+ * 整行用【】括起來的是報導自己的標題；最後一段整行用（）括起來的是出處說明。
+ * 認不出來的一律當一般段落，字一個都不會少。
+ */
+const SENTENCE_END = /[。！？!?…，,、；;：:]$/
+const SUBHEAD_MAX = 24   // 小標最多幾個字（emoji 算一個）
+const PARA_MIN = 20      // 小標下面至少要有這麼多字，才不會把三行的短訊息誤認成小標
+
+// 標題頭尾的表情符號（含膚色、性別、變體選擇字元與零寬連接字）
+const EDGE_EMOJI = /^[\s\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{1F3FB}-\u{1F3FF}]+|[\s\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{1F3FB}-\u{1F3FF}]+$/gu
+
+/**
+ * 小標與報導標題拿掉頭尾的表情符號（「📍 參訪資訊」→「參訪資訊」，【】裡面的也拿掉）。
+ * 排成明體粗字的小標時，開頭的 📍🌼 會變成一整排圖示，品牌規範不用表情符號當圖示。
+ * 後台存的文字不動，內文段落裡的表情符號也照樣顯示。
+ */
+function stripEdgeEmoji(line) {
+  const bracket = line.match(/^【(.*)】$/)
+  if (bracket) {
+    const inner = bracket[1].replace(EDGE_EMOJI, '')
+    return inner ? `【${inner}】` : ''
+  }
+  return line.replace(EDGE_EMOJI, '')
+}
+
+export function articleBlocks(text) {
+  if (!text || typeof text !== 'string') return []
+  const blocks = text.replace(/\r\n?/g, '\n').split(/\n[ \t\u3000]*\n/)
+    .map((b) => b.split('\n').map((line) => line.trim()).filter(Boolean))
+    .filter((lines) => lines.length)
+
+  return blocks.flatMap((lines, i) => {
+    const [first, ...rest] = lines
+    if (!rest.length && /^【.*】$/.test(first)) {
+      const headline = stripEdgeEmoji(first)
+      return [headline ? { type: 'headline', text: headline } : { type: 'para', text: first }]
+    }
+    if (!rest.length && i === blocks.length - 1 && /^[（(].*[)）]$/.test(first)) return [{ type: 'note', text: first }]
+    const body = rest.join('\n')
+    const subhead = stripEdgeEmoji(first)
+    if (rest.length && subhead && [...first].length <= SUBHEAD_MAX && !SENTENCE_END.test(first) && [...body].length >= PARA_MIN) {
+      return [{ type: 'subhead', text: subhead }, { type: 'para', text: body }]
+    }
+    return [{ type: 'para', text: lines.join('\n') }]
+  })
 }
 
 /**

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-02T14:07:59Z",
+  "generatedAt": "2026-10-04T04:17:52Z",
   "title": "Design System: 黃家基蜜",
   "extensions": {
     "colorMeta": {
@@ -605,6 +605,14 @@
       "description": "模切的膠囊貼紙，斜斜貼上去：團購、優惠、補貨中、最省運費（-6°）；即將推出（+8°、2px 墨框）。資訊面上換珊瑚紅。",
       "html": "<div class=\"ds-stickers\"><span class=\"ds-sticker\">團購</span><span class=\"ds-sticker ds-sticker--coral\">團購商品</span><span class=\"ds-sticker ds-sticker--soon\">即將推出</span></div>",
       "css": ".ds-stickers { display: flex; flex-wrap: wrap; gap: 16px; padding: 20px; } .ds-sticker { display: inline-flex; align-items: center; padding: 5px 14px; border-radius: 999px; transform: rotate(-6deg); font-family: \"Noto Sans TC\", \"Noto Sans CJK TC\", \"Source Han Sans TC\", \"PingFang TC\", \"Microsoft JhengHei\", sans-serif; font-size: 0.8125rem; font-weight: 900; line-height: 1.25; letter-spacing: 0.08em; white-space: nowrap; background: var(--honey, #FAC23E); color: var(--ink, #241916); box-shadow: 0 6px 14px -8px rgba(36, 25, 22, 0.55); } .ds-sticker--coral { background: var(--coral, #ED715A); } .ds-sticker--soon { padding: 8px 18px; font-size: 1rem; transform: rotate(8deg); border: 2px solid var(--ink, #241916); }"
+    },
+    {
+      "name": "More News 其他報導",
+      "kind": "list",
+      "refersTo": "more-news",
+      "description": "新聞內文頁右欄（手機在文章後面）：照食品標示那張表，紙白底、1.5px 墨框、標題置中拉開字距、細線分列；每列是分類膠囊＋等寬日期，下面明體 700 標題最多三行，滑過換小字珊瑚加底線。",
+      "html": "<aside class=\"ds-more\" aria-labelledby=\"ds-more-title\"><h2 class=\"ds-more__title\" id=\"ds-more-title\">其他報導</h2><ul class=\"ds-more__list\"><li><a class=\"ds-more__item\" href=\"#\"><span class=\"ds-more__meta\"><span class=\"ds-tag\">最新消息</span><span class=\"ds-date\">2026.09.14</span></span><span class=\"ds-more__name\">【黃家基蜜】基隆山裡，等熟成才採的蜜 —— 正式開賣！</span></a></li><li><a class=\"ds-more__item\" href=\"#\"><span class=\"ds-more__meta\"><span class=\"ds-tag ds-tag--media\">媒體報導</span><span class=\"ds-date\">2026.08.18</span></span><span class=\"ds-more__name\">Hi海 基隆鎖管季推薦：瑪陵坑「皇龍養蜂場」— 蜂蜜與歷史的甜蜜相遇</span></a></li></ul></aside>",
+      "css": ".ds-more { box-sizing: border-box; max-width: 336px; background: var(--paper, #FFFDF8); border: 1.5px solid var(--ink, #241916); color: var(--ink, #241916); font-family: \"Noto Sans TC\", \"Noto Sans CJK TC\", \"Source Han Sans TC\", \"PingFang TC\", \"Microsoft JhengHei\", sans-serif; } .ds-more__title { margin: 0; padding: 14px 16px 12px; border-bottom: 1.5px solid var(--ink, #241916); text-align: center; font-family: \"Noto Serif TC\", \"Noto Serif CJK TC\", \"Source Han Serif TC\", \"PMingLiU\", serif; font-weight: 900; font-size: 1.25rem; line-height: 1.3; letter-spacing: 0.5em; text-indent: 0.5em; } .ds-more__list { list-style: none; margin: 0; padding: 0 16px; } .ds-more__list li + li { border-top: 1px solid rgba(36, 25, 22, 0.45); } .ds-more__item { display: block; padding: 14px 0 16px; color: inherit; text-decoration: none; } .ds-more__item:focus-visible { outline: 2px solid var(--ink, #241916); outline-offset: 3px; } .ds-more__meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; } .ds-tag { display: inline-block; padding: 1px 12px; font-size: 0.8125rem; font-weight: 700; border-radius: 999px; letter-spacing: 0.08em; line-height: 1.6; border: 1.5px solid var(--ink, #241916); } .ds-tag--media { background: var(--ink, #241916); color: var(--bloom, #F8F6B6); } .ds-date { font-size: 0.875rem; color: var(--ink-2, #5C4D45); letter-spacing: 0.04em; font-variant-numeric: tabular-nums; } .ds-more__name { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-family: \"Noto Serif TC\", \"Noto Serif CJK TC\", \"Source Han Serif TC\", \"PMingLiU\", serif; font-weight: 700; font-size: 1rem; line-height: 1.6; letter-spacing: 0.03em; transition: color 150ms ease; } @media (hover: hover) and (pointer: fine) { .ds-more__item:hover .ds-more__name { color: var(--coral-text, #B8402A); text-decoration: underline; text-decoration-thickness: 2px; } }"
     }
   ],
   "narrative": {
@@ -646,7 +654,7 @@
       },
       {
         "name": "The Phrase Break Rule",
-        "body": "全站 word-break: keep-all，中文以分句換行；後台來的文字經過 prose()：超過 12 個字的長分句在詞與詞之間放換行點，全形左括號前也放，「（700g 經典大瓶裝）」整段一起換行，句尾標點不會被擠到行首。",
+        "body": "全站 word-break: keep-all，中文以分句換行；後台來的文字經過 prose()：超過 12 個字的長分句在詞與詞之間放換行點，全形左括號前也放，「（700g 經典大瓶裝）」整段一起換行，句尾標點不會被擠到行首。英數專有名詞裡只有一兩個字的那一段跟前後黏在一起（「2026 K STAR」不會斷成「2026 K」｜「STAR」），一般的英文句子照常換行。",
         "section": "typography"
       },
       {
