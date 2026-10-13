@@ -346,6 +346,11 @@ class PaymentOption(BaseModel):
     # 不然客人會被帶到測試付款頁，刷了也收不到錢
     disabled: bool = False
     disabled_reason: str | None = None
+    # 店家有沒有開放這個付款方式（後台關掉的，結帳頁直接不顯示）
+    offered: bool = True
+    # 單筆金額限制（例如行動支付 6～49,999 元）。結帳頁用總額判斷能不能選
+    min_amount: int | None = None
+    max_amount: int | None = None
 
 
 class CheckoutOptions(BaseModel):
@@ -361,6 +366,9 @@ class CheckoutOptions(BaseModel):
     # 所以不能鎖成 dict[str, bool]
     ecpay_status: dict[str, object] = {}
     backend_base_url: str
+    # 只開放貨到付款（物流已正式、金流還在審核）。結帳頁靠這個決定要不要顯示「審核中」的說明，
+    # 不能拿「有沒有選項被停用」來猜 —— 店家自己關掉某個付款方式也會停用選項
+    cod_only: bool = False
 
 
 class ShippingQuoteIn(BaseModel):

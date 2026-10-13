@@ -135,6 +135,7 @@ const IMAGE_FIELDS = [
 */
 const PAYMENT_METHODS = [
   { value: 'credit', label: '信用卡', note: '費率 2.75%，入帳最快' },
+  { value: 'twqr', label: '行動支付（TWQR）', note: '街口、全支付、悠遊付、icash Pay、台灣Pay、銀行 App 掃碼；單筆 6～49,999 元，退款要到歐付寶後台' },
   { value: 'atm', label: 'ATM 虛擬帳號', note: '每筆手續費較低，但買家可能忘記轉帳' },
   { value: 'cvs_code', label: '超商代碼繳費', note: '沒有網銀的買家會用；有金額上限' },
   { value: 'cod', label: '貨到付款', note: '取貨時付現，走物流代收貨款' },

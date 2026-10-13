@@ -391,10 +391,13 @@ export default function AdminOrders() {
           </div>
 
           <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-            <a className="btn btn--outline btn--sm" href={refund.plan.vendor_url}
-               target="_blank" rel="noreferrer">
-              開啟綠界後台自己處理
-            </a>
+            {/* 行動支付的退款在歐付寶，不在綠界後台，那種情況後端不給綠界的連結 */}
+            {refund.plan.vendor_url && (
+              <a className="btn btn--outline btn--sm" href={refund.plan.vendor_url}
+                 target="_blank" rel="noreferrer">
+                開啟綠界後台自己處理
+              </a>
+            )}
             <button type="button" className="btn btn--ghost btn--sm"
                     disabled={busyId === refund.order.id}
                     onClick={() => submitRefund('manual')}>

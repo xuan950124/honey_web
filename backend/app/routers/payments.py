@@ -1,4 +1,4 @@
-"""綠界金流：信用卡 / ATM 虛擬帳號 / 超商代碼繳費。
+"""綠界金流：信用卡 / 行動支付（TWQR）/ ATM 虛擬帳號 / 超商代碼繳費。
 
 安全性重點：卡號永遠不會經過我們的主機。
 我們只是把訂單資訊 POST 到綠界的付款頁，買家在綠界的網域上輸入卡號，
@@ -23,14 +23,14 @@ from ..deps import get_optional_user, require_staff
 from .. import membership, refunds
 from ..line import notify_new_order
 from ..models import User
-from .orders import _decorate, _restore_stock, can_view_order
+from .orders import _decorate, _restore_stock, can_view_order, payment_unavailable_reason
 from ..ecpay import (
     auto_submit_form, sanitize_goods_name, verify_check_mac_value, with_check_mac_value,
 )
 from ..models import (
     PAYMENT_MAP, EcpayLog, Order, OrderStatus, PaymentMethod, PaymentStatus,
 )
-from ..shipping import unpaid_expire_days
+from ..shipping import get_shipping_settings, payment_amount_error, unpaid_expire_days
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 
@@ -184,6 +184,22 @@ def checkout(
             f"這筆訂單已經取消{f'（{order.cancel_reason}）' if order.cancel_reason else ''}，"
             "無法付款。請重新下單，或與我們聯絡。",
             order_no,
+        )
+
+    # 店家在後台關掉了這個付款方式（例如行動支付出問題先關掉），或金流正在審核：
+    # 不要再把人送去綠界，請他換一種。訂單、折扣都還在
+    unavailable = payment_unavailable_reason(get_shipping_settings(db), order.payment_method)
+    if unavailable:
+        return _payment_error_page(
+            f"{unavailable}：回到訂單頁，按「改用其他付款方式」就可以換。", order_no,
+        )
+
+    # 行動支付有單筆金額限制。下單和換付款方式時都擋過了，這裡是最後一道 ——
+    # 送出去才被綠界退回的話，客人只會看到一頁看不懂的錯誤
+    amount_error = payment_amount_error(order.payment_method, order.total_amount)
+    if amount_error:
+        return _payment_error_page(
+            f"{amount_error}：回到訂單頁，按「改用其他付款方式」就可以換。", order_no,
         )
 
     days = unpaid_expire_days(db)
@@ -477,7 +493,8 @@ def refund_plan(order_no: str, db: Session = Depends(get_db)):
         "payment_method": order.payment_method.value if order.payment_method else None,
         "payment_status": order.payment_status.value,
         "paid_at": order.paid_at,
-        "vendor_url": refunds.VENDOR_URL,
+        # 行動支付的退款不在綠界後台（在歐付寶），那種情況說明裡沒有綠界的出口
+        "vendor_url": plan.get("vendor_url", refunds.VENDOR_URL),
     }
 
 

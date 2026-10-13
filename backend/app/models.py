@@ -56,6 +56,7 @@ SHIPPING_MAP: dict[str, tuple[str, str, str, bool]] = {
 class PaymentMethod(str, enum.Enum):
     """付款方式。cod 走物流代收貨款，其餘走綠界全方位金流。"""
     credit = "credit"       # 信用卡
+    twqr = "twqr"           # 行動支付（TWQR 掃碼：街口、全支付、悠遊付、icash Pay、台灣Pay、銀行 App）
     atm = "atm"             # ATM 虛擬帳號
     cvs_code = "cvs_code"   # 超商代碼繳費
     cod = "cod"             # 貨到付款（超商／宅配代收貨款）
@@ -64,9 +65,19 @@ class PaymentMethod(str, enum.Enum):
 # 付款方式 -> (綠界 ChoosePayment 參數, 顯示名稱)
 PAYMENT_MAP: dict[str, tuple[str, str]] = {
     PaymentMethod.credit.value: ("Credit", "信用卡"),
+    PaymentMethod.twqr.value: ("TWQR", "行動支付"),
     PaymentMethod.atm.value: ("ATM", "ATM 虛擬帳號"),
     PaymentMethod.cvs_code.value: ("CVS", "超商代碼繳費"),
     PaymentMethod.cod.value: ("", "貨到付款"),
+}
+
+# 單筆金額有限制的付款方式 -> (最低, 最高)，新臺幣整數。
+#
+# 行動支付是綠界的規定：「金額不可小於 6 元或大於 49,999 元」。
+# 超出範圍綠界會直接退回，客人已經被導到付款頁才看到錯誤 ——
+# 所以結帳頁、下單、換付款方式、前往付款四個地方都用這張表先擋下來。
+PAYMENT_AMOUNT_LIMITS: dict[str, tuple[int, int]] = {
+    PaymentMethod.twqr.value: (6, 49_999),
 }
 
 

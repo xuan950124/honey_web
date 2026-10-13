@@ -3,7 +3,10 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from .models import PAYMENT_MAP, SHIPPING_MAP, PaymentMethod, ShippingMethod, SiteSetting, Temperature
+from .models import (
+    PAYMENT_AMOUNT_LIMITS, PAYMENT_MAP, SHIPPING_MAP, PaymentMethod, ShippingMethod, SiteSetting,
+    Temperature,
+)
 
 # 預設值（後台沒設定時使用）
 #
@@ -122,6 +125,26 @@ def shipping_label(method: ShippingMethod | str) -> str:
 def payment_label(method: PaymentMethod | str) -> str:
     key = method.value if isinstance(method, PaymentMethod) else method
     return PAYMENT_MAP.get(key, ("", key))[1]
+
+
+def payment_amount_error(payment_method: PaymentMethod | str, total: float) -> str | None:
+    """這個付款方式收不收得了這個金額。收得了回傳 None，不行就回一句客人看得懂的話。
+
+    看的是**實際要付的總額**（含運費、扣完折扣），不是商品小計 ——
+    綠界收到的 TotalAmount 就是這個數字。
+    """
+    pay = payment_method.value if isinstance(payment_method, PaymentMethod) else payment_method
+    limits = PAYMENT_AMOUNT_LIMITS.get(pay)
+    if not limits:
+        return None
+    low, high = limits
+    amount = int(round(float(total or 0)))
+    label = payment_label(pay)
+    if amount < low:
+        return f"{label}單筆金額至少 {low:,} 元，請改用其他付款方式"
+    if amount > high:
+        return f"{label}單筆上限 {high:,} 元，這筆 {amount:,} 元請改用其他付款方式"
+    return None
 
 
 def validate_combination(

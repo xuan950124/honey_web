@@ -13,9 +13,29 @@ import { useSettings } from '../context/SettingsContext'
 
 const METHODS = [
   { value: 'credit', label: '信用卡', note: '最快，付完立刻確認' },
+  {
+    value: 'twqr',
+    label: '行動支付',
+    note: '用街口、全支付、悠遊付、icash Pay、台灣Pay 或銀行 App 掃碼付款，LINE Pay 目前不適用',
+    // 綠界規定的單筆金額（後端 models.py 的 PAYMENT_AMOUNT_LIMITS 也是這兩個數字，換方式時會再擋一次）
+    min: 6,
+    max: 49999,
+  },
   { value: 'atm', label: 'ATM 轉帳', note: '取得虛擬帳號後 3 天內轉帳' },
   { value: 'cvs_code', label: '超商代碼繳費', note: '拿代碼到超商機台繳費' },
 ]
+
+/** 這筆訂單現在能換過去的付款方式：店家有開放、金額也在限制內的。 */
+function alternativesFor(order, enabledSetting) {
+  const enabled = new Set((enabledSetting || '').split(',').map((s) => s.trim()).filter(Boolean))
+  const amount = Math.round(Number(order.total_amount) || 0)
+  return METHODS.filter((m) => (
+    m.value !== order.payment_method
+    && (enabled.size === 0 || enabled.has(m.value))
+    && (m.max == null || amount <= m.max)
+    && (m.min == null || amount >= m.min)
+  ))
+}
 
 /** 把剩餘時間講成人話：「還有 2 天 5 小時」比一串時間戳有用得多。 */
 function remainingText(deadline) {
@@ -50,6 +70,7 @@ export default function PaymentActionPanel({ order, onUpdated }) {
   if (order.payment_status === 'paid' || order.payment_status === 'refunded') return null
 
   const cancelled = order.status === 'cancelled'
+  const alternatives = alternativesFor(order, settings.payment_methods_enabled)
   const failed = order.payment_status === 'failed'
   const waiting = order.payment_status === 'pending'   // ATM／超商代碼已取號
   const left = cancelled ? null : remainingText(order.payment_deadline)
@@ -143,22 +164,24 @@ export default function PaymentActionPanel({ order, onUpdated }) {
             <button type="button" className="btn btn--primary" onClick={pay} disabled={busy}>
               {waiting ? '重新取號並前往付款' : failed ? '再付款一次' : '立即前往付款'}
             </button>
-            <button
-              type="button"
-              className="btn btn--outline"
-              onClick={() => setSwitching((v) => !v)}
-              disabled={busy}
-            >
-              {switching ? '收起' : '改用其他付款方式'}
-            </button>
+            {alternatives.length > 0 && (
+              <button
+                type="button"
+                className="btn btn--outline"
+                onClick={() => setSwitching((v) => !v)}
+                disabled={busy}
+              >
+                {switching ? '收起' : '改用其他付款方式'}
+              </button>
+            )}
           </div>
 
-          {switching && (
+          {switching && alternatives.length > 0 && (
             <div className="pay-methods">
               <p className="small muted" style={{ margin: '0 0 10px' }}>
                 選一種新的付款方式，我們會直接帶你去付款。金額與折扣都不變。
               </p>
-              {METHODS.filter((m) => m.value !== order.payment_method).map((m) => (
+              {alternatives.map((m) => (
                 <button
                   type="button"
                   key={m.value}

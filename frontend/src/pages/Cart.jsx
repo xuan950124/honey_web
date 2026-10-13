@@ -14,6 +14,21 @@ import { isOutlying, lookupZip } from '../lib/zipcode'
 
 const TEMPERATURES = ['0001', '0002', '0003']
 
+/**
+ * 有單筆金額限制的付款方式（行動支付 6～49,999 元，綠界規定），這筆金額能不能用。
+ * 不能用就回一句原因，能用回傳 null。限制由後端的 checkout-options 帶過來（min_amount／max_amount）。
+ */
+function amountLimitReason(option, amount) {
+  if (amount == null) return null
+  if (option.max_amount != null && amount > option.max_amount) {
+    return `單筆上限 ${Number(option.max_amount).toLocaleString('zh-TW')} 元，這筆超過了`
+  }
+  if (option.min_amount != null && amount < option.min_amount) {
+    return `單筆至少 ${Number(option.min_amount).toLocaleString('zh-TW')} 元`
+  }
+  return null
+}
+
 export default function Cart() {
   const {
     items, updateQty, remove, clear, syncStock, hasStockIssue, limitOf,
@@ -115,14 +130,23 @@ export default function Cart() {
    *
    * 現在只有一處決定答案，沒有第二個地方能推翻它。
    */
+  //
+  // 金額限制（行動支付）看的是「扣掉貨到付款手續費」的總額：換成線上付款時那筆手續費就不收了。
+  // 這個數字不會因為目前選了哪一種付款方式而變，所以不會出現選了又被換掉、換掉又能選的來回跳。
+  const payableBase = quote ? Math.round(Number(quote.total) - Number(quote.cod_fee || 0)) : null
   const availablePayments = useMemo(() => {
     if (!options?.payment) return []
     return options.payment.filter((p) => {
-      if (p.disabled) return false
+      if (p.disabled || p.offered === false) return false
       if (p.value === 'cod' && selectedShipping && !selectedShipping.supports_cod) return false
+      if (amountLimitReason(p, payableBase)) return false
       return true
     })
-  }, [options, selectedShipping])
+  }, [options, selectedShipping, payableBase])
+
+  // 選項都載入了、卻一種都不能用（例如店家只開行動支付，這筆又超過單筆上限）：
+  // 不能讓客人送出一個停用中的付款方式，按鈕直接停住並說明
+  const noPayment = Boolean(options?.payment) && availablePayments.length === 0
 
   // 目前選的不在可用清單裡就換一個。只有這一個地方會動 paymentMethod，
   // 而且換完之後新的值一定在清單裡，所以不會再被別的地方改回去。
@@ -446,11 +470,13 @@ export default function Cart() {
                 <div className="panel">
                   <h2 className="panel__title">付款方式</h2>
                   <div className="option-grid">
-                    {(options?.payment || []).map((p) => {
-                      // 兩種停用原因：送貨方式不支援（例如郵局不能貨到付款），
-                      // 以及後端說這個付款方式現在不能用（金流還在審核）
+                    {/* 店家在後台關掉的付款方式直接不顯示 —— 客人不需要看到一個「本店未開放」的選項 */}
+                    {(options?.payment || []).filter((p) => p.offered !== false).map((p) => {
+                      // 三種停用原因：送貨方式不支援（例如郵局不能貨到付款）、
+                      // 後端說這個付款方式現在不能用（金流還在審核），以及金額超出限制（行動支付）
                       const unsupported = p.value === 'cod' && selectedShipping && !selectedShipping.supports_cod
-                      const disabled = unsupported || p.disabled
+                      const overLimit = amountLimitReason(p, payableBase)
+                      const disabled = unsupported || p.disabled || Boolean(overLimit)
                       return (
                         <label key={p.value}
                                className={`option${paymentMethod === p.value ? ' active' : ''}${disabled ? ' disabled' : ''}`}>
@@ -460,13 +486,19 @@ export default function Cart() {
                           <div>
                             <div className="option__title">{p.label}</div>
                             <div className="option__meta">
-                              {prose(unsupported ? '此送貨方式不支援' : (p.disabled_reason || p.note))}
+                              {prose(unsupported ? '此送貨方式不支援' : (p.disabled_reason || overLimit || p.note))}
                             </div>
                           </div>
                         </label>
                       )
                     })}
                   </div>
+                  {noPayment && (
+                    <div className="alert alert--error" style={{ marginTop: 16, marginBottom: 0 }}>
+                      這筆的金額或配送方式，目前沒有能用的付款方式。
+                      請調整購物車或改選其他配送方式；需要協助可以直接聯絡我們。
+                    </div>
+                  )}
                   {/*
                     只有「金流測試 + 物流也測試」時才是開發中，顯示測試卡號。
                     物流已正式時代表真的在賣了，那時線上付款已被後端停用，
@@ -481,7 +513,8 @@ export default function Cart() {
                     </div>
                   )}
 
-                  {options?.payment?.some((p) => p.disabled) && (
+                  {/* 只看後端的 cod_only：店家自己關掉某個付款方式也會讓選項停用，那不是「審核中」 */}
+                  {options?.cod_only && (
                     <div className="alert alert--info" style={{ marginTop: 16, marginBottom: 0 }}>
                       線上付款服務仍在審核中，目前<strong>僅開放貨到付款</strong>
                       —— 到超商取貨時付現即可。造成不便請見諒。
@@ -677,11 +710,12 @@ export default function Cart() {
               {/* 試算失敗時不讓送出 —— 金額都算不出來就下單，客人會不知道自己要付多少 */}
               <button type="submit" form="checkout-form" className="btn btn--primary btn--block"
                       style={{ marginTop: 16 }}
-                      disabled={submitting || hasStockIssue || Boolean(quoteError)}>
+                      disabled={submitting || hasStockIssue || Boolean(quoteError) || noPayment}>
                 {submitting ? '處理中…'
                   : hasStockIssue ? '請先調整數量'
                     : quoteError ? '請先重新計算金額'
-                      : isCod ? '送出訂單' : '前往付款'}
+                      : noPayment ? '沒有可用的付款方式'
+                        : isCod ? '送出訂單' : '前往付款'}
               </button>
               <p className="small muted text-center" style={{ marginTop: 12, marginBottom: 0 }}>
                 {hasStockIssue

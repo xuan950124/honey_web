@@ -10,6 +10,7 @@
 
 實務上絕大多數的退款都不需要走 API —— 綠界後台按兩下就好，
 而且 ATM 與超商代碼**本來就沒有退款 API**，只能自己匯款。
+行動支付（TWQR）是歐付寶的服務，退款要在「歐付寶廠商後台」或「歐付寶 APP」做。
 把「怎麼做」講清楚，比多一顆按鈕有用得多。
 
 ## 綠界信用卡退款的規則
@@ -39,8 +40,10 @@ from .models import EcpayLog, Order, PaymentMethod, PaymentStatus
 ACTION_ABANDON = "N"   # 放棄請款（當天、尚未請款）
 ACTION_REFUND = "R"    # 退刷（已請款）
 
-# 這些付款方式綠界沒有退款 API，只能自己匯款回去
+# 這些付款方式不能用綠界的信用卡退款 API（ATM／超商代碼／貨到付款要自己匯款，
+# 行動支付要到歐付寶那邊退）
 NO_API_METHODS = {
+    PaymentMethod.twqr.value,
     PaymentMethod.atm.value,
     PaymentMethod.cvs_code.value,
     PaymentMethod.cod.value,
@@ -104,6 +107,22 @@ def refund_plan(order: Order, today: date | None = None) -> dict:
                 "包裹還沒被取走 → 讓它逾期退回即可，代收金額不會產生。",
                 "已經取貨了 → 錢會照常撥款給你，退款要**自己匯回買家帳戶**，"
                 "請跟買家要匯款帳號。",
+                "處理完回來按「標記為已退款」，庫存與累積消費會一起還原。",
+            ],
+        }
+
+    if method == PaymentMethod.twqr.value:
+        # 綠界的說明：透過綠界收款的歐付寶 TWQR 交易，都在「歐付寶廠商後台」或「歐付寶 APP」查帳或退款
+        return {
+            "can_use_api": False,
+            "title": "行動支付：要到歐付寶退款，不是綠界後台",
+            "remaining": remaining,
+            "vendor_url": None,
+            "steps": [
+                "行動支付（TWQR）是綠界串接**歐付寶**的服務，"
+                "退款要登入「歐付寶廠商後台」或打開「歐付寶 APP」處理，綠界後台沒有這個按鈕。",
+                "找到這筆交易（可以用下面的綠界交易編號或付款時間對）→ 退款，金額照下面的可退餘額。",
+                "在歐付寶那邊按退款，錢會原路退回買家，通常不必跟買家要匯款帳號。",
                 "處理完回來按「標記為已退款」，庫存與累積消費會一起還原。",
             ],
         }

@@ -14,8 +14,9 @@ from .. import membership
 # 直接 import 函式：這個檔案裡 `line` 是「訂單的一行」的區域變數，會蓋掉模組名
 from ..line import notify_new_order
 from ..models import (
-    PAYMENT_MAP, SHIPPING_MAP, LogisticsStatus, Order, OrderItem, OrderStatus,
-    PaymentMethod, PaymentStatus, Product, ShippingMethod, Temperature, User, UserRole,
+    PAYMENT_AMOUNT_LIMITS, PAYMENT_MAP, SHIPPING_MAP, LogisticsStatus, Order, OrderItem,
+    OrderStatus, PaymentMethod, PaymentStatus, Product, ShippingMethod, Temperature, User,
+    UserRole,
 )
 from ..schemas import (
     CheckoutOptions, OrderCreate, OrderCreated, OrderOut, OrderStatusUpdate,
@@ -23,7 +24,7 @@ from ..schemas import (
     ShippingQuoteOut, SimpleMessage,
 )
 from ..shipping import (
-    calc_cod_fee, calc_shipping_fee, get_shipping_settings, payment_label,
+    calc_cod_fee, calc_shipping_fee, get_shipping_settings, payment_amount_error, payment_label,
     shipping_label, unpaid_expire_days, validate_combination,
 )
 
@@ -159,6 +160,83 @@ def expire_unpaid_orders(db: Session) -> list[Order]:
 
 # ------------------------------------------------------------------ 結帳選項
 
+PAYMENT_NOTES = {
+    PaymentMethod.credit.value: "由綠界處理，卡號不會經過本站",
+    PaymentMethod.twqr.value:
+        "用街口、全支付、悠遊付、icash Pay、台灣Pay 或銀行 App 掃碼付款，LINE Pay 目前不適用",
+    PaymentMethod.atm.value: "取號後 3 天內完成轉帳",
+    PaymentMethod.cvs_code.value: "取得代碼後 3 天內至超商繳費",
+    PaymentMethod.cod.value: "取貨時付款，僅限支援的送貨方式",
+}
+
+
+def _cod_only() -> bool:
+    """「物流已正式、金流還在審核」時，只開放貨到付款。
+
+    這個組合代表店家已經在真的出貨了。如果還讓客人選信用卡，
+    他會被帶到綠界的**測試**付款頁，刷了也收不到錢 ——
+    客人以為買到了，你這邊卻沒有一毛錢進來，是最糟的狀況。
+
+    兩邊都還在測試時不擋，那是開發中的正常狀態，要能測所有付款方式。
+    """
+    return settings.is_logistics_production and not settings.can_sell_online_now
+
+
+def payment_options(cfg: dict[str, str]) -> list[PaymentOption]:
+    """結帳頁的付款方式清單，以及每一種現在能不能選。
+
+    結帳頁顯示、下單、換付款方式都用這一份答案 ——
+    畫面上能選的，送出去就一定收得下；畫面上不能選的，直接打 API 也一樣被擋。
+    """
+    cod_only = _cod_only()
+    online_reason = "線上付款服務審核中，目前僅開放貨到付款" if cod_only else None
+
+    # 店家自己關掉的付款方式（後台 → 網站設定 → 付款方式）。
+    #
+    # 留空 = 全開。只能再關掉，不能打開綠界還沒開通的 ——
+    # 那種開關只會讓人以為自己開得起來，結果客人刷了收不到錢。
+    #
+    # 另外**永遠不會把最後一種也關掉**：一個都不能選的結帳頁等於關店，
+    # 而且前端的自動修正邏輯會在無解的組合上來回跳（曾經把連線池打爆過）。
+    chosen = {s.strip() for s in (cfg.get("payment_methods_enabled") or "").split(",") if s.strip()}
+
+    payment = []
+    for v, (_, lbl) in PAYMENT_MAP.items():
+        blocked_by_ecpay = bool(cod_only and v != PaymentMethod.cod.value)
+        turned_off = bool(chosen) and v not in chosen
+        low, high = PAYMENT_AMOUNT_LIMITS.get(v, (None, None))
+        payment.append(PaymentOption(
+            value=v, label=lbl, note=PAYMENT_NOTES.get(v),
+            disabled=blocked_by_ecpay or turned_off,
+            disabled_reason=(
+                online_reason if blocked_by_ecpay
+                else ("本店目前未開放這個付款方式" if turned_off else None)
+            ),
+            offered=not turned_off,
+            min_amount=low, max_amount=high,
+        ))
+
+    if all(p.disabled for p in payment):
+        # 全被關掉時至少留貨到付款，不然結帳頁會變成死路
+        for p in payment:
+            if p.value == PaymentMethod.cod.value:
+                p.disabled = False
+                p.disabled_reason = None
+                p.offered = True
+    return payment
+
+
+def payment_unavailable_reason(cfg: dict[str, str], method: PaymentMethod | str) -> str | None:
+    """這個付款方式現在不能用的原因；能用就回傳 None。"""
+    pay = method.value if isinstance(method, PaymentMethod) else method
+    for option in payment_options(cfg):
+        if option.value == pay:
+            if not option.disabled:
+                return None
+            return option.disabled_reason or "本店目前未開放這個付款方式"
+    return "不支援的付款方式"
+
+
 @router.get("/checkout-options", response_model=CheckoutOptions)
 def checkout_options(db: Session = Depends(get_db)):
     """前端結帳頁用來取得可選的送貨／付款方式與運費，避免在前端寫死。"""
@@ -177,51 +255,8 @@ def checkout_options(db: Session = Depends(get_db)):
         "TCAT": "隔日到府，可指定冷藏／冷凍",
     }
 
-    payment_notes = {
-        PaymentMethod.credit.value: "由綠界處理，卡號不會經過本站",
-        PaymentMethod.atm.value: "取號後 3 天內完成轉帳",
-        PaymentMethod.cvs_code.value: "取得代碼後 3 天內至超商繳費",
-        PaymentMethod.cod.value: "取貨時付款，僅限支援的送貨方式",
-    }
-
-    # 「物流已正式、金流還在審核」時，只開放貨到付款。
-    #
-    # 這個組合代表店家已經在真的出貨了。如果還讓客人選信用卡，
-    # 他會被帶到綠界的**測試**付款頁，刷了也收不到錢 ——
-    # 客人以為買到了，你這邊卻沒有一毛錢進來，是最糟的狀況。
-    #
-    # 兩邊都還在測試時不擋，那是開發中的正常狀態，要能測所有付款方式。
-    cod_only = settings.is_logistics_production and not settings.can_sell_online_now
-    online_reason = "線上付款服務審核中，目前僅開放貨到付款" if cod_only else None
-
-    # 店家自己關掉的付款方式（後台 → 網站設定 → 付款方式）。
-    #
-    # 留空 = 全開。只能再關掉，不能打開綠界還沒開通的 ——
-    # 那種開關只會讓人以為自己開得起來，結果客人刷了收不到錢。
-    #
-    # 另外**永遠不會把最後一種也關掉**：一個都不能選的結帳頁等於關店，
-    # 而且前端的自動修正邏輯會在無解的組合上來回跳（曾經把連線池打爆過）。
-    chosen = {s.strip() for s in (cfg.get("payment_methods_enabled") or "").split(",") if s.strip()}
-
-    payment = []
-    for v, (_, lbl) in PAYMENT_MAP.items():
-        blocked_by_ecpay = bool(cod_only and v != PaymentMethod.cod.value)
-        turned_off = bool(chosen) and v not in chosen
-        payment.append(PaymentOption(
-            value=v, label=lbl, note=payment_notes.get(v),
-            disabled=blocked_by_ecpay or turned_off,
-            disabled_reason=(
-                online_reason if blocked_by_ecpay
-                else ("本店目前未開放這個付款方式" if turned_off else None)
-            ),
-        ))
-
-    if all(p.disabled for p in payment):
-        # 全被關掉時至少留貨到付款，不然結帳頁會變成死路
-        for p in payment:
-            if p.value == PaymentMethod.cod.value:
-                p.disabled = False
-                p.disabled_reason = None
+    cod_only = _cod_only()
+    payment = payment_options(cfg)
 
     shipping = []
     for value, (ltype, sub_type, label, supports_cod) in SHIPPING_MAP.items():
@@ -256,6 +291,7 @@ def checkout_options(db: Session = Depends(get_db)):
         ecpay_env=settings.ECPAY_ENV,
         ecpay_status=settings.ecpay_status,
         backend_base_url=settings.BACKEND_BASE_URL.rstrip('/'),
+        cod_only=cod_only,
     )
 
 
@@ -418,6 +454,12 @@ def create_order(
         )
 
     cfg = get_shipping_settings(db)
+
+    # 店家在後台關掉的付款方式，直接打 API 也不收（畫面上本來就選不到）
+    unavailable = payment_unavailable_reason(cfg, payload.payment_method)
+    if unavailable:
+        raise HTTPException(status_code=400, detail=unavailable)
+
     shipping_fee, _ = calc_shipping_fee(
         db, subtotal, payload.shipping_method, payload.temperature, values=cfg
     )
@@ -447,6 +489,12 @@ def create_order(
     # 含運費後仍要符合超商／代收的金額上限
     if logistics_type == "CVS" and total > 20000:
         raise HTTPException(status_code=400, detail="含運費後超過超商取貨 20,000 元上限，請改用宅配")
+
+    # 行動支付有單筆金額限制（綠界規定 6～49,999 元）。
+    # 要在這裡擋，不能等到綠界付款頁 —— 那時候訂單已經成立、庫存也扣了
+    amount_error = payment_amount_error(payload.payment_method, total)
+    if amount_error:
+        raise HTTPException(status_code=400, detail=amount_error)
 
     is_cod = payload.payment_method == PaymentMethod.cod
 
@@ -621,11 +669,24 @@ def change_payment_method(
     if error:
         raise HTTPException(status_code=400, detail=error)
 
+    # 跟結帳頁同一套規則：店家關掉的、金流審核中不能用的，這裡也不能換過去
+    cfg = get_shipping_settings(db)
+    unavailable = payment_unavailable_reason(cfg, payload.payment_method)
+    if unavailable:
+        raise HTTPException(status_code=400, detail=unavailable)
+
     # 貨到付款的手續費包在 shipping_fee 裡，換方式時要把差額重算回來
-    old_cod = calc_cod_fee(db, order.payment_method)
-    new_cod = calc_cod_fee(db, payload.payment_method)
+    old_cod = calc_cod_fee(db, order.payment_method, values=cfg)
+    new_cod = calc_cod_fee(db, payload.payment_method, values=cfg)
+    new_total = max(0.0, round(float(order.total_amount or 0) - old_cod + new_cod, 2))
+
+    # 金額限制看的是換過去之後要付的總額（從貨到付款換過來會少掉手續費）
+    amount_error = payment_amount_error(payload.payment_method, new_total)
+    if amount_error:
+        raise HTTPException(status_code=400, detail=amount_error)
+
     order.shipping_fee = float(order.shipping_fee or 0) - old_cod + new_cod
-    order.total_amount = max(0.0, round(float(order.total_amount or 0) - old_cod + new_cod, 2))
+    order.total_amount = new_total
 
     order.payment_method = payload.payment_method
     order.is_collection = payload.payment_method == PaymentMethod.cod

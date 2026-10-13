@@ -583,6 +583,258 @@ html.is-hero-wash .series-switch { transition: none; }
 .note__title { font-size: clamp(1.1875rem, 1.05rem + 0.6vw, 1.5rem); line-height: 1.4; letter-spacing: 0.08em; }
 .note__desc { margin: 0; grid-column: 2; font-size: 1rem; line-height: 1.8; color: var(--ink); }
 
+/* 「可溯源」連到農業部查詢頁 */
+.facts-table__link { display: inline-flex; align-items: center; gap: 6px; text-underline-offset: 0.2em; text-decoration-thickness: 1.5px; }
+.facts-table__link .icon { width: 0.62em; height: 0.62em; stroke-width: 2.4; }
+
+/* ---------- 資訊帶的版本（預覽中，店家選定之後只留一種）---------- */
+
+/* A：標籤兩面——照片一面鋪到螢幕左緣，右邊是蜂蜜黃資訊面；四個承諾排成 2×2，用墨線分格 */
+.info-band--a { padding: 0; container-type: inline-size; }
+.info-band--a > .container { max-width: none; padding: 0; }
+.info-band--a .info-face { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 0; }
+.info-band--a .info-face__media { grid-column: 1; }
+.info-band--a .info-face__media .ph { min-height: 100%; }
+/* 右緣對齊整站內容的右緣（跟上下段落的內容同一條線） */
+.info-band--a .info-face__text {
+  grid-column: 2; gap: clamp(32px, 3.6vw, 48px);
+  padding: var(--section-y) max(var(--gutter), calc((100cqw - var(--max)) / 2)) var(--section-y) clamp(40px, 5vw, 88px);
+}
+
+/* 2×2 的承諾格：上緣一條粗墨線、中間直線與橫線分格（像標籤資訊面的格子） */
+:is(.info-band--a, .info-band--c) .notes { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; }
+:is(.info-band--a, .info-band--c, .info-band--d) .note { grid-template-columns: minmax(0, 1fr); gap: 10px; align-content: start; }
+:is(.info-band--a, .info-band--c, .info-band--d) .note__mark { grid-row: auto; margin: 0; width: 22px; height: 22px; }
+:is(.info-band--a, .info-band--c, .info-band--d) .note__desc { grid-column: 1; }
+:is(.info-band--a, .info-band--c, .info-band--d) .note__title { font-size: clamp(1.125rem, 1rem + 0.5vw, 1.375rem); }
+.info-band--a .notes { border-top: 1.5px solid var(--ink); }
+.info-band--a .note { padding: 22px 24px 24px 0; }
+.info-band--a .note:nth-child(even) { padding: 22px 0 24px 24px; border-left: 1px solid var(--ink); }
+.info-band--a .note:nth-child(n + 3) { border-top: 1px solid var(--ink); }
+
+/* B：照片鋪滿整段，蜂蜜黃資訊面像一張標籤疊在右邊（平的、墨框） */
+.info-band--b { padding: 0; }
+.info-band--b > .container { max-width: none; padding: 0; }
+.info-band--b .info-face {
+  display: block; position: relative;
+  padding: clamp(64px, 8vw, 120px) max(var(--gutter), calc((100% - var(--max)) / 2));
+}
+.info-band--b .info-face__media { position: absolute; inset: 0; display: block; }
+.info-band--b .info-face__media .ph { height: 100%; min-height: 0; }
+.info-band--b .info-face__media .ph img { object-position: 50% 62%; }
+.info-band--b .info-face__text {
+  position: relative; margin-left: auto; width: min(100%, 580px); gap: 28px;
+  background: var(--honey); border: 1.5px solid var(--ink); padding: clamp(24px, 3vw, 40px);
+}
+.info-band--b .notes { gap: 16px; }
+
+/* C：整段框成一張標籤的資訊面——照片一格、三項事實一格、四個承諾各一格，墨線分格 */
+.info-band--c .info-face {
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); grid-template-rows: auto 1fr; gap: 0;
+  border: 1.5px solid var(--ink);
+}
+.info-band--c .info-face__media { grid-column: 1; grid-row: 1 / span 2; border-right: 1.5px solid var(--ink); }
+.info-band--c .info-face__media .ph { min-height: 100%; }
+.info-band--c .info-face__text { display: contents; }
+.info-band--c .facts-table { grid-column: 2; border: 0; border-bottom: 1.5px solid var(--ink); }
+.info-band--c .facts-table > div { padding: 16px clamp(20px, 2.4vw, 32px); }
+.info-band--c .notes { grid-column: 2; }
+.info-band--c .note { padding: clamp(20px, 2.4vw, 32px); }
+.info-band--c .note:nth-child(even) { border-left: 1px solid var(--ink); }
+.info-band--c .note:nth-child(n + 3) { border-top: 1px solid var(--ink); }
+
+/* D：上面一條鋪滿的蜂場全景，三項事實像一張紙標籤貼在照片右下角（超出照片下緣一點）；四個承諾橫排成四欄 */
+.info-band--d { padding-top: 0; }
+.info-band--d > .container { max-width: none; padding: 0; }
+.info-band--d .info-face { grid-template-columns: minmax(0, 1fr); gap: 0; }
+.info-band--d .info-face__media { grid-area: 1 / 1; display: block; }
+.info-band--d .info-face__media .ph { height: clamp(320px, 36vw, 560px); min-height: 0; }
+.info-band--d .info-face__media .ph img { object-position: 50% 64%; }
+.info-band--d .info-face__text { display: contents; }
+.info-band--d .facts-table {
+  grid-area: 1 / 1; align-self: end; justify-self: end; z-index: 1;
+  width: min(100% - var(--gutter) * 2, 460px);
+  margin: 0 max(var(--gutter), calc((100% - var(--max)) / 2)) -32px 0;
+  background: var(--paper); box-shadow: 0 6px 14px -8px rgba(36, 25, 22, 0.55);
+}
+.info-band--d .notes {
+  grid-row: 2; width: min(100% - var(--gutter) * 2, var(--max)); margin: clamp(72px, 6.4vw, 96px) auto 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border-top: 1.5px solid var(--ink);
+}
+.info-band--d .note { padding: 24px 24px 0 0; }
+.info-band--d .note + .note { padding-left: 24px; border-left: 1px solid var(--ink); }
+.info-band--d .note:last-child { padding-right: 0; }
+
+/* 預覽用的切換列（網址有 ?info= 才出現，客人看不到；店家選定之後拿掉） */
+.info-preview { background: var(--ink); color: var(--paper); }
+.info-preview__inner { display: flex; align-items: center; gap: 14px; padding-top: 12px; padding-bottom: 12px; }
+.info-preview__label { flex: none; font-size: 0.875rem; font-weight: 700; letter-spacing: 0.06em; color: var(--honey); }
+.info-preview__list { position: relative; display: flex; flex-wrap: wrap; gap: 8px; padding: 4px; }
+.info-preview__list::-webkit-scrollbar { display: none; }
+.info-preview__btn {
+  flex: none; padding: 7px 14px; border-radius: 999px; border: 1.5px solid rgba(255, 253, 248, 0.45);
+  background: transparent; color: var(--paper); font-size: 0.875rem; font-weight: 700; letter-spacing: 0.04em;
+  transition: transform 160ms var(--ease-out), background-color 150ms ease, border-color 150ms ease;
+}
+.info-preview__btn[aria-pressed="true"] { background: var(--honey); border-color: var(--honey); color: var(--ink); }
+@media (hover: hover) and (pointer: fine) {
+  .info-preview__btn:hover { border-color: var(--paper); }
+}
+.info-preview__btn:active { transform: scale(0.97); }
+.info-preview__btn:focus-visible { outline: 2px solid var(--honey); outline-offset: 2px; }
+@media (max-width: 620px) {
+  .info-preview__inner { flex-direction: column; align-items: stretch; gap: 8px; }
+  .info-preview__list { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+}
+
+/* 裝飾元素平常不出現，只有版本 E 用得到 */
+.info-face__side, .info-face__doodles { display: none; }
+
+/* E：參考店家給的範例——柔和的底、圓角照片、照片後面露出一塊圓點、左邊直排 KEELUNG SPECIALTY、
+   四個承諾的標題像刷上去的色塊、右下角散著花的線稿。配色用 --e-* 變數切換（?tone=） */
+.info-band--e {
+  --e-bg: var(--tint); --e-ink: var(--ink); --e-ink-2: var(--ink-2); --e-rule: var(--ink);
+  --e-dots: var(--coral); --e-doodle: var(--coral-text); --e-wordmark: var(--coral-text);
+  --e-b1: var(--coral); --e-b1-ink: var(--ink);
+  --e-b2: var(--honey); --e-b2-ink: var(--ink);
+  --e-b3: var(--leaf); --e-b3-ink: var(--ink);
+  --e-b4: var(--stamen); --e-b4-ink: var(--paper);
+  --e-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .14 0 0 0 0 .1 0 0 0 0 .08 0 0 0 .1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  position: relative; overflow: hidden; isolation: isolate;
+  background: var(--e-grain), var(--e-bg); color: var(--e-ink);
+}
+.info-band--tone-honey {
+  --e-bg: var(--honey); --e-dots: var(--coral); --e-doodle: var(--ink); --e-wordmark: var(--ink);
+  --e-b1: var(--coral); --e-b2: var(--paper); --e-b3: var(--leaf); --e-b4: var(--ink); --e-b4-ink: var(--bloom);
+  --e-ink-2: var(--ink);
+}
+.info-band--tone-paper {
+  --e-bg: var(--paper); --e-dots: var(--honey); --e-doodle: var(--honey-deep); --e-wordmark: var(--coral-text);
+  --e-b1: var(--stamen); --e-b2: var(--stamen); --e-b3: var(--stamen); --e-b4: var(--stamen);
+  --e-b1-ink: var(--paper); --e-b2-ink: var(--paper); --e-b3-ink: var(--paper); --e-b4-ink: var(--paper);
+}
+.info-band--tone-forest {
+  --e-bg: var(--forest); --e-ink: var(--paper); --e-ink-2: var(--paper); --e-rule: var(--bloom);
+  --e-dots: var(--honey); --e-doodle: var(--bloom); --e-wordmark: var(--honey);
+  --e-b1: var(--honey); --e-b2: var(--bloom); --e-b3: var(--coral); --e-b4: var(--honey);
+  --e-b1-ink: var(--ink); --e-b2-ink: var(--ink); --e-b3-ink: var(--ink); --e-b4-ink: var(--ink);
+  --e-grain: none;
+}
+.info-band--e .info-face {
+  grid-template-columns: 40px minmax(0, 5fr) minmax(0, 6fr);
+  column-gap: clamp(28px, 3.6vw, 64px); align-items: stretch;
+}
+/* 左邊：一條細線＋直排的 KEELUNG SPECIALTY（標籤上的那一行字） */
+.info-band--e .info-face__side {
+  display: flex; grid-column: 1; grid-row: 1; flex-direction: column; align-items: center;
+  justify-content: center; gap: 22px; color: var(--e-wordmark);
+}
+.info-band--e .info-face__side::before { content: ""; width: 1px; height: clamp(72px, 8vw, 128px); background: currentColor; }
+.info-band--e .info-face__wordmark {
+  width: 38px; aspect-ratio: 46.75 / 151.15; background: currentColor;
+  -webkit-mask: url("/brand/keelung-specialty.svg") center / contain no-repeat;
+  mask: url("/brand/keelung-specialty.svg") center / contain no-repeat;
+}
+/* 照片：圓角，後面露出一塊圓點 */
+.info-band--e .info-face__media { grid-column: 2; grid-row: 1; position: relative; isolation: isolate; }
+.info-band--e .info-face__media .ph { border-radius: 16px; overflow: hidden; min-height: 420px; }
+.info-band--e .info-face__media::after {
+  content: ""; position: absolute; z-index: -1; left: 16%; bottom: -42px;
+  width: min(64%, 320px); height: 108px;
+  background: radial-gradient(circle, var(--e-dots) 0 2.6px, transparent 3.1px) 0 0 / 16px 16px;
+}
+.info-band--e .info-face__text { grid-column: 3; grid-row: 1; align-self: center; gap: clamp(32px, 3.4vw, 44px); }
+.info-band--e .label-table, .info-band--e .label-table > div { border-color: var(--e-rule); }
+.info-band--e .notes { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px clamp(24px, 2.6vw, 36px); }
+.info-band--e .note { grid-template-columns: minmax(0, 1fr); gap: 12px; justify-items: start; }
+.info-band--e .note__mark { display: none; }
+.info-band--e .note__desc { grid-column: 1; color: var(--e-ink-2); }
+/* 標題像用筆刷刷上去的一塊色：兩端毛邊，顏色一則一種 */
+.info-band--e .note__title {
+  position: relative; isolation: isolate; padding: 5px 18px 7px; margin-left: -4px;
+  color: var(--brush-ink); font-size: clamp(1.0625rem, 0.96rem + 0.45vw, 1.3125rem); letter-spacing: 0.1em;
+}
+.info-band--e .note__title::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; background: var(--brush);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 60' preserveAspectRatio='none'%3E%3Cpath d='M8 9C60 4 120 8 180 5c40-2 80 1 112-1l-4 8 9 6-7 7 8 7-7 7 8 7-10 6 5 5c-44-2-94 1-144-1-50-2-100 1-144 0l5-7-9-6 7-7-8-7 7-7-8-7z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 60' preserveAspectRatio='none'%3E%3Cpath d='M8 9C60 4 120 8 180 5c40-2 80 1 112-1l-4 8 9 6-7 7 8 7-7 7 8 7-10 6 5 5c-44-2-94 1-144-1-50-2-100 1-144 0l5-7-9-6 7-7-8-7 7-7-8-7z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+}
+.info-band--e .note:nth-child(1) { --brush: var(--e-b1); --brush-ink: var(--e-b1-ink); }
+.info-band--e .note:nth-child(2) { --brush: var(--e-b2); --brush-ink: var(--e-b2-ink); }
+.info-band--e .note:nth-child(3) { --brush: var(--e-b3); --brush-ink: var(--e-b3-ink); }
+.info-band--e .note:nth-child(4) { --brush: var(--e-b4); --brush-ink: var(--e-b4-ink); }
+/* 右下角的花線稿：放在段落下緣的留白裡、被邊緣切掉一點，像參考圖那樣；墊在字的後面 */
+.info-band--e .info-face__doodles {
+  display: block; position: absolute; bottom: -78px; z-index: -1;
+  /* 跟著內容的右緣走：大螢幕時不要跑到離內容很遠的螢幕邊上 */
+  right: max(-44px, calc((100% - var(--max)) / 2 - 220px));
+  width: clamp(220px, 22vw, 360px); height: auto; color: var(--e-doodle); opacity: 0.5; pointer-events: none;
+}
+
+/* 1001～1279：右欄不夠寬放兩欄承諾（「社團、」會自己掉成一行），改成一則一列 */
+@media (min-width: 1001px) and (max-width: 1279px) {
+  :is(.info-band--a, .info-band--c, .info-band--e) .notes { grid-template-columns: minmax(0, 1fr); }
+  :is(.info-band--a, .info-band--c) .note { grid-template-columns: 22px minmax(0, 1fr); gap: 4px 12px; }
+  :is(.info-band--a, .info-band--c) .note__mark { grid-row: span 2; width: 20px; height: 20px; margin-top: 0.42em; }
+  :is(.info-band--a, .info-band--c) .note__desc { grid-column: 2; }
+  .info-band--a .note, .info-band--a .note:nth-child(even) { padding: 18px 0; border-left: 0; border-top: 0; }
+  .info-band--a .note + .note { border-top: 1px solid var(--ink); }
+  .info-band--c .note, .info-band--c .note:nth-child(even) { padding: 18px clamp(20px, 2.4vw, 32px); border-left: 0; border-top: 0; }
+  .info-band--c .note + .note { border-top: 1px solid var(--ink); }
+  .info-band--e .notes { gap: 24px; }
+}
+@media (max-width: 1279px) {
+  .info-band--d .notes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .info-band--d .note, .info-band--d .note + .note { padding: 22px 20px 22px 0; border-left: 0; }
+  .info-band--d .note:nth-child(even) { padding-left: 20px; padding-right: 0; border-left: 1px solid var(--ink); }
+  .info-band--d .note:nth-child(n + 3) { border-top: 1px solid var(--ink); }
+}
+@media (max-width: 1000px) {
+  .info-band--a .info-face { grid-template-columns: minmax(0, 1fr); }
+  .info-band--a .info-face__media .ph { aspect-ratio: 4 / 3; min-height: 0; }
+  .info-band--a .info-face__text { display: flex; grid-column: 1; padding: clamp(32px, 6vw, 56px) var(--gutter) var(--section-y); }
+
+  .info-band--b .info-face { padding: 0 var(--gutter) var(--section-y); }
+  .info-band--b .info-face__media { position: relative; inset: auto; margin: 0 calc(-1 * var(--gutter)); }
+  .info-band--b .info-face__media .ph { aspect-ratio: 4 / 3; height: auto; }
+  .info-band--b .info-face__text { display: flex; width: auto; margin-top: -56px; }
+
+  .info-band--c .info-face { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
+  .info-band--c .info-face__media { grid-column: 1; grid-row: auto; border-right: 0; border-bottom: 1.5px solid var(--ink); }
+  .info-band--c .info-face__media .ph { aspect-ratio: 16 / 9; min-height: 0; }
+  .info-band--c .facts-table, .info-band--c .notes { grid-column: 1; }
+  .info-band--c .facts-table { order: 0; }   /* 照片留在框的最上面 */
+
+  .info-band--d .info-face__media .ph { height: auto; aspect-ratio: 16 / 10; }
+
+  .info-band--e .info-face { grid-template-columns: minmax(0, 1fr); row-gap: clamp(56px, 9vw, 72px); }
+  .info-band--e .info-face__side { display: none; }
+  .info-band--e .info-face__media { grid-column: 1; }
+  .info-band--e .info-face__media .ph { aspect-ratio: 4 / 3; min-height: 0; }
+  .info-band--e .info-face__media::after { bottom: -34px; height: 90px; }
+  .info-band--e .info-face__text { display: flex; grid-column: 1; grid-row: auto; }
+}
+@media (max-width: 620px) {
+  /* 手機：一則一列，◎ 回到標題左邊（省高度），列與列之間一條細墨線 */
+  :is(.info-band--a, .info-band--c, .info-band--d) .notes { grid-template-columns: minmax(0, 1fr); }
+  :is(.info-band--a, .info-band--c, .info-band--d) .note { grid-template-columns: 22px minmax(0, 1fr); gap: 4px 12px; }
+  :is(.info-band--a, .info-band--c, .info-band--d) .note__mark { grid-row: span 2; width: 20px; height: 20px; margin-top: 0.42em; }
+  :is(.info-band--a, .info-band--c, .info-band--d) .note__desc { grid-column: 2; }
+  .info-band--a .note, .info-band--a .note:nth-child(even),
+  .info-band--d .note, .info-band--d .note + .note, .info-band--d .note:nth-child(even) {
+    padding: 18px 0; border-left: 0; border-top: 0;
+  }
+  .info-band--a .note + .note, .info-band--d .note + .note { border-top: 1px solid var(--ink); }
+  .info-band--c .note, .info-band--c .note:nth-child(even) { padding: 18px 20px; border-left: 0; border-top: 0; }
+  .info-band--c .note + .note { border-top: 1px solid var(--ink); }
+  /* 紙標籤改成接在照片下面、往上壓一點 */
+  .info-band--d .facts-table { grid-area: 2 / 1; align-self: start; justify-self: stretch; width: auto; margin: -40px var(--gutter) 0; }
+  .info-band--d .notes { grid-row: 3; margin-top: clamp(32px, 8vw, 48px); }
+
+  .info-band--e .notes { grid-template-columns: minmax(0, 1fr); gap: 26px; }
+  .info-band--e .info-face__doodles { width: 200px; right: -52px; bottom: -64px; opacity: 0.4; }
+}
+
 /* ============ 商品格 ============ */
 .grid { display: grid; gap: clamp(20px, 2.4vw, 32px); }
 .grid--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }

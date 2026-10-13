@@ -176,7 +176,7 @@ def structured_data(db: Session = Depends(get_db)) -> dict:
 
     data["areaServed"] = {"@type": "Country", "name": "台灣"}
     data["currenciesAccepted"] = "TWD"
-    data["paymentAccepted"] = "信用卡, ATM 轉帳, 超商代碼繳費, 貨到付款"
+    data["paymentAccepted"] = "信用卡, 行動支付, ATM 轉帳, 超商代碼繳費, 貨到付款"
 
     # 價格區間：Google 的在地結果會顯示，也是一個「這是真的在營業」的訊號
     try:
