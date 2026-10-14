@@ -550,16 +550,46 @@ html.is-hero-wash .series-switch { transition: none; }
   to { opacity: 1; transform: rotate(-10deg) scale(1); }
 }
 
-/* ============ 首頁：資訊面（整片蜂蜜黃，像標籤右邊印營養標示的那一面） ============ */
-.info-band { background: var(--honey); color: var(--ink); }
-/* 照片（左）＋資訊（右）：照片拉到跟右欄一樣高 */
-.info-face { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 32px; align-items: stretch; }
-.info-face__media { grid-column: 1 / span 6; display: flex; }
-.info-face__media .ph { flex: 1; aspect-ratio: auto; min-height: 380px; }
-/* 照片的原始比例不撐高這一列（直式照片會把整片撐得很長）：高度跟右欄一樣，照片裁成剛好填滿。
-   蜂箱多半在照片下半部，所以裁切時偏下方 */
-.info-face__media .ph img { position: absolute; inset: 0; object-position: 50% 72%; }
-.info-face__text { grid-column: 8 / span 5; display: flex; flex-direction: column; gap: clamp(28px, 3.4vw, 44px); }
+/* ============ 首頁：資訊面（蜂蜜黃，像標籤右邊印營養標示的那一面） ============ */
+/*
+  2026-10-14 店家選定（照店家給的參考圖做，預覽時叫 E2）：
+  圓角蜂場照、照片後面錯開露出一塊珊瑚紅網點、左邊一條細線＋直排 KEELUNG SPECIALTY（標籤上那一行字）、
+  四個承諾的標題像用筆刷刷上去的色塊（珊瑚紅、白、葉綠、墨，一則一種）、右下角散著紅淡比花的線稿。
+*/
+.info-band {
+  position: relative; overflow: hidden; isolation: isolate; color: var(--ink);
+  /* 蜂蜜黃上疊一層很淡的紙紋 */
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .14 0 0 0 0 .1 0 0 0 0 .08 0 0 0 .1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"), var(--honey);
+}
+.info-band .info-face {
+  display: grid; grid-template-columns: 40px minmax(0, 5fr) minmax(0, 6fr);
+  gap: 32px clamp(28px, 3.6vw, 64px); align-items: stretch;
+}
+/* 左邊：一條細線＋直排的 KEELUNG SPECIALTY（純裝飾） */
+.info-band .info-face__side {
+  display: flex; grid-column: 1; grid-row: 1; flex-direction: column; align-items: center;
+  justify-content: center; gap: 22px;
+}
+.info-band .info-face__side::before { content: ""; width: 1px; height: clamp(72px, 8vw, 128px); background: currentColor; }
+.info-band .info-face__wordmark {
+  width: 38px; aspect-ratio: 46.75 / 151.15; background: currentColor;
+  -webkit-mask: url("/brand/keelung-specialty.svg") center / contain no-repeat;
+  mask: url("/brand/keelung-specialty.svg") center / contain no-repeat;
+}
+/* 照片：圓角，高度跟右欄一樣、裁成剛好填滿（直式照片不會把整片撐長）。蜂箱多半在照片下半部，裁切偏下方 */
+.info-band .info-face__media { display: flex; grid-column: 2; grid-row: 1; position: relative; isolation: isolate; }
+.info-band .info-face__media .ph { flex: 1; aspect-ratio: auto; min-height: 420px; border-radius: 16px; overflow: hidden; }
+.info-band .info-face__media .ph img { position: absolute; inset: 0; object-position: 50% 72%; }
+/* 照片後面露出一塊網點 */
+.info-band .info-face__media::after {
+  content: ""; position: absolute; z-index: -1; left: 16%; bottom: -42px;
+  width: min(64%, 320px); height: 108px;
+  background: radial-gradient(circle, var(--coral) 0 2.6px, transparent 3.1px) 0 0 / 16px 16px;
+}
+.info-band .info-face__text {
+  display: flex; flex-direction: column; grid-column: 3; grid-row: 1; align-self: center;
+  gap: clamp(32px, 3.4vw, 44px);
+}
 
 /* 標籤上「營養標示」那張表：一圈墨色細框，左邊項目、右邊數值，細線分列 */
 .label-table { margin: 0; border: 1.5px solid var(--ink); }
@@ -575,264 +605,71 @@ html.is-hero-wash .series-switch { transition: none; }
   font-family: var(--serif); font-weight: 900; font-size: 1.5rem; line-height: 1.3; letter-spacing: 0.08em;
   font-variant-numeric: tabular-nums;
 }
-
-/* 四個承諾：照標籤「注意事項」的樣子，每一則用 ◎ 開頭 */
-.notes { display: grid; gap: clamp(18px, 2vw, 24px); }
-.note { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 4px 12px; align-items: start; }
-.note__mark { grid-row: span 2; width: 20px; height: 20px; margin-top: 0.42em; color: var(--ink); }
-.note__title { font-size: clamp(1.1875rem, 1.05rem + 0.6vw, 1.5rem); line-height: 1.4; letter-spacing: 0.08em; }
-.note__desc { margin: 0; grid-column: 2; font-size: 1rem; line-height: 1.8; color: var(--ink); }
-
 /* 「可溯源」連到農業部查詢頁 */
-.facts-table__link { display: inline-flex; align-items: center; gap: 6px; text-underline-offset: 0.2em; text-decoration-thickness: 1.5px; }
+.facts-table__link {
+  display: inline-flex; align-items: center; gap: 6px; text-underline-offset: 0.2em; text-decoration-thickness: 1.5px;
+  /* 點得到的範圍上下各多 9px（手機上字只有 27px 高），排版位置不變 */
+  padding-block: 9px; margin-block: -9px;
+}
 .facts-table__link .icon { width: 0.62em; height: 0.62em; stroke-width: 2.4; }
 
-/* ---------- 資訊帶的版本（預覽中，店家選定之後只留一種）---------- */
-
-/* A：標籤兩面——照片一面鋪到螢幕左緣，右邊是蜂蜜黃資訊面；四個承諾排成 2×2，用墨線分格 */
-.info-band--a { padding: 0; container-type: inline-size; }
-.info-band--a > .container { max-width: none; padding: 0; }
-.info-band--a .info-face { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 0; }
-.info-band--a .info-face__media { grid-column: 1; }
-.info-band--a .info-face__media .ph { min-height: 100%; }
-/* 右緣對齊整站內容的右緣（跟上下段落的內容同一條線） */
-.info-band--a .info-face__text {
-  grid-column: 2; gap: clamp(32px, 3.6vw, 48px);
-  padding: var(--section-y) max(var(--gutter), calc((100cqw - var(--max)) / 2)) var(--section-y) clamp(40px, 5vw, 88px);
-}
-
-/* 2×2 的承諾格：上緣一條粗墨線、中間直線與橫線分格（像標籤資訊面的格子） */
-:is(.info-band--a, .info-band--c) .notes { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; }
-:is(.info-band--a, .info-band--c, .info-band--d) .note { grid-template-columns: minmax(0, 1fr); gap: 10px; align-content: start; }
-:is(.info-band--a, .info-band--c, .info-band--d) .note__mark { grid-row: auto; margin: 0; width: 22px; height: 22px; }
-:is(.info-band--a, .info-band--c, .info-band--d) .note__desc { grid-column: 1; }
-:is(.info-band--a, .info-band--c, .info-band--d) .note__title { font-size: clamp(1.125rem, 1rem + 0.5vw, 1.375rem); }
-.info-band--a .notes { border-top: 1.5px solid var(--ink); }
-.info-band--a .note { padding: 22px 24px 24px 0; }
-.info-band--a .note:nth-child(even) { padding: 22px 0 24px 24px; border-left: 1px solid var(--ink); }
-.info-band--a .note:nth-child(n + 3) { border-top: 1px solid var(--ink); }
-
-/* B：照片鋪滿整段，蜂蜜黃資訊面像一張標籤疊在右邊（平的、墨框） */
-.info-band--b { padding: 0; }
-.info-band--b > .container { max-width: none; padding: 0; }
-.info-band--b .info-face {
-  display: block; position: relative;
-  padding: clamp(64px, 8vw, 120px) max(var(--gutter), calc((100% - var(--max)) / 2));
-}
-.info-band--b .info-face__media { position: absolute; inset: 0; display: block; }
-.info-band--b .info-face__media .ph { height: 100%; min-height: 0; }
-.info-band--b .info-face__media .ph img { object-position: 50% 62%; }
-.info-band--b .info-face__text {
-  position: relative; margin-left: auto; width: min(100%, 580px); gap: 28px;
-  background: var(--honey); border: 1.5px solid var(--ink); padding: clamp(24px, 3vw, 40px);
-}
-.info-band--b .notes { gap: 16px; }
-
-/* C：整段框成一張標籤的資訊面——照片一格、三項事實一格、四個承諾各一格，墨線分格 */
-.info-band--c .info-face {
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); grid-template-rows: auto 1fr; gap: 0;
-  border: 1.5px solid var(--ink);
-}
-.info-band--c .info-face__media { grid-column: 1; grid-row: 1 / span 2; border-right: 1.5px solid var(--ink); }
-.info-band--c .info-face__media .ph { min-height: 100%; }
-.info-band--c .info-face__text { display: contents; }
-.info-band--c .facts-table { grid-column: 2; border: 0; border-bottom: 1.5px solid var(--ink); }
-.info-band--c .facts-table > div { padding: 16px clamp(20px, 2.4vw, 32px); }
-.info-band--c .notes { grid-column: 2; }
-.info-band--c .note { padding: clamp(20px, 2.4vw, 32px); }
-.info-band--c .note:nth-child(even) { border-left: 1px solid var(--ink); }
-.info-band--c .note:nth-child(n + 3) { border-top: 1px solid var(--ink); }
-
-/* D：上面一條鋪滿的蜂場全景，三項事實像一張紙標籤貼在照片右下角（超出照片下緣一點）；四個承諾橫排成四欄 */
-.info-band--d { padding-top: 0; }
-.info-band--d > .container { max-width: none; padding: 0; }
-.info-band--d .info-face { grid-template-columns: minmax(0, 1fr); gap: 0; }
-.info-band--d .info-face__media { grid-area: 1 / 1; display: block; }
-.info-band--d .info-face__media .ph { height: clamp(320px, 36vw, 560px); min-height: 0; }
-.info-band--d .info-face__media .ph img { object-position: 50% 64%; }
-.info-band--d .info-face__text { display: contents; }
-.info-band--d .facts-table {
-  grid-area: 1 / 1; align-self: end; justify-self: end; z-index: 1;
-  width: min(100% - var(--gutter) * 2, 460px);
-  margin: 0 max(var(--gutter), calc((100% - var(--max)) / 2)) -32px 0;
-  background: var(--paper); box-shadow: 0 6px 14px -8px rgba(36, 25, 22, 0.55);
-}
-.info-band--d .notes {
-  grid-row: 2; width: min(100% - var(--gutter) * 2, var(--max)); margin: clamp(72px, 6.4vw, 96px) auto 0;
-  grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border-top: 1.5px solid var(--ink);
-}
-.info-band--d .note { padding: 24px 24px 0 0; }
-.info-band--d .note + .note { padding-left: 24px; border-left: 1px solid var(--ink); }
-.info-band--d .note:last-child { padding-right: 0; }
-
-/* 預覽用的切換列（網址有 ?info= 才出現，客人看不到；店家選定之後拿掉） */
-.info-preview { background: var(--ink); color: var(--paper); }
-.info-preview__inner { display: flex; align-items: center; gap: 14px; padding-top: 12px; padding-bottom: 12px; }
-.info-preview__label { flex: none; font-size: 0.875rem; font-weight: 700; letter-spacing: 0.06em; color: var(--honey); }
-.info-preview__list { position: relative; display: flex; flex-wrap: wrap; gap: 8px; padding: 4px; }
-.info-preview__list::-webkit-scrollbar { display: none; }
-.info-preview__btn {
-  flex: none; padding: 7px 14px; border-radius: 999px; border: 1.5px solid rgba(255, 253, 248, 0.45);
-  background: transparent; color: var(--paper); font-size: 0.875rem; font-weight: 700; letter-spacing: 0.04em;
-  transition: transform 160ms var(--ease-out), background-color 150ms ease, border-color 150ms ease;
-}
-.info-preview__btn[aria-pressed="true"] { background: var(--honey); border-color: var(--honey); color: var(--ink); }
-@media (hover: hover) and (pointer: fine) {
-  .info-preview__btn:hover { border-color: var(--paper); }
-}
-.info-preview__btn:active { transform: scale(0.97); }
-.info-preview__btn:focus-visible { outline: 2px solid var(--honey); outline-offset: 2px; }
-@media (max-width: 620px) {
-  .info-preview__inner { flex-direction: column; align-items: stretch; gap: 8px; }
-  .info-preview__list { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-}
-
-/* 裝飾元素平常不出現，只有版本 E 用得到 */
-.info-face__side, .info-face__doodles { display: none; }
-
-/* E：參考店家給的範例——柔和的底、圓角照片、照片後面露出一塊圓點、左邊直排 KEELUNG SPECIALTY、
-   四個承諾的標題像刷上去的色塊、右下角散著花的線稿。配色用 --e-* 變數切換（?tone=） */
-.info-band--e {
-  --e-bg: var(--tint); --e-ink: var(--ink); --e-ink-2: var(--ink-2); --e-rule: var(--ink);
-  --e-dots: var(--coral); --e-doodle: var(--coral-text); --e-wordmark: var(--coral-text);
-  --e-b1: var(--coral); --e-b1-ink: var(--ink);
-  --e-b2: var(--honey); --e-b2-ink: var(--ink);
-  --e-b3: var(--leaf); --e-b3-ink: var(--ink);
-  --e-b4: var(--stamen); --e-b4-ink: var(--paper);
-  --e-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .14 0 0 0 0 .1 0 0 0 0 .08 0 0 0 .1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  position: relative; overflow: hidden; isolation: isolate;
-  background: var(--e-grain), var(--e-bg); color: var(--e-ink);
-}
-.info-band--tone-honey {
-  --e-bg: var(--honey); --e-dots: var(--coral); --e-doodle: var(--ink); --e-wordmark: var(--ink);
-  --e-b1: var(--coral); --e-b2: var(--paper); --e-b3: var(--leaf); --e-b4: var(--ink); --e-b4-ink: var(--bloom);
-  --e-ink-2: var(--ink);
-}
-.info-band--tone-paper {
-  --e-bg: var(--paper); --e-dots: var(--honey); --e-doodle: var(--honey-deep); --e-wordmark: var(--coral-text);
-  --e-b1: var(--stamen); --e-b2: var(--stamen); --e-b3: var(--stamen); --e-b4: var(--stamen);
-  --e-b1-ink: var(--paper); --e-b2-ink: var(--paper); --e-b3-ink: var(--paper); --e-b4-ink: var(--paper);
-}
-.info-band--tone-forest {
-  --e-bg: var(--forest); --e-ink: var(--paper); --e-ink-2: var(--paper); --e-rule: var(--bloom);
-  --e-dots: var(--honey); --e-doodle: var(--bloom); --e-wordmark: var(--honey);
-  --e-b1: var(--honey); --e-b2: var(--bloom); --e-b3: var(--coral); --e-b4: var(--honey);
-  --e-b1-ink: var(--ink); --e-b2-ink: var(--ink); --e-b3-ink: var(--ink); --e-b4-ink: var(--ink);
-  --e-grain: none;
-}
-.info-band--e .info-face {
-  grid-template-columns: 40px minmax(0, 5fr) minmax(0, 6fr);
-  column-gap: clamp(28px, 3.6vw, 64px); align-items: stretch;
-}
-/* 左邊：一條細線＋直排的 KEELUNG SPECIALTY（標籤上的那一行字） */
-.info-band--e .info-face__side {
-  display: flex; grid-column: 1; grid-row: 1; flex-direction: column; align-items: center;
-  justify-content: center; gap: 22px; color: var(--e-wordmark);
-}
-.info-band--e .info-face__side::before { content: ""; width: 1px; height: clamp(72px, 8vw, 128px); background: currentColor; }
-.info-band--e .info-face__wordmark {
-  width: 38px; aspect-ratio: 46.75 / 151.15; background: currentColor;
-  -webkit-mask: url("/brand/keelung-specialty.svg") center / contain no-repeat;
-  mask: url("/brand/keelung-specialty.svg") center / contain no-repeat;
-}
-/* 照片：圓角，後面露出一塊圓點 */
-.info-band--e .info-face__media { grid-column: 2; grid-row: 1; position: relative; isolation: isolate; }
-.info-band--e .info-face__media .ph { border-radius: 16px; overflow: hidden; min-height: 420px; }
-.info-band--e .info-face__media::after {
-  content: ""; position: absolute; z-index: -1; left: 16%; bottom: -42px;
-  width: min(64%, 320px); height: 108px;
-  background: radial-gradient(circle, var(--e-dots) 0 2.6px, transparent 3.1px) 0 0 / 16px 16px;
-}
-.info-band--e .info-face__text { grid-column: 3; grid-row: 1; align-self: center; gap: clamp(32px, 3.4vw, 44px); }
-.info-band--e .label-table, .info-band--e .label-table > div { border-color: var(--e-rule); }
-.info-band--e .notes { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px clamp(24px, 2.6vw, 36px); }
-.info-band--e .note { grid-template-columns: minmax(0, 1fr); gap: 12px; justify-items: start; }
-.info-band--e .note__mark { display: none; }
-.info-band--e .note__desc { grid-column: 1; color: var(--e-ink-2); }
-/* 標題像用筆刷刷上去的一塊色：兩端毛邊，顏色一則一種 */
-.info-band--e .note__title {
+/* 四個承諾：兩欄兩列，標題是筆刷色塊、下面一段說明 */
+.info-band .notes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px clamp(24px, 2.6vw, 36px); }
+.info-band .note { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-items: start; justify-items: start; }
+.info-band .note__title {
   position: relative; isolation: isolate; padding: 5px 18px 7px; margin-left: -4px;
-  color: var(--brush-ink); font-size: clamp(1.0625rem, 0.96rem + 0.45vw, 1.3125rem); letter-spacing: 0.1em;
+  color: var(--brush-ink); font-size: clamp(1.0625rem, 0.96rem + 0.45vw, 1.3125rem); line-height: 1.4; letter-spacing: 0.1em;
 }
-.info-band--e .note__title::before {
+/* 筆刷：兩端毛邊的一塊色，墊在標題字後面。四則各用一種毛邊（同一個形狀重複四次會像蓋章） */
+.info-band .note__title::before {
   content: ""; position: absolute; inset: 0; z-index: -1; background: var(--brush);
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 60' preserveAspectRatio='none'%3E%3Cpath d='M8 9C60 4 120 8 180 5c40-2 80 1 112-1l-4 8 9 6-7 7 8 7-7 7 8 7-10 6 5 5c-44-2-94 1-144-1-50-2-100 1-144 0l5-7-9-6 7-7-8-7 7-7-8-7z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 60' preserveAspectRatio='none'%3E%3Cpath d='M8 9C60 4 120 8 180 5c40-2 80 1 112-1l-4 8 9 6-7 7 8 7-7 7 8 7-10 6 5 5c-44-2-94 1-144-1-50-2-100 1-144 0l5-7-9-6 7-7-8-7 7-7-8-7z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  -webkit-mask: var(--brush-mask) center / 100% 100% no-repeat;
+  mask: var(--brush-mask) center / 100% 100% no-repeat;
 }
-.info-band--e .note:nth-child(1) { --brush: var(--e-b1); --brush-ink: var(--e-b1-ink); }
-.info-band--e .note:nth-child(2) { --brush: var(--e-b2); --brush-ink: var(--e-b2-ink); }
-.info-band--e .note:nth-child(3) { --brush: var(--e-b3); --brush-ink: var(--e-b3-ink); }
-.info-band--e .note:nth-child(4) { --brush: var(--e-b4); --brush-ink: var(--e-b4-ink); }
-/* 右下角的花線稿：放在段落下緣的留白裡、被邊緣切掉一點，像參考圖那樣；墊在字的後面 */
-.info-band--e .info-face__doodles {
+.info-band .note:nth-child(1) { --brush: var(--coral); --brush-ink: var(--ink); --brush-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 60' preserveAspectRatio='none'%3E%3Cpath d='M14 9C70 4 130 10 192 6C232 3 266 8 288 6L291 14L289 24L296 30L290 34L292 46L289 55C240 57 190 53 140 57C95 60 52 55 18 57L4 52L15 46L10 40L1 33L13 27L9 20L2 15L12 12Z'/%3E%3C/svg%3E"); }
+.info-band .note:nth-child(2) { --brush: var(--paper); --brush-ink: var(--ink); --brush-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 60' preserveAspectRatio='none'%3E%3Cpath d='M6 8C60 11 120 5 180 8C222 10 258 5 284 8L292 12L287 16L299 21L289 25L294 29L288 33L298 39L290 43L293 48L286 53L291 57C246 59 200 54 150 57C104 60 56 55 8 56L5 44L7 30L4 18Z'/%3E%3C/svg%3E"); }
+.info-band .note:nth-child(3) { --brush: var(--leaf); --brush-ink: var(--ink); --brush-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 60' preserveAspectRatio='none'%3E%3Cpath d='M16 12C66 7 120 10 174 7C222 4 262 9 286 5C296 8 300 18 294 26C290 32 299 40 292 48C290 53 293 56 286 57C240 55 192 59 144 56C98 53 54 58 20 55L2 52L18 49L10 44L19 40L0 36L17 32L12 26L20 22L3 17L18 14Z'/%3E%3C/svg%3E"); }
+.info-band .note:nth-child(4) { --brush: var(--ink); --brush-ink: var(--bloom); --brush-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 60' preserveAspectRatio='none'%3E%3Cpath d='M24 12C70 6 126 10 186 6C228 3 264 7 287 4L290 12L297 16L289 22L292 28L299 31L288 36L291 42L298 47L289 51L292 57C246 55 196 58 146 56C98 54 56 58 24 55C14 52 6 44 3 34C7 26 13 17 24 12Z'/%3E%3C/svg%3E"); }
+/* pretty：最後一行不要只剩「不調味。」這種兩三個字（414～430 寬的大手機、900 寬的平板會碰到） */
+.info-band .note__desc { margin: 0; font-size: 1rem; line-height: 1.8; color: var(--ink); text-wrap: pretty; }
+
+/* 右下角的花線稿：放在段落下緣的留白裡、被邊緣切掉一點；墊在字的後面。
+   跟著內容的右緣走：大螢幕時不要跑到離內容很遠的螢幕邊上 */
+.info-band .info-face__doodles {
   display: block; position: absolute; bottom: -78px; z-index: -1;
-  /* 跟著內容的右緣走：大螢幕時不要跑到離內容很遠的螢幕邊上 */
   right: max(-44px, calc((100% - var(--max)) / 2 - 220px));
-  width: clamp(220px, 22vw, 360px); height: auto; color: var(--e-doodle); opacity: 0.5; pointer-events: none;
+  width: clamp(220px, 22vw, 360px); height: auto; color: var(--ink); opacity: 0.5; pointer-events: none;
 }
 
 /* 1001～1279：右欄不夠寬放兩欄承諾（「社團、」會自己掉成一行），改成一則一列 */
 @media (min-width: 1001px) and (max-width: 1279px) {
-  :is(.info-band--a, .info-band--c, .info-band--e) .notes { grid-template-columns: minmax(0, 1fr); }
-  :is(.info-band--a, .info-band--c) .note { grid-template-columns: 22px minmax(0, 1fr); gap: 4px 12px; }
-  :is(.info-band--a, .info-band--c) .note__mark { grid-row: span 2; width: 20px; height: 20px; margin-top: 0.42em; }
-  :is(.info-band--a, .info-band--c) .note__desc { grid-column: 2; }
-  .info-band--a .note, .info-band--a .note:nth-child(even) { padding: 18px 0; border-left: 0; border-top: 0; }
-  .info-band--a .note + .note { border-top: 1px solid var(--ink); }
-  .info-band--c .note, .info-band--c .note:nth-child(even) { padding: 18px clamp(20px, 2.4vw, 32px); border-left: 0; border-top: 0; }
-  .info-band--c .note + .note { border-top: 1px solid var(--ink); }
-  .info-band--e .notes { gap: 24px; }
-}
-@media (max-width: 1279px) {
-  .info-band--d .notes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .info-band--d .note, .info-band--d .note + .note { padding: 22px 20px 22px 0; border-left: 0; }
-  .info-band--d .note:nth-child(even) { padding-left: 20px; padding-right: 0; border-left: 1px solid var(--ink); }
-  .info-band--d .note:nth-child(n + 3) { border-top: 1px solid var(--ink); }
+  .info-band .notes { grid-template-columns: minmax(0, 1fr); gap: 24px; }
 }
 @media (max-width: 1000px) {
-  .info-band--a .info-face { grid-template-columns: minmax(0, 1fr); }
-  .info-band--a .info-face__media .ph { aspect-ratio: 4 / 3; min-height: 0; }
-  .info-band--a .info-face__text { display: flex; grid-column: 1; padding: clamp(32px, 6vw, 56px) var(--gutter) var(--section-y); }
-
-  .info-band--b .info-face { padding: 0 var(--gutter) var(--section-y); }
-  .info-band--b .info-face__media { position: relative; inset: auto; margin: 0 calc(-1 * var(--gutter)); }
-  .info-band--b .info-face__media .ph { aspect-ratio: 4 / 3; height: auto; }
-  .info-band--b .info-face__text { display: flex; width: auto; margin-top: -56px; }
-
-  .info-band--c .info-face { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
-  .info-band--c .info-face__media { grid-column: 1; grid-row: auto; border-right: 0; border-bottom: 1.5px solid var(--ink); }
-  .info-band--c .info-face__media .ph { aspect-ratio: 16 / 9; min-height: 0; }
-  .info-band--c .facts-table, .info-band--c .notes { grid-column: 1; }
-  .info-band--c .facts-table { order: 0; }   /* 照片留在框的最上面 */
-
-  .info-band--d .info-face__media .ph { height: auto; aspect-ratio: 16 / 10; }
-
-  .info-band--e .info-face { grid-template-columns: minmax(0, 1fr); row-gap: clamp(56px, 9vw, 72px); }
-  .info-band--e .info-face__side { display: none; }
-  .info-band--e .info-face__media { grid-column: 1; }
-  .info-band--e .info-face__media .ph { aspect-ratio: 4 / 3; min-height: 0; }
-  .info-band--e .info-face__media::after { bottom: -34px; height: 90px; }
-  .info-band--e .info-face__text { display: flex; grid-column: 1; grid-row: auto; }
-}
-@media (max-width: 620px) {
-  /* 手機：一則一列，◎ 回到標題左邊（省高度），列與列之間一條細墨線 */
-  :is(.info-band--a, .info-band--c, .info-band--d) .notes { grid-template-columns: minmax(0, 1fr); }
-  :is(.info-band--a, .info-band--c, .info-band--d) .note { grid-template-columns: 22px minmax(0, 1fr); gap: 4px 12px; }
-  :is(.info-band--a, .info-band--c, .info-band--d) .note__mark { grid-row: span 2; width: 20px; height: 20px; margin-top: 0.42em; }
-  :is(.info-band--a, .info-band--c, .info-band--d) .note__desc { grid-column: 2; }
-  .info-band--a .note, .info-band--a .note:nth-child(even),
-  .info-band--d .note, .info-band--d .note + .note, .info-band--d .note:nth-child(even) {
-    padding: 18px 0; border-left: 0; border-top: 0;
+  .info-band .info-face { grid-template-columns: minmax(0, 1fr); row-gap: clamp(56px, 9vw, 72px); }
+  .info-band .info-face__side { display: none; }
+  .info-band .info-face__media { grid-column: 1; }
+  .info-band .info-face__media .ph { aspect-ratio: 4 / 3; min-height: 0; }
+  /* 一欄的時候（平板、手機）網點不放在照片正下方置中（看起來像輪播的頁碼點），
+     改成從照片右下角錯開露出一排、一列，像印刷的網點陰影；網點從角落對齊，離照片邊 9px */
+  .info-band .info-face__media { margin-right: 20px; }
+  .info-band .info-face__media::after {
+    left: auto; right: -20px; bottom: -20px; width: 56%; height: 70%;
+    /* space：只畫整顆的點，L 的兩端不會切到半顆 */
+    background-repeat: space;
+    /* 只留照片外面那一圈 L，照片的圓角裡不會透出半顆點 */
+    clip-path: polygon(calc(100% - 20px) 0, 100% 0, 100% 100%, 0 100%, 0 calc(100% - 20px), calc(100% - 20px) calc(100% - 20px));
   }
-  .info-band--a .note + .note, .info-band--d .note + .note { border-top: 1px solid var(--ink); }
-  .info-band--c .note, .info-band--c .note:nth-child(even) { padding: 18px 20px; border-left: 0; border-top: 0; }
-  .info-band--c .note + .note { border-top: 1px solid var(--ink); }
-  /* 紙標籤改成接在照片下面、往上壓一點 */
-  .info-band--d .facts-table { grid-area: 2 / 1; align-self: start; justify-self: stretch; width: auto; margin: -40px var(--gutter) 0; }
-  .info-band--d .notes { grid-row: 3; margin-top: clamp(32px, 8vw, 48px); }
-
-  .info-band--e .notes { grid-template-columns: minmax(0, 1fr); gap: 26px; }
-  .info-band--e .info-face__doodles { width: 200px; right: -52px; bottom: -64px; opacity: 0.4; }
+  .info-band .info-face__text { grid-column: 1; grid-row: auto; }
+}
+/* 手機：承諾一則一列；筆刷標題的左緣對齊內容邊，標題跟說明靠近一點 */
+@media (max-width: 620px) {
+  .info-band .info-face { row-gap: 48px; }
+  .info-band .info-face__text { gap: 34px; }
+  .info-band .notes { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .info-band .note { gap: 8px; }
+  .info-band .note__title { margin-left: 0; padding: 4px 14px 6px; }
+  .info-band .info-face__doodles { width: 200px; right: -52px; bottom: -64px; opacity: 0.4; }
 }
 
 /* ============ 商品格 ============ */
@@ -2081,7 +1918,6 @@ body.edit-mode { user-select: none; padding-bottom: 46px; }
   .nav a { padding: 8px 9px; font-size: 0.9375rem; }
   .nav a::after { left: 9px; right: 9px; }
   .header__account .btn--ghost { display: none; }
-  .info-face__text { grid-column: 7 / span 6; }
   .story-feature__copy, .chapter__copy { grid-column: 8 / span 5; }
   .chapter:nth-child(even) .chapter__copy { grid-column: 1 / span 5; }
   .home-hero { --ks-w: clamp(64px, 8vw, 96px); }
@@ -2155,13 +1991,6 @@ body.edit-mode { user-select: none; padding-bottom: 46px; }
   }
   .hero__seal { left: -2%; bottom: 6%; width: clamp(100px, 18vw, 140px); }
   .hero__copy { margin-left: 0; max-width: 40rem; margin-top: clamp(8px, 2vw, 20px); }
-
-  /* 資訊面：表在最上面（主視覺底下第一眼就是三項事實），接著照片、四個承諾 */
-  .info-face { grid-template-columns: minmax(0, 1fr); gap: 32px; }
-  .info-face__media, .info-face__text { grid-column: 1 / -1; }
-  .info-face__text { display: contents; }
-  .facts-table { order: -1; }
-  .info-face__media .ph { aspect-ratio: 16 / 9; min-height: 0; }
 
   .chapter__media .ph { aspect-ratio: 4 / 3; min-height: 0; }
 
@@ -2286,8 +2115,6 @@ body.edit-mode { user-select: none; padding-bottom: 46px; }
   .hero__actions .btn { flex: 1 1 auto; }
   .hero__stage { width: calc(100% - var(--ks-w) + var(--gutter) * 0.5); }
 
-  .info-face { gap: 28px; }
-  .info-face__media .ph { aspect-ratio: 4 / 3; }
   .label-table > div { padding: 10px 14px; }
   .facts-table dt { font-size: 1rem; }
   .facts-table dd { font-size: 1.3125rem; }

@@ -81,15 +81,3 @@ export function Bee({ className = '' }) {
   )
 }
 
-/**
- * 標籤「注意事項」每一行前面的 ◎（雙圈）。
- * 用 SVG 畫，不用文字符號：不同手機的字型裡 ◎ 長得不一樣，有的還會變成彩色的表情符號。
- */
-export function NoteMark({ className = '' }) {
-  return (
-    <svg className={`note-mark${className ? ` ${className}` : ''}`} viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-      <circle cx="10" cy="10" r="8.3" fill="none" stroke="currentColor" strokeWidth="1.7" />
-      <circle cx="10" cy="10" r="4.1" fill="none" stroke="currentColor" strokeWidth="1.7" />
-    </svg>
-  )
-}

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-04T04:17:52Z",
+  "generatedAt": "2026-10-14T01:40:05Z",
   "title": "Design System: 黃家基蜜",
   "extensions": {
     "colorMeta": {
@@ -567,12 +567,12 @@
       "css": ".ds-nav { display: flex; align-items: center; gap: 2px; padding: 16px; background: var(--paper, #FFFDF8); font-family: \"Noto Sans TC\", \"Noto Sans CJK TC\", \"Source Han Sans TC\", \"PingFang TC\", \"Microsoft JhengHei\", sans-serif; } .ds-nav a { position: relative; padding: 10px 13px; font-size: 1rem; font-weight: 500; letter-spacing: 0.04em; color: var(--ink, #241916); text-decoration: none; white-space: nowrap; transition: color 150ms ease; } .ds-nav a::after { content: \"\"; position: absolute; left: 13px; right: 13px; bottom: 3px; height: 2px; border-radius: 2px; background: var(--coral, #ED715A); transform: scaleX(0); transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1); } .ds-nav a.is-active { color: var(--coral-text, #B8402A); font-weight: 700; } .ds-nav a.is-active::after { transform: scaleX(1); } .ds-nav a:focus-visible { outline: 2px solid var(--ink, #241916); outline-offset: 3px; } @media (hover: hover) and (pointer: fine) { .ds-nav a:hover { color: var(--coral-text, #B8402A); } .ds-nav a:hover::after { transform: scaleX(1); } } @media (prefers-reduced-motion: reduce) { .ds-nav a, .ds-nav a::after { transition: none; } }"
     },
     {
-      "name": "Info Face 資訊面（營養標示表＋◎ 注意事項）",
+      "name": "Info Band 首頁資訊帶（營養標示表＋筆刷標題）",
       "kind": "custom",
       "refersTo": "info-face",
-      "description": "蜂蜜黃的資訊面：三項事實排成有框的營養標示表（項目｜數值、細線分列），承諾用標籤的 ◎ 開頭。",
-      "html": "<div class=\"ds-info\"><dl class=\"ds-table\"><div><dt>七堵自家蜂場</dt><dd>基隆</dd></div><div><dt>人工添加物</dt><dd>0</dd></div><div><dt>農業部追溯編號</dt><dd>可溯源</dd></div></dl><ul class=\"ds-notes\"><li class=\"ds-note\"><svg class=\"ds-note__mark\" viewBox=\"0 0 20 20\" aria-hidden=\"true\"><circle cx=\"10\" cy=\"10\" r=\"8.3\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"/><circle cx=\"10\" cy=\"10\" r=\"4.1\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"/></svg><h3 class=\"ds-note__title\">自家蜂場直送</h3><p class=\"ds-note__desc\">蜂場就在基隆七堵，採收後就近裝瓶出貨，不經過中盤。</p></li><li class=\"ds-note\"><svg class=\"ds-note__mark\" viewBox=\"0 0 20 20\" aria-hidden=\"true\"><circle cx=\"10\" cy=\"10\" r=\"8.3\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"/><circle cx=\"10\" cy=\"10\" r=\"4.1\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"/></svg><h3 class=\"ds-note__title\">熟成才採收</h3><p class=\"ds-note__desc\">等蜜在巢裡封蓋熟成才採，裝瓶前不加水、不加糖、不調味。</p></li></ul></div>",
-      "css": ".ds-info { display: grid; gap: 32px; max-width: 520px; padding: 32px; background: var(--honey, #FAC23E); color: var(--ink, #241916); font-family: \"Noto Sans TC\", \"Noto Sans CJK TC\", \"Source Han Sans TC\", \"PingFang TC\", \"Microsoft JhengHei\", sans-serif; } .ds-table { margin: 0; border: 1.5px solid var(--ink, #241916); } .ds-table > div { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 11px 16px; border-top: 1px solid var(--ink, #241916); } .ds-table > div:first-child { border-top: 0; } .ds-table dt { font-size: 1.0625rem; font-weight: 700; letter-spacing: 0.06em; } .ds-table dd { margin: 0; text-align: right; font-family: \"Noto Serif TC\", \"Noto Serif CJK TC\", \"Source Han Serif TC\", \"PMingLiU\", serif; font-size: 1.5rem; font-weight: 900; line-height: 1.3; letter-spacing: 0.08em; font-variant-numeric: tabular-nums; } .ds-notes { display: grid; gap: 20px; margin: 0; padding: 0; list-style: none; } .ds-note { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 4px 12px; align-items: start; } .ds-note__mark { grid-row: span 2; width: 20px; height: 20px; margin-top: 0.42em; } .ds-note__title { margin: 0; font-family: \"Noto Serif TC\", \"Noto Serif CJK TC\", \"Source Han Serif TC\", \"PMingLiU\", serif; font-size: 1.375rem; font-weight: 900; line-height: 1.4; letter-spacing: 0.08em; } .ds-note__desc { margin: 0; grid-column: 2; font-size: 1rem; line-height: 1.8; }"
+      "description": "蜂蜜黃的資訊面：三項事實排成有框的營養標示表（項目｜數值、細線分列）；四個承諾的標題是兩端毛邊的筆刷色塊（珊瑚紅、紙白、葉綠、墨，四則各一種毛邊）。2026-10-14 店家照參考圖選定。",
+      "html": "<div class=\"ds-info\"><dl class=\"ds-table\"><div><dt>七堵自家蜂場</dt><dd>基隆</dd></div><div><dt>人工添加物</dt><dd>0</dd></div><div><dt>農業部追溯編號</dt><dd>可溯源</dd></div></dl><ul class=\"ds-notes\"><li class=\"ds-note ds-note--1\"><h3 class=\"ds-note__title\">自家蜂場直送</h3><p class=\"ds-note__desc\">蜂場就在基隆七堵，採收後就近裝瓶出貨，不經過中盤。</p></li><li class=\"ds-note ds-note--2\"><h3 class=\"ds-note__title\">熟成才採收</h3><p class=\"ds-note__desc\">等蜜在巢裡封蓋熟成才採，裝瓶前不加水、不加糖、不調味。</p></li><li class=\"ds-note ds-note--3\"><h3 class=\"ds-note__title\">政府溯源可查</h3><p class=\"ds-note__desc\">已登錄農業部農糧署溯源系統，掃碼就查得到生產者是誰。</p></li><li class=\"ds-note ds-note--4\"><h3 class=\"ds-note__title\">團購可客製</h3><p class=\"ds-note__desc\">社團、公司行號大量訂購可分裝寄送、客製標籤，並開立農民收據。</p></li></ul></div>",
+      "css": ".ds-info { display: grid; gap: 32px; max-width: 620px; padding: 32px; background: var(--honey, #FAC23E); color: var(--ink, #241916); font-family: \"Noto Sans TC\", \"Noto Sans CJK TC\", \"Source Han Sans TC\", \"PingFang TC\", \"Microsoft JhengHei\", sans-serif; } .ds-table { margin: 0; border: 1.5px solid var(--ink, #241916); } .ds-table > div { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 11px 16px; border-top: 1px solid var(--ink, #241916); } .ds-table > div:first-child { border-top: 0; } .ds-table dt { font-size: 1.0625rem; font-weight: 700; letter-spacing: 0.06em; } .ds-table dd { margin: 0; text-align: right; font-family: \"Noto Serif TC\", \"Noto Serif CJK TC\", \"Source Han Serif TC\", \"PMingLiU\", serif; font-size: 1.5rem; font-weight: 900; line-height: 1.3; letter-spacing: 0.08em; font-variant-numeric: tabular-nums; } .ds-notes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px 28px; margin: 0; padding: 0; list-style: none; } .ds-note { display: grid; gap: 12px; justify-items: start; } .ds-note__title { position: relative; isolation: isolate; margin: 0 0 0 -4px; padding: 5px 18px 7px; font-family: \"Noto Serif TC\", \"Noto Serif CJK TC\", \"Source Han Serif TC\", \"PMingLiU\", serif; font-size: 1.25rem; font-weight: 900; line-height: 1.4; letter-spacing: 0.1em; } .ds-note__title::before { content: \"\"; position: absolute; inset: 0; z-index: -1; } .ds-note__desc { margin: 0; font-size: 1rem; line-height: 1.8; } .ds-note--1 .ds-note__title { color: #241916; } .ds-note--1 .ds-note__title::before { background: #ED715A; -webkit-mask: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 60' preserveAspectRatio='none'%3E%3Cpath d='M14 9C70 4 130 10 192 6C232 3 266 8 288 6L291 14L289 24L296 30L290 34L292 46L289 55C240 57 190 53 140 57C95 60 52 55 18 57L4 52L15 46L10 40L1 33L13 27L9 20L2 15L12 12Z'/%3E%3C/svg%3E\") center / 100% 100% no-repeat; mask: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 60' preserveAspectRatio='none'%3E%3Cpath d='M14 9C70 4 130 10 192 6C232 3 266 8 288 6L291 14L289 24L296 30L290 34L292 46L289 55C240 57 190 53 140 57C95 60 52 55 18 57L4 52L15 46L10 40L1 33L13 27L9 20L2 15L12 12Z'/%3E%3C/svg%3E\") center / 100% 100% no-repeat; } .ds-note--2 .ds-note__title { color: #241916; } .ds-note--2 .ds-note__title::before { background: #FFFDF8; -webkit-mask: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 60' preserveAspectRatio='none'%3E%3Cpath d='M6 8C60 11 120 5 180 8C222 10 258 5 284 8L292 12L287 16L299 21L289 25L294 29L288 33L298 39L290 43L293 48L286 53L291 57C246 59 200 54 150 57C104 60 56 55 8 56L5 44L7 30L4 18Z'/%3E%3C/svg%3E\") center / 100% 100% no-repeat; mask: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 60' preserveAspectRatio='none'%3E%3Cpath d='M6 8C60 11 120 5 180 8C222 10 258 5 284 8L292 12L287 16L299 21L289 25L294 29L288 33L298 39L290 43L293 48L286 53L291 57C246 59 200 54 150 57C104 60 56 55 8 56L5 44L7 30L4 18Z'/%3E%3C/svg%3E\") center / 100% 100% no-repeat; } .ds-note--3 .ds-note__title { color: #241916; } .ds-note--3 .ds-note__title::before { background: #72BC4A; -webkit-mask: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 60' preserveAspectRatio='none'%3E%3Cpath d='M16 12C66 7 120 10 174 7C222 4 262 9 286 5C296 8 300 18 294 26C290 32 299 40 292 48C290 53 293 56 286 57C240 55 192 59 144 56C98 53 54 58 20 55L2 52L18 49L10 44L19 40L0 36L17 32L12 26L20 22L3 17L18 14Z'/%3E%3C/svg%3E\") center / 100% 100% no-repeat; mask: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 60' preserveAspectRatio='none'%3E%3Cpath d='M16 12C66 7 120 10 174 7C222 4 262 9 286 5C296 8 300 18 294 26C290 32 299 40 292 48C290 53 293 56 286 57C240 55 192 59 144 56C98 53 54 58 20 55L2 52L18 49L10 44L19 40L0 36L17 32L12 26L20 22L3 17L18 14Z'/%3E%3C/svg%3E\") center / 100% 100% no-repeat; } .ds-note--4 .ds-note__title { color: #F8F6B6; } .ds-note--4 .ds-note__title::before { background: #241916; -webkit-mask: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 60' preserveAspectRatio='none'%3E%3Cpath d='M24 12C70 6 126 10 186 6C228 3 264 7 287 4L290 12L297 16L289 22L292 28L299 31L288 36L291 42L298 47L289 51L292 57C246 55 196 58 146 56C98 54 56 58 24 55C14 52 6 44 3 34C7 26 13 17 24 12Z'/%3E%3C/svg%3E\") center / 100% 100% no-repeat; mask: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 60' preserveAspectRatio='none'%3E%3Cpath d='M24 12C70 6 126 10 186 6C228 3 264 7 287 4L290 12L297 16L289 22L292 28L299 31L288 36L291 42L298 47L289 51L292 57C246 55 196 58 146 56C98 54 56 58 24 55C14 52 6 44 3 34C7 26 13 17 24 12Z'/%3E%3C/svg%3E\") center / 100% 100% no-repeat; }"
     },
     {
       "name": "Two-Face Label 標籤兩面（商品頁）",
@@ -622,8 +622,8 @@
       "顏色全部來自標籤完稿；整段鋪滿，一段就是標籤的一個面",
       "紅淡比＝珊瑚紅＋蜂蜜黃；鴨腳木＝天空藍＋檸檬黃綠，花系的顏色有意義",
       "中文標題思源明體 900、字距拉開；品牌字是標籤上的向量字",
-      "面、照片、表格是直角；按鈕、篩選、貼紙是膠囊",
-      "資訊照標籤的樣子排：有框的營養標示表、◎ 開頭的注意事項",
+      "面、照片、表格是直角（首頁資訊帶的蜂場照例外：16px 圓角）；按鈕、篩選、貼紙是膠囊",
+      "資訊照標籤的樣子排：有框的營養標示表；首頁資訊帶的四個承諾用筆刷色塊當標題",
       "一個招牌動態（開花＋蜜蜂飛進來＋貼紙貼上；主視覺換花系時新標籤從左緣蓋過去、花再長一次），其餘只有按下回饋與淡入"
     ],
     "rules": [
@@ -663,8 +663,13 @@
         "section": "layout"
       },
       {
+        "name": "The Info Band Exception",
+        "body": "首頁資訊帶照店家給的參考圖做（2026-10-14 店家選定）：圓角照片、網點、筆刷標題、花線稿、蜂蜜黃上的淡紙紋只用在這一段，照片與文字之間也留了欄距。其他段落維持直角、平塗、兩面相接；要用到別的地方先問店家。",
+        "section": "layout"
+      },
+      {
         "name": "The Stuck-On Rule",
-        "body": "只有貼上去的東西有陰影；面、照片、表格、卡片永遠是平的。",
+        "body": "只有貼上去的東西有陰影；面、照片、表格、卡片永遠是平的。首頁資訊帶的網點是印刷的網點裝飾、不是陰影；1000px 以下它從照片右下角錯開露出一排一列，看起來像網點陰影——這是店家看過選的，只限這一段。",
         "section": "elevation"
       }
     ],
@@ -673,6 +678,7 @@
       "Do 講哪一種蜜，就用那個花系的兩個顏色和那個花系的花（紅淡比：#ED715A＋#FAC23E；鴨腳木：#9AD6E7＋#E9EA6D）。",
       "Do 把圖的一面和字的一面接在一起、等高，做成一張標籤。",
       "Do 用有框的營養標示表排事實與規格（1.5px 墨框、1px 細線分列）。",
+      "Do 首頁資訊帶的四個筆刷標題各用一種毛邊；同一個形狀重複四次會像蓋章。",
       "Do 色面上的字一律用墨 (#241916)；蜂蜜黃面上的主要按鈕改成墨底黃字。",
       "Do 品牌字、Logo、插畫只用標籤完稿拆出來的向量檔。",
       "Do 商品照與蜂場照保持原色。",
@@ -685,6 +691,8 @@
       "Don't 給面、照片、表格或卡片加陰影；陰影只屬於貼上去的貼紙與標籤。",
       "Don't 在標題上方放英文小字，或把事實排成「大數字＋小標籤」的數據條。",
       "Don't 用文字符號或表情符號當圖示（◎、箭頭都用 SVG 畫）。",
+      "Don't 把首頁資訊帶的圓角照片、網點、筆刷標題、花線稿搬到別的段落（店家只選了這一段）。",
+      "Don't 在照片正下方置中放一排圓點：手機上看起來像輪播的頁碼點。",
       "Don't 加第二個開場動畫；招牌動作只有主視覺開花與標籤貼上。換花系是同一段開花再播一次，加上新標籤從左緣蓋過去的換面。",
       "Don't 用底色漸變或圓形擴散在兩個花系之間轉場（漸變中間會變灰；圓形是一般 App 的效果）；新的一面用直的邊從左緣蓋過去。",
       "Don't 寫「產銷履歷」（用「溯源」）、「開立發票」（用「農民收據」）、「第幾代養蜂」、「定期送驗」。"

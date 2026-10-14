@@ -378,9 +378,8 @@ def test_text_and_frontend():
 
     home = (src / "pages/Home.jsx").read_text("utf-8")
     sections = (src / "components/sections/HomeSections.jsx").read_text("utf-8")
-    check("正式首頁的「可溯源」維持原樣（只有預覽才變連結）",
-          "traceLink={Boolean(preview)}" in home and "traceLink ? settings.traceability_code" in sections)
-    check("預覽切換列只在網址有 ?info= 時出現", "{preview && <InfoPreviewBar" in home)
+    check("資訊帶的預覽切換列已經拿掉（店家選定 E2）", "InfoPreviewBar" not in home and "?info" not in home)
+    check("「可溯源」連到農業部查詢頁", "qrc.afa.gov.tw/blog/${code}" in sections)
 
     panel = (src / "components/PaymentActionPanel.jsx").read_text("utf-8")
     check("重新付款可以改用行動支付", "'twqr'" in panel)
